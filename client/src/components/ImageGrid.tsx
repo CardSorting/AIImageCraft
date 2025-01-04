@@ -76,13 +76,15 @@ export default function ImageGrid({ images, onTradingCardCreated }: ImageGridPro
             onClick={() => setSelectedImage(image)} 
             className="cursor-pointer transform transition-all duration-300 hover:scale-105"
           >
-            <div className="aspect-square rounded-xl overflow-hidden shadow-lg hover:shadow-xl">
-              <ImageCard
-                imageId={image.id}
-                imageUrl={image.url}
-                tags={image.tags}
-                onTradingCardCreated={onTradingCardCreated}
-              />
+            <div className="relative aspect-square w-full rounded-xl overflow-hidden shadow-lg hover:shadow-xl bg-black/20">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ImageCard
+                  imageId={image.id}
+                  imageUrl={image.url}
+                  tags={image.tags}
+                  onTradingCardCreated={onTradingCardCreated}
+                />
+              </div>
             </div>
           </div>
         ))}

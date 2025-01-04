@@ -35,12 +35,14 @@ export default function ImageCard({
 
   return (
     <>
-      <Card className="group relative overflow-hidden backdrop-blur-sm bg-black/30 border-purple-500/20">
-        <img
-          src={imageUrl}
-          alt="AI generated"
-          className="w-full h-64 object-cover"
-        />
+      <Card className="group relative w-full h-full overflow-hidden backdrop-blur-sm bg-black/30 border-purple-500/20">
+        <div className="absolute inset-0">
+          <img
+            src={imageUrl}
+            alt="AI generated"
+            className="w-full h-full object-cover"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="absolute bottom-4 left-4 right-4">
             <div className="flex flex-wrap gap-2 mb-4">
