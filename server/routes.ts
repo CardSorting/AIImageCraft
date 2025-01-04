@@ -27,12 +27,12 @@ export function registerRoutes(app: Express): Server {
         },
       });
 
-      if (!result.data?.image?.url) {
+      if (!result.data?.images?.[0]?.url) {
         throw new Error("Failed to generate image");
       }
 
       return res.json({
-        imageUrl: result.data.image.url,
+        imageUrl: result.data.images[0].url,
       });
     } catch (error) {
       console.error("Error generating image:", error);
