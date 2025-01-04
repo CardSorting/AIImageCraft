@@ -2,6 +2,18 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
+import { eq, and, or, inArray } from "drizzle-orm";
+import { 
+  images, 
+  tradingCards,
+  trades,
+  tradeItems,
+  games,
+  insertTradingCardSchema,
+  insertTradeSchema,
+} from "@db/schema";
+import { WarGameService } from "./services/game";
+import { MatchmakingService } from "./services/matchmaking";
 import taskRoutes from "./routes/tasks";
 
 export function registerRoutes(app: Express): Server {

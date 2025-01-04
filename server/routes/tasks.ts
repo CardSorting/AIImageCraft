@@ -3,6 +3,7 @@ import { TaskService } from "../services/task";
 import { TaskManager } from "../services/redis";
 import { db } from "@db";
 import { images } from "@db/schema";
+import { eq } from "drizzle-orm"; // Currently unused import
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.get("/:taskId", async (req, res) => {
 
     // Get latest status from GoAPI
     const apiStatus = await TaskService.getTaskStatus(taskId);
-    
+
     // If task is completed, store images if not already stored
     if (apiStatus.status === "completed" && apiStatus.output?.image_urls && !taskData.imageIds) {
       // Store all image variations in the database
