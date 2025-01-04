@@ -23,6 +23,7 @@ interface TaskResponse {
   status: "pending" | "completed" | "failed";
   imageUrls?: string[];
   error?: string;
+  prompt?: string;
 }
 
 const containerVariants = {
@@ -68,12 +69,13 @@ export default function CreateImage() {
         if (!res.ok) throw new Error(await res.text());
 
         const data: TaskResponse = await res.json();
+        console.log("Task status response:", data); // Debug log
 
         if (data.status === "completed" && data.imageUrls) {
           const newImages = data.imageUrls.map((url, index) => ({
             id: index,
             url,
-            prompt: data.prompt,
+            prompt: data.prompt || "",
             createdAt: new Date().toISOString(),
             variationIndex: index
           }));
