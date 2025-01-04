@@ -104,83 +104,119 @@ function TradingCardGallery() {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       {cards.map((card) => (
         <div key={card.id} className="relative group perspective-1000">
-          {/* Card container with 3D hover effect */}
-          <div className="relative preserve-3d transition-transform duration-500 group-hover:rotate-y-10">
-            {/* Card frame based on elemental type */}
+          {/* Card container with enhanced 3D hover effect */}
+          <div className="relative preserve-3d transition-all duration-500 group-hover:rotate-y-10">
+            {/* Card frame with improved styling */}
             <div className={`
               relative rounded-xl w-full max-w-[300px] mx-auto aspect-[2.5/3.5] overflow-hidden
               ${getElementalTypeStyle(card.elementalType)}
-              transform transition-transform duration-300 group-hover:scale-105
-              shadow-xl hover:shadow-2xl
+              transform transition-all duration-300 group-hover:scale-105
+              shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(0,0,0,0.4)]
+              before:absolute before:inset-[1px] before:rounded-[10px] before:bg-gradient-to-b before:from-white/10 before:to-transparent before:z-10
             `}>
-              {/* Card content */}
-              <div className="relative h-full bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-sm">
-                {/* Card header with name and type */}
-                <div className="absolute top-0 left-0 right-0 p-3 z-10">
+              {/* Holographic effect overlay */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+              {/* Card content container */}
+              <div className="relative h-full bg-gradient-to-b from-black/40 via-black/50 to-black/60 backdrop-blur-sm">
+                {/* Card header */}
+                <div className="absolute top-0 left-0 right-0 p-3 z-20">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-bold text-white leading-tight">{card.name}</h3>
+                    {/* Card name with decorative underline */}
+                    <div className="relative">
+                      <h3 className="text-lg font-bold text-white leading-tight tracking-tight">
+                        {card.name}
+                      </h3>
+                      <div className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                    </div>
+                    {/* Element type badge */}
                     <span className={`
-                      px-2 py-1 rounded text-xs font-semibold
+                      px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
                       ${getElementalTypeBadgeStyle(card.elementalType)}
+                      shadow-sm backdrop-blur-sm
                     `}>
                       {card.elementalType}
                     </span>
                   </div>
                 </div>
 
-                {/* Card image section */}
-                <div className="relative h-[55%] mt-2">
-                  {/* Decorative frame corners */}
-                  <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-white/30 rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-white/30 rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-6 h-6 border-l-2 border-b-2 border-white/30 rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-6 h-6 border-r-2 border-b-2 border-white/30 rounded-br-lg" />
+                {/* Card image section with improved framing */}
+                <div className="relative h-[60%] mt-12 mx-4">
+                  {/* Decorative corner frames with enhanced styling */}
+                  <div className="absolute top-0 left-0 w-8 h-8">
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
+                    <div className="absolute top-0 left-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
+                  </div>
+                  <div className="absolute top-0 right-0 w-8 h-8">
+                    <div className="absolute top-0 right-0 w-full h-[2px] bg-gradient-to-l from-white/60 to-transparent" />
+                    <div className="absolute top-0 right-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-8 h-8">
+                    <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
+                    <div className="absolute bottom-0 left-0 h-full w-[2px] bg-gradient-to-t from-white/60 to-transparent" />
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-8 h-8">
+                    <div className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-l from-white/60 to-transparent" />
+                    <div className="absolute bottom-0 right-0 h-full w-[2px] bg-gradient-to-t from-white/60 to-transparent" />
+                  </div>
 
-                  <img
-                    src={card.image.url}
-                    alt={card.name}
-                    className="w-[92%] h-full mx-auto object-cover rounded-lg"
-                  />
+                  {/* Image with enhanced container */}
+                  <div className="relative h-full rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+                    <img
+                      src={card.image.url}
+                      alt={card.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
 
-                {/* Card info section */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
-                  {/* Rarity indicator */}
+                {/* Card info section with improved layout */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
+                  {/* Rarity indicator with enhanced styling */}
                   <div className={`
-                    absolute -top-3 right-3 px-3 py-1 rounded-full text-xs font-bold
+                    absolute -top-3 right-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
                     ${getRarityStyle(card.rarity)}
+                    shadow-lg backdrop-blur-sm border border-white/10
                   `}>
                     {card.rarity}
                   </div>
 
-                  {/* Description */}
-                  <div className="border border-white/10 rounded-lg bg-black/30 p-2">
-                    <p className="text-purple-200/80 text-xs italic line-clamp-2">
-                      {card.description}
-                    </p>
+                  {/* Description box with improved styling */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative border border-white/10 rounded-lg bg-black/40 backdrop-blur-sm p-2.5">
+                      <p className="text-purple-200/90 text-xs italic line-clamp-2 leading-relaxed">
+                        {card.description}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Stats grid */}
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/* Stats grid with improved visual hierarchy */}
+                  <div className="grid grid-cols-2 gap-2">
                     <StatDisplay
                       icon={<Swords className="w-4 h-4" />}
                       label="ATK"
                       value={card.powerStats.attack}
+                      color="red"
                     />
                     <StatDisplay
                       icon={<Shield className="w-4 h-4" />}
                       label="DEF"
                       value={card.powerStats.defense}
+                      color="blue"
                     />
                     <StatDisplay
                       icon={<Zap className="w-4 h-4" />}
                       label="SPD"
                       value={card.powerStats.speed}
+                      color="yellow"
                     />
                     <StatDisplay
                       icon={<Sparkles className="w-4 h-4" />}
                       label="MAG"
                       value={card.powerStats.magic}
+                      color="purple"
                     />
                   </div>
                 </div>
@@ -193,13 +229,35 @@ function TradingCardGallery() {
   );
 }
 
-// Helper components and functions
-function StatDisplay({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+// Helper components with enhanced styling
+function StatDisplay({ 
+  icon, 
+  label, 
+  value, 
+  color 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  value: number;
+  color: 'red' | 'blue' | 'yellow' | 'purple';
+}) {
+  const colorStyles = {
+    red: "from-red-500/20 to-red-500/10 border-red-500/30",
+    blue: "from-blue-500/20 to-blue-500/10 border-blue-500/30",
+    yellow: "from-yellow-500/20 to-yellow-500/10 border-yellow-500/30",
+    purple: "from-purple-500/20 to-purple-500/10 border-purple-500/30",
+  };
+
   return (
-    <div className="flex items-center gap-1 bg-black/30 rounded p-1 border border-white/10">
+    <div className={`
+      flex items-center gap-1.5 rounded-lg p-1.5
+      bg-gradient-to-r ${colorStyles[color]}
+      border border-white/10 backdrop-blur-sm
+      transition-colors duration-300 hover:bg-opacity-75
+    `}>
       {icon}
-      <span className="text-purple-300/70 text-xs">{label}:</span>
-      <span className="text-white font-semibold text-xs">{value}</span>
+      <span className="text-white/70 text-xs font-medium">{label}</span>
+      <span className="text-white font-bold text-xs ml-auto">{value}</span>
     </div>
   );
 }
