@@ -1,0 +1,229 @@
+Imagine
+POST
+https://api.goapi.ai/api/v1/task
+INFO
+This endpoint from GoAPI's Midjourney API generates 4 unique images in a 2x2 grid from a text description also known as prompt. This endpoint corresponds with the /imagine command from the offical Midjourney.
+
+Mode Selection
+Please use the process_mode parameter to select modes (please refrain from using the in-prompt-mode to select modes).
+
+Below are rules about mode selection:
+
+1.
+If the process mode is not specified, system will default to the in-prompt-mode. If the in-prompt-mode is also not specified, then the system default is relax mode. For example:
+
+1.
+If process mode = "" and in-prompt-mode = relax ---> will use relax
+
+2.
+If process mode = "" and in-prompt-mode = fast ---> will use fast
+
+3.
+If process mode = "" and in-prompt-mode = unspecified ---> will use relax
+
+2.
+Process mode overrides in-prompt-mode; for example:
+
+1.
+If process mode = fast and in-prompt-mode = relax ---> will use fast
+
+2.
+If process mode = relax and in-prompt-mode = fast ---> will use relax
+
+3.
+For BYOA users, rules will apply depending on the available resource of your Midjourney account(s). For example:
+
+1.
+Fast or turbo jobs will be routed to any accounts with available fast hours. If none is available, the job will be processed as a relax job on any accounts with relax GPU time.
+
+2.
+Relax jobs will be routed to any accounts that is not on the Basic Plan (the $10 plan) because this plan has no relax GPU time. If none is available, then an error will be returned.
+
+3.
+If your only Midjourney account's account setting is relax, then all the jobs processed by this account will be relax mode regardless mode selection from GoAPI. Also, when you set your Midjourney account to relax mode, we will not use it for any fast job, and this might result in wasted fast hours.
+
+4.
+If your Midjourney account's setting is fast, then all jobs will be processed as per mode selection from GoAPI. When your Midjourney account runs out of fast hours, we will automatically change that account's setting to relax.
+
+Note:
+
+Endpoints such as upscale, variation, outpaint, and pan don’t support process mode. Instead, they inherit the process mode from the parent task automatically.
+
+Request
+Header Params
+x-api-key
+string 
+required
+Your API Key for authorization.
+
+Body Params application/json
+model
+enum<string> 
+required
+Allowed value:
+midjourney
+task_type
+enum<string> 
+required
+Allowed value:
+imagine
+input
+object 
+required
+prompt
+string 
+required
+A prompt is a description that enables Midjourney API to produce an image.
+
+aspect_ratio
+string 
+optional
+This parameter dictates the ouput image's aspect ratio value.
+
+Default:
+1:1
+process_mode
+enum<string> 
+optional
+This parameter indicates the operation process mode
+
+Allowed values:
+relax
+fast
+turbo
+skip_prompt_check
+boolean 
+optional
+Use this parameter to skip our internal prompt check.
+
+Default:
+false
+bot_id
+integer 
+optional
+Only Host-Your-Account users on the Premium Plan can use this parameter. This parameter specifies which Midjourney account will process this task.
+
+config
+object 
+optional
+webhook_config
+object 
+optional
+Webhook provides timely task notifications. Check GoAPI webhook for detail.
+
+Example
+{
+  "model": "midjourney",
+  "task_type": "imagine",
+  "input": {
+    "prompt": "flying night city",
+    "aspect_ratio": "16:9",
+    "process_mode": "fast",
+    "skip_prompt_check": false,
+    "bot_id": 0
+  },
+  "config": {
+    "service_mode": "",
+    "webhook_config": {
+      "endpoint": "",
+      "secret": ""
+    }
+  }
+}
+Request samples
+Responses
+HTTP Code: 200
+Content Type : JSONapplication/json
+Data Schema
+code
+integer 
+required
+data
+object 
+required
+task_id
+string 
+required
+model
+string 
+required
+task_type
+string 
+required
+status
+enum<string> 
+required
+Hover on the "Completed" option and you coult see the explaintion of all status: completed/processing/pending/failed/staged
+
+Allowed values:
+Completed
+Processing
+Pending
+Failed
+Staged
+input
+object 
+required
+output
+object 
+required
+meta
+object 
+required
+detail
+null 
+required
+logs
+array [object] 
+required
+error
+object 
+required
+message
+string 
+required
+If you get non-null error message, here are some steps you chould follow:
+
+Check our common error message
+
+Retry for several times
+
+If you have retried for more than 3 times and still not work, file a ticket on Discord and our support will be with you soon.
+
+Example
+{
+  "code": 200,
+  "data": {
+    "task_id": "39631ce-xxxx-xxxx-xxxx-6de760cd2053",
+    "model": "midjourney",
+    "task_type": "imagine",
+    "status": "pending",
+    "config": {
+      "service_mode": "public",
+      "webhook_config": {
+        "endpoint": "",
+        "secret": ""
+      }
+    },
+    "input": {},
+    "output": {
+      "image_url": "",
+      "image_urls": null,
+      "temporary_image_urls": null,
+      "discord_image_url": "",
+      "actions": [],
+      "progress": 0,
+      "intermediate_image_urls": null
+    },
+    "meta": {},
+    "detail": null,
+    "logs": [],
+    "error": {
+      "code": 0,
+      "raw_message": "",
+      "message": "",
+      "detail": null
+    }
+  },
+  "message": "success"
+}
