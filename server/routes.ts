@@ -12,7 +12,6 @@ import {
   tradeItems,
   insertTradingCardSchema,
   insertTradeSchema,
-  insertTradeItemSchema
 } from "@db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 
@@ -24,12 +23,21 @@ export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
   setupAuth(app);
 
+  // Middleware to check authentication for all /api routes except auth routes
+  app.use("/api", (req, res, next) => {
+    // Skip auth check for auth-related endpoints
+    if (req.path.startsWith("/auth") || req.path === "/user") {
+      return next();
+    }
+
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Must be logged in to access this resource");
+    }
+    next();
+  });
+
   app.post("/api/generate", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to generate images");
-      }
-
       const { prompt, tags: imageTags } = req.body;
 
       if (!prompt) {
@@ -55,7 +63,7 @@ export function registerRoutes(app: Express): Server {
       // Store the image in the database
       const [newImage] = await db.insert(images)
         .values({
-          userId: req.user.id,
+          userId: req.user!.id,
           url: result.data.images[0].url,
           prompt,
         })
@@ -109,12 +117,8 @@ export function registerRoutes(app: Express): Server {
   // Get user's images with their tags
   app.get("/api/images", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to view images");
-      }
-
       const userImages = await db.query.images.findMany({
-        where: eq(images.userId, req.user.id),
+        where: eq(images.userId, req.user!.id),
         with: {
           tags: {
             with: {
@@ -141,13 +145,9 @@ export function registerRoutes(app: Express): Server {
   // Create a trading card from an existing image
   app.post("/api/trading-cards", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to create trading cards");
-      }
-
       const result = insertTradingCardSchema.safeParse({
         ...req.body,
-        userId: req.user.id,
+        userId: req.user!.id,
       });
 
       if (!result.success) {
@@ -167,7 +167,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Image not found");
       }
 
-      if (image.userId !== req.user.id) {
+      if (image.userId !== req.user!.id) {
         return res.status(403).send("You can only create cards from your own images");
       }
 
@@ -187,12 +187,8 @@ export function registerRoutes(app: Express): Server {
   // Get user's trading cards
   app.get("/api/trading-cards", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to view trading cards");
-      }
-
       const userCards = await db.query.tradingCards.findMany({
-        where: eq(tradingCards.userId, req.user.id),
+        where: eq(tradingCards.userId, req.user!.id),
         with: {
           image: true,
           creator: true,
@@ -210,13 +206,9 @@ export function registerRoutes(app: Express): Server {
   // Trading marketplace routes
   app.post("/api/trades", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to create trades");
-      }
-
       const result = insertTradeSchema.safeParse({
         ...req.body,
-        initiatorId: req.user.id,
+        initiatorId: req.user!.id,
         status: 'pending'
       });
 
@@ -240,7 +232,7 @@ export function registerRoutes(app: Express): Server {
         // Verify all cards belong to the initiator
         const userCards = await tx.query.tradingCards.findMany({
           where: and(
-            eq(tradingCards.userId, req.user.id),
+            eq(tradingCards.userId, req.user!.id),
             inArray(tradingCards.id, offeredCards)
           ),
         });
@@ -253,7 +245,7 @@ export function registerRoutes(app: Express): Server {
         const tradeItemsData = offeredCards.map(cardId => ({
           tradeId: trade.id,
           cardId,
-          offererId: req.user.id
+          offererId: req.user!.id
         }));
 
         await tx.insert(tradeItems).values(tradeItemsData);
@@ -270,14 +262,10 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/trades", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to view trades");
-      }
-
       const userTrades = await db.query.trades.findMany({
         where: or(
-          eq(trades.initiatorId, req.user.id),
-          eq(trades.receiverId, req.user.id)
+          eq(trades.initiatorId, req.user!.id),
+          eq(trades.receiverId, req.user!.id)
         ),
         with: {
           initiator: true,
@@ -305,10 +293,6 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/trades/:id/respond", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).send("Must be logged in to respond to trades");
-      }
-
       const { id } = req.params;
       const { action } = req.body;
 
@@ -326,8 +310,8 @@ export function registerRoutes(app: Express): Server {
             and(
               eq(trades.id, parseInt(id)),
               or(
-                eq(trades.initiatorId, req.user.id),
-                eq(trades.receiverId, req.user.id)
+                eq(trades.initiatorId, req.user!.id),
+                eq(trades.receiverId, req.user!.id)
               )
             )
           )
@@ -343,8 +327,8 @@ export function registerRoutes(app: Express): Server {
 
         // Only the receiver can accept/reject, initiator can cancel
         if (
-          (action === 'cancel' && trade.initiatorId !== req.user.id) ||
-          (['accept', 'reject'].includes(action) && trade.receiverId !== req.user.id)
+          (action === 'cancel' && trade.initiatorId !== req.user!.id) ||
+          (['accept', 'reject'].includes(action) && trade.receiverId !== req.user!.id)
         ) {
           throw new Error("Unauthorized action");
         }

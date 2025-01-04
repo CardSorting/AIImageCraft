@@ -17,7 +17,7 @@ import type { TradingCard } from "@/pages/Gallery";
 interface TradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  card: TradingCard;
+  card: TradingCard | null;
   onTrade: () => void;
 }
 
@@ -28,6 +28,9 @@ export default function TradeModal({ open, onOpenChange, card, onTrade }: TradeM
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Return null if no card is selected to prevent the error
+  if (!card) return null;
+
   async function handleTrade() {
     try {
       setIsLoading(true);
@@ -37,7 +40,7 @@ export default function TradeModal({ open, onOpenChange, card, onTrade }: TradeM
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          receiverId: card.userId,
+          receiverId: card.creator?.id,
           message,
           offeredCards: selectedCards,
         }),
@@ -77,7 +80,7 @@ export default function TradeModal({ open, onOpenChange, card, onTrade }: TradeM
             Select cards from your collection to offer for {card.name}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="mt-4">
           <Input
             placeholder="Add a message (optional)"

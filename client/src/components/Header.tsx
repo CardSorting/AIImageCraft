@@ -17,12 +17,10 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-purple-500/20 backdrop-blur-sm bg-black/30">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/">
-          <a className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-            AI Image Generator
-          </a>
+        <Link href="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+          AI Image Generator
         </Link>
-        
+
         <nav className="flex items-center gap-4">
           <Link href="/create">
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
