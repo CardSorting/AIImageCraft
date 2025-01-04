@@ -8,10 +8,11 @@ import { Sparkles } from "lucide-react";
 
 const formSchema = z.object({
   prompt: z.string().min(1, "Please enter a prompt"),
+  tags: z.string().optional(),
 });
 
 interface PromptFormProps {
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, tags: string[]) => void;
 }
 
 export default function PromptForm({ onSubmit }: PromptFormProps) {
@@ -19,20 +20,28 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       prompt: "",
+      tags: "",
     },
   });
+
+  const handleSubmit = (values: z.infer<typeof formSchema>) => {
+    const tags = values.tags
+      ? values.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+      : [];
+    onSubmit(values.prompt, tags);
+  };
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((values) => onSubmit(values.prompt))}
-        className="flex gap-2"
+        onSubmit={form.handleSubmit(handleSubmit)}
+        className="space-y-4"
       >
         <FormField
           control={form.control}
           name="prompt"
           render={({ field }) => (
-            <FormItem className="flex-1">
+            <FormItem>
               <FormControl>
                 <Input
                   placeholder="Describe the image you want to create..."
@@ -43,10 +52,25 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="tags"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  placeholder="Add tags (comma-separated)..."
+                  className="bg-purple-950/30 border-purple-500/30 text-white placeholder:text-purple-300/50"
+                  {...field}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
         <Button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
           <Sparkles className="mr-2 h-4 w-4" />
           Generate

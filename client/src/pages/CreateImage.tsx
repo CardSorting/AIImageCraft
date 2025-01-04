@@ -10,11 +10,11 @@ export default function CreateImage() {
   const { toast } = useToast();
 
   const { mutate: generateImage, isPending } = useMutation({
-    mutationFn: async (prompt: string) => {
+    mutationFn: async ({ prompt, tags }: { prompt: string; tags: string[] }) => {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, tags }),
       });
 
       if (!res.ok) {
@@ -48,7 +48,7 @@ export default function CreateImage() {
 
         <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-black/30 border-purple-500/20">
           <CardContent className="pt-6">
-            <PromptForm onSubmit={(prompt) => generateImage(prompt)} />
+            <PromptForm onSubmit={(prompt, tags) => generateImage({ prompt, tags })} />
           </CardContent>
         </Card>
 
