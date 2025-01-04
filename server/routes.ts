@@ -2,22 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { 
-  images, 
-  tags, 
-  imageTags, 
-  tradingCards, 
-  trades,
-  tradeItems,
-  games,
-  gameCards,
-  insertTradingCardSchema,
-  insertTradeSchema,
-} from "@db/schema";
-import { eq, and, or, inArray } from "drizzle-orm";
-import { WarGameService } from "./services/game";
-import { MatchmakingService } from "./services/matchmaking";
-import { TaskManager } from "./services/redis";
+import taskRoutes from "./routes/tasks";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -35,6 +20,9 @@ export function registerRoutes(app: Express): Server {
     }
     next();
   });
+
+  // Register task management routes
+  app.use("/api/tasks", taskRoutes);
 
   app.post("/api/generate", async (req, res) => {
     try {
@@ -416,8 +404,8 @@ export function registerRoutes(app: Express): Server {
           throw new Error("Unauthorized action");
         }
 
-        const newStatus = action === 'accept' ? 'accepted' : 
-                           action === 'reject' ? 'rejected' : 'cancelled';
+        const newStatus = action === 'accept' ? 'accepted' :
+          action === 'reject' ? 'rejected' : 'cancelled';
 
         // If accepting, transfer card ownership
         if (action === 'accept') {
@@ -432,10 +420,10 @@ export function registerRoutes(app: Express): Server {
           for (const item of items) {
             await tx
               .update(tradingCards)
-              .set({ 
-                userId: item.offererId === trade.initiatorId 
-                  ? trade.receiverId 
-                  : trade.initiatorId 
+              .set({
+                userId: item.offererId === trade.initiatorId
+                  ? trade.receiverId
+                  : trade.initiatorId
               })
               .where(eq(tradingCards.id, item.cardId));
           }
@@ -444,7 +432,7 @@ export function registerRoutes(app: Express): Server {
         // Update trade status
         const [updatedTrade] = await tx
           .update(trades)
-          .set({ 
+          .set({
             status: newStatus,
             updatedAt: new Date()
           })

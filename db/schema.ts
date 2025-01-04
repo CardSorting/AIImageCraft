@@ -14,6 +14,7 @@ export const images = pgTable("images", {
   userId: integer("user_id").notNull().references(() => users.id),
   url: text("url").notNull(),
   prompt: text("prompt").notNull(),
+  variationIndex: integer("variation_index"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
