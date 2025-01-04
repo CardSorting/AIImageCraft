@@ -1,12 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { fal } from "@fal-ai/client";
+import { setupAuth } from "./auth";
 
 fal.config({
   credentials: process.env.FAL_KEY,
 });
 
 export function registerRoutes(app: Express): Server {
+  // Set up authentication routes and middleware
+  setupAuth(app);
+
   app.post("/api/generate", async (req, res) => {
     try {
       const { prompt } = req.body;
