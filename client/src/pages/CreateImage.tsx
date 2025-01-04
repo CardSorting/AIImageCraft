@@ -17,6 +17,7 @@ interface GeneratedImage {
 
 export default function CreateImage() {
   const [showHistory, setShowHistory] = useState(false);
+  const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
   const { toast } = useToast();
 
   const { data: images = [], refetch: refetchImages } = useQuery<GeneratedImage[]>({
@@ -37,7 +38,13 @@ export default function CreateImage() {
 
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const newImage = {
+        url: data.imageUrl,
+        prompt: data.prompt,
+        createdAt: new Date().toISOString(),
+      };
+      setCurrentImage(newImage);
       toast({
         title: "Image generated successfully!",
         description: "Your AI artwork has been created.",
@@ -66,7 +73,7 @@ export default function CreateImage() {
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             <History className="mr-2 h-4 w-4" />
-            View History
+            View Past Generations
           </Button>
         </div>
 
@@ -78,8 +85,27 @@ export default function CreateImage() {
 
         {isPending && <LoadingAnimation />}
 
+        {currentImage && !isPending && (
+          <div className="mt-8 w-full max-w-2xl mx-auto">
+            <Card className="backdrop-blur-sm bg-black/30 border-purple-500/20">
+              <CardContent className="pt-6">
+                <div className="aspect-square rounded-lg overflow-hidden">
+                  <img
+                    src={currentImage.url}
+                    alt={currentImage.prompt}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="mt-4">
+                  <p className="text-sm text-purple-300/70">{currentImage.prompt}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <ImageHistory
-          images={images}
+          images={images.filter(img => img.url !== currentImage?.url)}
           open={showHistory}
           onOpenChange={setShowHistory}
         />
