@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Sparkles, Star } from "lucide-react";
-import CreateTradingCard from "@/components/CreateTradingCard";
+import { CreateTradingCard } from "@/features/trading-cards/components/CreateTradingCard";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
