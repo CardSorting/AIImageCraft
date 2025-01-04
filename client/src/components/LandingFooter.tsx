@@ -16,13 +16,13 @@ export default function LandingFooter() {
             <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/gallery">
-                  <a className="text-purple-200/70 hover:text-purple-200">Gallery</a>
+                <Link href="/gallery" className="text-purple-200/70 hover:text-purple-200">
+                  Gallery
                 </Link>
               </li>
               <li>
-                <Link href="/create">
-                  <a className="text-purple-200/70 hover:text-purple-200">Create Card</a>
+                <Link href="/create" className="text-purple-200/70 hover:text-purple-200">
+                  Create Card
                 </Link>
               </li>
               <li>
@@ -37,13 +37,13 @@ export default function LandingFooter() {
             <h4 className="text-sm font-semibold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">Documentation</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">Documentation</Link>
               </li>
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">API Reference</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">API Reference</Link>
               </li>
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">Status</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">Status</Link>
               </li>
             </ul>
           </div>
@@ -52,13 +52,13 @@ export default function LandingFooter() {
             <h4 className="text-sm font-semibold text-white mb-4">Legal</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">Privacy Policy</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">Privacy Policy</Link>
               </li>
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">Terms of Service</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">Terms of Service</Link>
               </li>
               <li>
-                <a href="#" className="text-purple-200/70 hover:text-purple-200">Cookie Policy</a>
+                <Link href="#" className="text-purple-200/70 hover:text-purple-200">Cookie Policy</Link>
               </li>
             </ul>
           </div>
