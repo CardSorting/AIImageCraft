@@ -8,11 +8,10 @@ import { Sparkles } from "lucide-react";
 
 const formSchema = z.object({
   prompt: z.string().min(1, "Please enter a prompt"),
-  tags: z.string().optional(),
 });
 
 interface PromptFormProps {
-  onSubmit: (prompt: string, tags: string[]) => void;
+  onSubmit: (prompt: string) => void;
 }
 
 export default function PromptForm({ onSubmit }: PromptFormProps) {
@@ -20,21 +19,13 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       prompt: "",
-      tags: "",
     },
   });
-
-  const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    const tags = values.tags
-      ? values.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-      : [];
-    onSubmit(values.prompt, tags);
-  };
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(handleSubmit)}
+        onSubmit={form.handleSubmit((values) => onSubmit(values.prompt))}
         className="space-y-4"
       >
         <FormField
@@ -45,21 +36,6 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
               <FormControl>
                 <Input
                   placeholder="Describe the image you want to create..."
-                  className="bg-purple-950/30 border-purple-500/30 text-white placeholder:text-purple-300/50"
-                  {...field}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="tags"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl>
-                <Input
-                  placeholder="Add tags (comma-separated)..."
                   className="bg-purple-950/30 border-purple-500/30 text-white placeholder:text-purple-300/50"
                   {...field}
                 />
