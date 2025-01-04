@@ -11,6 +11,7 @@ fal.config({
 });
 
 export function registerRoutes(app: Express): Server {
+  // Set up authentication routes first
   setupAuth(app);
 
   app.post("/api/generate", async (req, res) => {

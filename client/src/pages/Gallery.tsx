@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import Header from "@/components/Header";
-import ImageCard from "@/components/ImageCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImagePlus, Library } from "lucide-react";
+import ImageGrid from "@/components/ImageGrid";
 
 export interface Image {
   id: number;
@@ -33,7 +33,7 @@ interface TradingCard {
 }
 
 function ImageGallery() {
-  const { data: images, isLoading } = useQuery<Image[]>({
+  const { data: images, isLoading, refetch } = useQuery<Image[]>({
     queryKey: ["/api/images"],
   });
 
@@ -67,7 +67,7 @@ function ImageGallery() {
     );
   }
 
-  return <ImageGrid images={images} />;
+  return <ImageGrid images={images} onTradingCardCreated={refetch} />;
 }
 
 function TradingCardGallery() {
