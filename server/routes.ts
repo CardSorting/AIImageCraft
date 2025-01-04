@@ -10,10 +10,13 @@ import {
   tradingCards, 
   trades,
   tradeItems,
+  games,
+  gameCards,
   insertTradingCardSchema,
   insertTradeSchema,
 } from "@db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
+import { WarGameService } from "./services/game";
 
 fal.config({
   credentials: process.env.FAL_KEY,
@@ -374,6 +377,91 @@ export function registerRoutes(app: Express): Server {
       res.json(result);
     } catch (error: any) {
       console.error("Error responding to trade:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  // War Game routes
+  app.post("/api/games", async (req, res) => {
+    try {
+      const { opponentId } = req.body;
+
+      if (!opponentId) {
+        return res.status(400).send("Opponent ID is required");
+      }
+
+      const game = await WarGameService.createGame(req.user!.id, opponentId);
+      res.json(game);
+    } catch (error: any) {
+      console.error("Error creating game:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  app.post("/api/games/:id/play", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const gameId = parseInt(id);
+
+      const updatedGame = await WarGameService.playTurn(gameId);
+      res.json(updatedGame);
+    } catch (error: any) {
+      console.error("Error playing turn:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  app.get("/api/games/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [game] = await db.query.games.findMany({
+        where: eq(games.id, parseInt(id)),
+        with: {
+          player1: true,
+          player2: true,
+          winner: true,
+          cards: {
+            with: {
+              card: true,
+            },
+          },
+        },
+      });
+
+      if (!game) {
+        return res.status(404).send("Game not found");
+      }
+
+      // Only allow players in the game to view it
+      if (game.player1Id !== req.user!.id && game.player2Id !== req.user!.id) {
+        return res.status(403).send("You are not a player in this game");
+      }
+
+      res.json(game);
+    } catch (error: any) {
+      console.error("Error fetching game:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  app.get("/api/games", async (req, res) => {
+    try {
+      const userGames = await db.query.games.findMany({
+        where: or(
+          eq(games.player1Id, req.user!.id),
+          eq(games.player2Id, req.user!.id)
+        ),
+        with: {
+          player1: true,
+          player2: true,
+          winner: true,
+        },
+        orderBy: (games, { desc }) => [desc(games.createdAt)],
+      });
+
+      res.json(userGames);
+    } catch (error: any) {
+      console.error("Error fetching games:", error);
       res.status(500).send(error.message);
     }
   });

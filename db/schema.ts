@@ -48,7 +48,7 @@ export const trades = pgTable("trades", {
   id: serial("id").primaryKey(),
   initiatorId: integer("initiator_id").notNull().references(() => users.id),
   receiverId: integer("receiver_id").notNull().references(() => users.id),
-  status: text("status", { enum: TRADE_STATUSES }).notNull().default('pending'),
+  status: text("status").notNull().default('pending'),
   message: text("message"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -62,12 +62,38 @@ export const tradeItems = pgTable("trade_items", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// New game-related tables
+export const games = pgTable("games", {
+  id: serial("id").primaryKey(),
+  player1Id: integer("player1_id").notNull().references(() => users.id),
+  player2Id: integer("player2_id").notNull().references(() => users.id),
+  winnerId: integer("winner_id").references(() => users.id),
+  status: text("status").notNull().default('ACTIVE'),
+  currentTurn: integer("current_turn").notNull().default(1),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  gameState: jsonb("game_state").notNull(), 
+});
+
+export const gameCards = pgTable("game_cards", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").notNull().references(() => games.id),
+  cardId: integer("card_id").notNull().references(() => tradingCards.id),
+  ownerId: integer("owner_id").notNull().references(() => users.id),
+  position: text("position").notNull().default('DECK'),
+  order: integer("order").notNull(), 
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   images: many(images),
   tradingCards: many(tradingCards),
   initiatedTrades: many(trades, { relationName: "initiator" }),
   receivedTrades: many(trades, { relationName: "receiver" }),
+  gamesAsPlayer1: many(games, { relationName: "player1" }),
+  gamesAsPlayer2: many(games, { relationName: "player2" }),
+  wonGames: many(games, { relationName: "winner" }),
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -133,6 +159,37 @@ export const tradeItemsRelations = relations(tradeItems, ({ one }) => ({
   }),
 }));
 
+export const gamesRelations = relations(games, ({ one, many }) => ({
+  player1: one(users, {
+    fields: [games.player1Id],
+    references: [users.id],
+  }),
+  player2: one(users, {
+    fields: [games.player2Id],
+    references: [users.id],
+  }),
+  winner: one(users, {
+    fields: [games.winnerId],
+    references: [users.id],
+  }),
+  cards: many(gameCards),
+}));
+
+export const gameCardsRelations = relations(gameCards, ({ one }) => ({
+  game: one(games, {
+    fields: [gameCards.gameId],
+    references: [games.id],
+  }),
+  card: one(tradingCards, {
+    fields: [gameCards.cardId],
+    references: [tradingCards.id],
+  }),
+  owner: one(users, {
+    fields: [gameCards.ownerId],
+    references: [users.id],
+  }),
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
@@ -149,12 +206,17 @@ export const selectTagSchema = createSelectSchema(tags);
 export const insertImageTagSchema = createInsertSchema(imageTags);
 export const selectImageTagSchema = createSelectSchema(imageTags);
 
-// New trade schemas
 export const insertTradeSchema = createInsertSchema(trades);
 export const selectTradeSchema = createSelectSchema(trades);
 
 export const insertTradeItemSchema = createInsertSchema(tradeItems);
 export const selectTradeItemSchema = createSelectSchema(tradeItems);
+
+export const insertGameSchema = createInsertSchema(games);
+export const selectGameSchema = createSelectSchema(games);
+
+export const insertGameCardSchema = createInsertSchema(gameCards);
+export const selectGameCardSchema = createSelectSchema(gameCards);
 
 // Types
 export type InsertUser = typeof users.$inferInsert;
@@ -177,3 +239,9 @@ export type SelectTrade = typeof trades.$inferSelect;
 
 export type InsertTradeItem = typeof tradeItems.$inferInsert;
 export type SelectTradeItem = typeof tradeItems.$inferSelect;
+
+export type InsertGame = typeof games.$inferInsert;
+export type SelectGame = typeof games.$inferSelect;
+
+export type InsertGameCard = typeof gameCards.$inferInsert;
+export type SelectGameCard = typeof gameCards.$inferSelect;
