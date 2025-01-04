@@ -1,0 +1,71 @@
+{
+  "task_id": "a3a22633-bed3-4107-8a32-879632bb7125",
+  "model": "midjourney",
+  "task_type": "imagine",
+  "status": "completed",
+  "config": {
+    "service_mode": "private",
+    "webhook_config": {
+      "endpoint": "undefined/api/webhook/generation",
+      "secret": ""
+    }
+  },
+  "input": {
+    "aspect_ratio": "1:1",
+    "bot_id": 0,
+    "process_mode": "fast",
+    "prompt": "Realistic Ogre eating a cookie in a cave by a fire",
+    "skip_prompt_check": false
+  },
+  "output": {
+    "image_url": "https://img.midjourneyapi.xyz/mj/a3a22633-bed3-4107-8a32-879632bb7125.png",
+    "image_urls": [
+      "https://cdn.midjourney.com/e2635016-0d5d-478c-bb98-706fe134e7bb/0_0.png",
+      "https://cdn.midjourney.com/e2635016-0d5d-478c-bb98-706fe134e7bb/0_1.png",
+      "https://cdn.midjourney.com/e2635016-0d5d-478c-bb98-706fe134e7bb/0_2.png",
+      "https://cdn.midjourney.com/e2635016-0d5d-478c-bb98-706fe134e7bb/0_3.png"
+    ],
+    "temporary_image_urls": [
+      "https://img.midjourneyapi.xyz/cdn-cgi/image/trim=0;1024;1024;0/mj/a3a22633-bed3-4107-8a32-879632bb7125.png",
+      "https://img.midjourneyapi.xyz/cdn-cgi/image/trim=0;0;1024;1024/mj/a3a22633-bed3-4107-8a32-879632bb7125.png",
+      "https://img.midjourneyapi.xyz/cdn-cgi/image/trim=1024;1024;0;0/mj/a3a22633-bed3-4107-8a32-879632bb7125.png",
+      "https://img.midjourneyapi.xyz/cdn-cgi/image/trim=1024;0;0;1024/mj/a3a22633-bed3-4107-8a32-879632bb7125.png"
+    ],
+    "discord_image_url": "https://cdn.discordapp.com/attachments/1261892257422770227/1325191049999679611/oleegg_Realistic_Ogre_eating_a_cookie_in_a_cave_by_a_fire_e2635016-0d5d-478c-bb98-706fe134e7bb.png?ex=677ae3d7&is=67799257&hm=4404a4f5019ce6840ddb685215718dfe7dd78b33c19cf50031dd53006758adbc&",
+    "actions": [
+      "reroll",
+      "upscale1",
+      "upscale2",
+      "upscale3",
+      "upscale4",
+      "variation1",
+      "variation2",
+      "variation3",
+      "variation4"
+    ],
+    "progress": 100,
+    "intermediate_image_urls": null
+  },
+  "meta": {
+    "created_at": "2025-01-04T19:55:21Z",
+    "started_at": "2025-01-04T19:55:30Z",
+    "ended_at": "2025-01-04T19:56:11Z",
+    "usage": {
+      "type": "mj",
+      "frozen": 0,
+      "consume": 0
+    },
+    "is_using_private_pool": true,
+    "model_version": "v5",
+    "process_mode": "fast",
+    "failover_triggered": false
+  },
+  "detail": null,
+  "logs": [],
+  "error": {
+    "code": 0,
+    "raw_message": "",
+    "message": "",
+    "detail": null
+  }
+}

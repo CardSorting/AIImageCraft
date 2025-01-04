@@ -11,15 +11,17 @@ import Header from "@/components/Header";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface GeneratedImage {
+  id: number;
   url: string;
   prompt: string;
   createdAt: string;
+  variationIndex?: number;
 }
 
 interface TaskResponse {
   taskId: string;
   status: "pending" | "completed" | "failed";
-  imageUrl?: string;
+  imageUrls?: string[];
   error?: string;
 }
 
@@ -47,7 +49,8 @@ const itemVariants = {
 
 export default function CreateImage() {
   const [showHistory, setShowHistory] = useState(false);
-  const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
+  const [currentImages, setCurrentImages] = useState<GeneratedImage[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [currentTask, setCurrentTask] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -66,16 +69,21 @@ export default function CreateImage() {
 
         const data: TaskResponse = await res.json();
 
-        if (data.status === "completed" && data.imageUrl) {
-          setCurrentImage({
-            url: data.imageUrl,
+        if (data.status === "completed" && data.imageUrls) {
+          const newImages = data.imageUrls.map((url, index) => ({
+            id: index,
+            url,
             prompt: data.prompt,
             createdAt: new Date().toISOString(),
-          });
+            variationIndex: index
+          }));
+
+          setCurrentImages(newImages);
+          setSelectedImageIndex(0);
           setCurrentTask(null);
           toast({
             title: "✨ Creation Complete!",
-            description: "Your AI masterpiece has been brought to life.",
+            description: "Select your favorite variation from the generated options.",
             className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
           });
           refetchImages();
@@ -197,28 +205,48 @@ export default function CreateImage() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Generated Image Display */}
+        {/* Generated Images Display */}
         <AnimatePresence mode="wait">
-          {currentImage && !isPending && !currentTask && (
+          {currentImages.length > 0 && !isPending && !currentTask && (
             <motion.div
-              key={currentImage.url}
+              key="image-variations"
               variants={itemVariants}
-              className="max-w-2xl mx-auto"
+              className="max-w-4xl mx-auto"
             >
               <Card className="backdrop-blur-sm bg-black/30 border-purple-500/20 overflow-hidden">
                 <CardContent className="pt-6 space-y-6">
-                  <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                    <div className="relative aspect-square rounded-lg overflow-hidden">
-                      <motion.img
-                        initial={{ scale: 1.1, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.5 }}
-                        src={currentImage.url}
-                        alt={currentImage.prompt}
-                        className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-                      />
-                    </div>
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-semibold text-white mb-2">Choose Your Favorite Variation</h3>
+                    <p className="text-sm text-purple-300/70">Click on an image to select it</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {currentImages.map((image, index) => (
+                      <div
+                        key={image.id}
+                        className={`
+                          relative group cursor-pointer rounded-lg overflow-hidden
+                          transition-all duration-300 transform hover:scale-[1.02]
+                          ${selectedImageIndex === index ? 'ring-2 ring-purple-500 scale-[1.02]' : ''}
+                        `}
+                        onClick={() => setSelectedImageIndex(index)}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <motion.img
+                          initial={{ scale: 1.1, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.5, delay: index * 0.1 }}
+                          src={image.url}
+                          alt={`Variation ${index + 1}`}
+                          className="w-full aspect-square object-cover"
+                        />
+                        <div className="absolute bottom-2 left-2 right-2 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-sm font-medium bg-black/50 px-2 py-1 rounded">
+                            Variation {index + 1}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="space-y-3">
@@ -226,7 +254,7 @@ export default function CreateImage() {
                       <Sparkles className="h-5 w-5 text-purple-400" />
                       <h3 className="text-lg font-semibold text-white">Your Creation</h3>
                     </div>
-                    <p className="text-sm text-purple-300/70 italic">"{currentImage.prompt}"</p>
+                    <p className="text-sm text-purple-300/70 italic">"{currentImages[selectedImageIndex]?.prompt}"</p>
                   </div>
                 </CardContent>
               </Card>
@@ -252,7 +280,7 @@ export default function CreateImage() {
 
         {/* History Modal */}
         <ImageHistory
-          images={images.filter(img => img.url !== currentImage?.url)}
+          images={images.filter(img => !currentImages.some(current => current.url === img.url))}
           open={showHistory}
           onOpenChange={setShowHistory}
         />

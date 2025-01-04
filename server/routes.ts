@@ -36,7 +36,7 @@ export function registerRoutes(app: Express): Server {
     next();
   });
 
-app.post("/api/generate", async (req, res) => {
+  app.post("/api/generate", async (req, res) => {
     try {
       const { prompt, tags: imageTags } = req.body;
 
@@ -136,22 +136,28 @@ app.post("/api/generate", async (req, res) => {
         return res.status(404).send("Task not found");
       }
 
-      if (status === "completed" && output?.image_url) {
-        // Store the image in the database
-        const [newImage] = await db.insert(images)
-          .values({
-            userId: taskData.userId,
-            url: output.image_url,
-            prompt: taskData.prompt,
+      if (status === "completed" && output?.image_urls) {
+        // Store all image variations in the database
+        const imageRecords = await Promise.all(
+          output.image_urls.map(async (url: string, index: number) => {
+            const [newImage] = await db.insert(images)
+              .values({
+                userId: taskData.userId,
+                url: url,
+                prompt: taskData.prompt,
+                variationIndex: index
+              })
+              .returning();
+            return newImage;
           })
-          .returning();
+        );
 
-        // Update task status in Redis
+        // Update task status in Redis with all image variations
         await TaskManager.updateTask(task_id, {
           ...taskData,
           status: "completed",
-          imageUrl: output.image_url,
-          imageId: newImage.id
+          imageUrls: output.image_urls,
+          imageIds: imageRecords.map(img => img.id)
         });
 
       } else if (status === "failed") {
@@ -188,17 +194,6 @@ app.post("/api/generate", async (req, res) => {
     } catch (error) {
       console.error("Error checking task status:", error);
       res.status(500).send("Failed to check task status");
-    }
-  });
-
-  // Get all tags
-  app.get("/api/tags", async (req, res) => {
-    try {
-      const allTags = await db.select().from(tags);
-      res.json(allTags);
-    } catch (error) {
-      console.error("Error fetching tags:", error);
-      res.status(500).send("Failed to fetch tags");
     }
   });
 
