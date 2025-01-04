@@ -31,6 +31,9 @@ interface TradingCard {
     url: string;
   };
   createdAt: string;
+  creator?: {
+    username: string;
+  };
 }
 
 function ImageGallery() {
@@ -115,7 +118,10 @@ function TradingCardGallery() {
               <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="card-frame h-full p-3 flex flex-col">
                 <div className="card-header flex justify-between items-center bg-gradient-to-r from-black/60 to-black/40 p-2 rounded-t-md mb-1">
-                  <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                  <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                    <span className="text-purple-300/70 text-xs">by {card.creator?.username || 'Unknown'}</span>
+                  </div>
                   <span className={`
                     px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
                     ${getElementalTypeBadgeStyle(card.elementalType)}
@@ -125,6 +131,16 @@ function TradingCardGallery() {
                   </span>
                 </div>
                 <div className="relative flex-grow mb-1">
+                  <div className={`
+                    absolute top-2 right-2 z-20 px-3 py-1
+                    rounded-full text-xs font-bold uppercase tracking-wider
+                    ${getRarityStyle(card.rarity)}
+                    shadow-lg backdrop-blur-sm border border-white/10
+                    transform transition-all duration-300
+                    group-hover:scale-110 group-hover:rotate-3
+                  `}>
+                    {card.rarity}
+                  </div>
                   <div className="absolute top-0 left-0 w-8 h-8">
                     <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
                     <div className="absolute top-0 left-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
@@ -180,12 +196,6 @@ function TradingCardGallery() {
                     value={card.powerStats.magic}
                     color="purple"
                   />
-                </div>
-                <div className={`
-                  mt-1 px-3 py-1 text-xs font-bold uppercase tracking-wider text-center rounded-md
-                  ${getRarityStyle(card.rarity)}
-                `}>
-                  {card.rarity}
                 </div>
               </div>
             </div>
