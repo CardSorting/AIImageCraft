@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { History, ImageIcon } from "lucide-react";
+import { History, ImageIcon, Sparkles } from "lucide-react";
 import PromptForm from "@/components/PromptForm";
 import LoadingAnimation from "@/components/LoadingAnimation";
 import ImageHistory from "@/components/ImageHistory";
@@ -22,6 +22,28 @@ interface TaskResponse {
   imageUrl?: string;
   error?: string;
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 100
+    }
+  }
+};
 
 export default function CreateImage() {
   const [showHistory, setShowHistory] = useState(false);
@@ -52,16 +74,18 @@ export default function CreateImage() {
           });
           setCurrentTask(null);
           toast({
-            title: "Image generated successfully!",
-            description: "Your AI artwork has been created.",
+            title: "✨ Creation Complete!",
+            description: "Your AI masterpiece has been brought to life.",
+            className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
           });
           refetchImages();
         } else if (data.status === "failed") {
           setCurrentTask(null);
           toast({
             variant: "destructive",
-            title: "Error generating image",
-            description: data.error || "Failed to generate image",
+            title: "Generation Failed",
+            description: data.error || "Unable to create your image",
+            className: "border-red-500/20",
           });
         }
       } catch (error) {
@@ -89,40 +113,68 @@ export default function CreateImage() {
     },
     onSuccess: (data: TaskResponse) => {
       setCurrentTask(data.taskId);
+      toast({
+        title: "🎨 Starting Creation",
+        description: "Your vision is being transformed into art...",
+        className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
+      });
     },
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Error generating image",
+        title: "Error",
         description: error.message,
+        className: "border-red-500/20",
       });
     },
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black overflow-hidden">
       <Header />
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        <div className="flex flex-col items-center mb-8 text-center">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 mb-4"
-          >
-            Create Your Vision
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg text-purple-300/70 max-w-2xl"
-          >
-            Transform your ideas into stunning AI-generated artwork. Perfect for creating unique trading cards and digital art.
-          </motion.p>
-        </div>
 
-        <div className="relative">
-          <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-black/30 border-purple-500/20 overflow-hidden">
+      <motion.div 
+        className="container mx-auto px-4 py-12 space-y-12"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Hero Section */}
+        <motion.div 
+          className="flex flex-col items-center text-center space-y-6"
+          variants={itemVariants}
+        >
+          <div className="relative">
+            <motion.div
+              className="absolute -inset-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-25"
+              animate={{
+                scale: [1, 1.1, 1],
+                opacity: [0.2, 0.3, 0.2],
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+              }}
+            />
+            <h1 className="relative text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+              Dream it.
+              <br />
+              Create it.
+            </h1>
+          </div>
+          <p className="text-xl text-purple-300/70 max-w-2xl">
+            Transform your imagination into stunning AI-generated artwork.
+            Perfect for creating unique trading cards and digital masterpieces.
+          </p>
+        </motion.div>
+
+        {/* Creation Form */}
+        <motion.div 
+          className="relative max-w-2xl mx-auto"
+          variants={itemVariants}
+        >
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl blur opacity-25"></div>
+          <Card className="relative backdrop-blur-sm bg-black/30 border-purple-500/20">
             <CardContent className="pt-6">
               <PromptForm 
                 onSubmit={(prompt) => generateImage(prompt)} 
@@ -134,41 +186,47 @@ export default function CreateImage() {
           <AnimatePresence>
             {(isPending || currentTask) && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-lg"
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute inset-0 rounded-xl overflow-hidden"
               >
                 <LoadingAnimation />
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
 
+        {/* Generated Image Display */}
         <AnimatePresence mode="wait">
           {currentImage && !isPending && !currentTask && (
             <motion.div
               key={currentImage.url}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-2xl mx-auto"
+              variants={itemVariants}
+              className="max-w-2xl mx-auto"
             >
               <Card className="backdrop-blur-sm bg-black/30 border-purple-500/20 overflow-hidden">
-                <CardContent className="pt-6 space-y-4">
+                <CardContent className="pt-6 space-y-6">
                   <div className="relative group">
                     <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                     <div className="relative aspect-square rounded-lg overflow-hidden">
-                      <img
+                      <motion.img
+                        initial={{ scale: 1.1, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.5 }}
                         src={currentImage.url}
                         alt={currentImage.prompt}
                         className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Generated Artwork</h3>
-                    <p className="text-sm text-purple-300/70">{currentImage.prompt}</p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-400" />
+                      <h3 className="text-lg font-semibold text-white">Your Creation</h3>
+                    </div>
+                    <p className="text-sm text-purple-300/70 italic">"{currentImage.prompt}"</p>
                   </div>
                 </CardContent>
               </Card>
@@ -176,26 +234,29 @@ export default function CreateImage() {
           )}
         </AnimatePresence>
 
+        {/* History Button */}
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex justify-center mt-8"
+          variants={itemVariants}
+          className="flex justify-center"
         >
           <Button
             onClick={() => setShowHistory(true)}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
+                     transform transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-purple-500/20"
+            size="lg"
           >
-            <History className="mr-2 h-4 w-4" />
-            View Past Generations
+            <History className="mr-2 h-5 w-5" />
+            View Creation History
           </Button>
         </motion.div>
 
+        {/* History Modal */}
         <ImageHistory
           images={images.filter(img => img.url !== currentImage?.url)}
           open={showHistory}
           onOpenChange={setShowHistory}
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
