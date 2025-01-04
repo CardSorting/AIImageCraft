@@ -12,7 +12,8 @@ import {
   insertTradingCardSchema,
   insertTradeSchema,
 } from "@db/schema";
-import { WarGameService, MatchmakingService } from "./services/game";
+import { WarGameService } from "./services/game/war/war.service";
+import { MatchmakingService } from "./services/game/matchmaking/matchmaking.service";
 import taskRoutes from "./routes/tasks";
 import { TaskService } from "./services/task";
 
