@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImagePlus, Library } from "lucide-react";
 import ImageGrid from "@/components/ImageGrid";
+import { Shield, Swords, Zap, Sparkles } from "lucide-react";
 
 export interface Image {
   id: number;
@@ -102,33 +103,80 @@ function TradingCardGallery() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {cards.map((card) => (
-        <div key={card.id} className="relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-lg transform -rotate-1 group-hover:rotate-0 transition-all duration-300" />
-          <div className="card-container relative bg-black/40 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4 transform rotate-1 group-hover:rotate-0 transition-all duration-300">
-            <img
-              src={card.image.url}
-              alt={card.name}
-              className="w-full h-48 object-cover rounded-lg mb-4"
-            />
-            <h3 className="text-xl font-bold text-white mb-2">{card.name}</h3>
-            <p className="text-purple-300/70 text-sm italic mb-4">
-              {card.description}
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="bg-purple-500/10 p-2 rounded">
-                <span className="text-purple-300">Type:</span>
-                <span className="text-white ml-2">{card.elementalType}</span>
+        <div key={card.id} className="relative group perspective-1000">
+          {/* Card container with 3D hover effect */}
+          <div className="relative preserve-3d transition-transform duration-500 group-hover:rotate-y-10">
+            {/* Card frame based on elemental type */}
+            <div className={`
+              relative rounded-lg overflow-hidden
+              ${getElementalTypeStyle(card.elementalType)}
+              transform transition-transform duration-300 group-hover:scale-105
+              shadow-xl hover:shadow-2xl
+            `}>
+              {/* Rarity indicator */}
+              <div className={`
+                absolute top-2 right-2 z-10 px-3 py-1 rounded-full
+                text-xs font-bold
+                ${getRarityStyle(card.rarity)}
+              `}>
+                {card.rarity}
               </div>
-              <div className="bg-purple-500/10 p-2 rounded">
-                <span className="text-purple-300">Rarity:</span>
-                <span className="text-white ml-2">{card.rarity}</span>
-              </div>
-              <div className="col-span-2">
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="text-purple-300">ATK: {card.powerStats.attack}</div>
-                  <div className="text-purple-300">DEF: {card.powerStats.defense}</div>
-                  <div className="text-purple-300">SPD: {card.powerStats.speed}</div>
-                  <div className="text-purple-300">MAG: {card.powerStats.magic}</div>
+
+              {/* Card content */}
+              <div className="relative bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-sm">
+                {/* Card image */}
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <img
+                    src={card.image.url}
+                    alt={card.name}
+                    className="w-full h-48 object-cover"
+                  />
+                </div>
+
+                {/* Card info */}
+                <div className="p-4 space-y-3">
+                  {/* Card name and type */}
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-xl font-bold text-white leading-tight">
+                      {card.name}
+                    </h3>
+                    <span className={`
+                      px-2 py-1 rounded text-xs font-semibold
+                      ${getElementalTypeBadgeStyle(card.elementalType)}
+                    `}>
+                      {card.elementalType}
+                    </span>
+                  </div>
+
+                  {/* Card description */}
+                  <p className="text-purple-200/80 text-sm italic border-t border-purple-500/20 pt-2">
+                    {card.description}
+                  </p>
+
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-purple-500/20">
+                    <StatDisplay
+                      icon={<Swords className="w-4 h-4" />}
+                      label="ATK"
+                      value={card.powerStats.attack}
+                    />
+                    <StatDisplay
+                      icon={<Shield className="w-4 h-4" />}
+                      label="DEF"
+                      value={card.powerStats.defense}
+                    />
+                    <StatDisplay
+                      icon={<Zap className="w-4 h-4" />}
+                      label="SPD"
+                      value={card.powerStats.speed}
+                    />
+                    <StatDisplay
+                      icon={<Sparkles className="w-4 h-4" />}
+                      label="MAG"
+                      value={card.powerStats.magic}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -137,6 +185,65 @@ function TradingCardGallery() {
       ))}
     </div>
   );
+}
+
+// Helper components and functions
+function StatDisplay({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-1 text-sm">
+      {icon}
+      <span className="text-purple-300/70">{label}:</span>
+      <span className="text-white font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function getElementalTypeStyle(type: string): string {
+  const styles = {
+    Fire: "bg-gradient-to-br from-red-600/20 to-orange-500/20 border-2 border-red-500/30",
+    Water: "bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border-2 border-blue-500/30",
+    Earth: "bg-gradient-to-br from-green-600/20 to-emerald-500/20 border-2 border-green-500/30",
+    Air: "bg-gradient-to-br from-sky-600/20 to-indigo-500/20 border-2 border-sky-500/30",
+    Light: "bg-gradient-to-br from-yellow-400/20 to-amber-500/20 border-2 border-yellow-400/30",
+    Dark: "bg-gradient-to-br from-purple-600/20 to-violet-500/20 border-2 border-purple-500/30",
+    Nature: "bg-gradient-to-br from-lime-600/20 to-green-500/20 border-2 border-lime-500/30",
+    Electric: "bg-gradient-to-br from-yellow-400/20 to-amber-500/20 border-2 border-yellow-400/30",
+    Ice: "bg-gradient-to-br from-cyan-400/20 to-blue-500/20 border-2 border-cyan-400/30",
+    Psychic: "bg-gradient-to-br from-pink-600/20 to-purple-500/20 border-2 border-pink-500/30",
+    Metal: "bg-gradient-to-br from-gray-600/20 to-slate-500/20 border-2 border-gray-500/30",
+    Dragon: "bg-gradient-to-br from-red-600/20 to-purple-500/20 border-2 border-red-500/30",
+  };
+  return styles[type as keyof typeof styles] || styles.Nature;
+}
+
+function getElementalTypeBadgeStyle(type: string): string {
+  const styles = {
+    Fire: "bg-red-500/20 text-red-300",
+    Water: "bg-blue-500/20 text-blue-300",
+    Earth: "bg-green-500/20 text-green-300",
+    Air: "bg-sky-500/20 text-sky-300",
+    Light: "bg-yellow-400/20 text-yellow-300",
+    Dark: "bg-purple-500/20 text-purple-300",
+    Nature: "bg-lime-500/20 text-lime-300",
+    Electric: "bg-yellow-400/20 text-yellow-300",
+    Ice: "bg-cyan-400/20 text-cyan-300",
+    Psychic: "bg-pink-500/20 text-pink-300",
+    Metal: "bg-gray-500/20 text-gray-300",
+    Dragon: "bg-red-500/20 text-red-300",
+  };
+  return styles[type as keyof typeof styles] || styles.Nature;
+}
+
+function getRarityStyle(rarity: string): string {
+  const styles = {
+    Common: "bg-gray-500/20 text-gray-300",
+    Uncommon: "bg-green-500/20 text-green-300",
+    Rare: "bg-blue-500/20 text-blue-300",
+    Epic: "bg-purple-500/20 text-purple-300",
+    Legendary: "bg-orange-500/20 text-orange-300",
+    Mythic: "bg-red-500/20 text-red-300",
+  };
+  return styles[rarity as keyof typeof styles] || styles.Common;
 }
 
 export default function Gallery() {
