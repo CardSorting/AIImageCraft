@@ -1,13 +1,27 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { History } from "lucide-react";
 import PromptForm from "@/components/PromptForm";
 import LoadingAnimation from "@/components/LoadingAnimation";
+import ImageHistory from "@/components/ImageHistory";
 import Header from "@/components/Header";
 
+interface GeneratedImage {
+  url: string;
+  prompt: string;
+  createdAt: string;
+}
+
 export default function CreateImage() {
+  const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
+
+  const { data: images = [], refetch: refetchImages } = useQuery<GeneratedImage[]>({
+    queryKey: ["/api/images"],
+  });
 
   const { mutate: generateImage, isPending } = useMutation({
     mutationFn: async (prompt: string) => {
@@ -23,11 +37,12 @@ export default function CreateImage() {
 
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
         title: "Image generated successfully!",
-        description: "Your AI artwork has been added to your gallery.",
+        description: "Your AI artwork has been created.",
       });
+      refetchImages();
     },
     onError: (error: Error) => {
       toast({
@@ -42,9 +57,18 @@ export default function CreateImage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
       <Header />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-          Create New Image
-        </h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl md:text-6xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+            Create New Image
+          </h1>
+          <Button
+            onClick={() => setShowHistory(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            <History className="mr-2 h-4 w-4" />
+            View History
+          </Button>
+        </div>
 
         <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-black/30 border-purple-500/20">
           <CardContent className="pt-6">
@@ -53,6 +77,12 @@ export default function CreateImage() {
         </Card>
 
         {isPending && <LoadingAnimation />}
+
+        <ImageHistory
+          images={images}
+          open={showHistory}
+          onOpenChange={setShowHistory}
+        />
       </div>
     </div>
   );
