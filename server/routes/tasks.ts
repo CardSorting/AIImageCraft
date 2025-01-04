@@ -3,7 +3,7 @@ import { TaskService } from "../services/task";
 import { TaskManager } from "../services/redis";
 import { db } from "@db";
 import { images } from "@db/schema";
-import { eq } from "drizzle-orm"; // Currently unused import
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -89,6 +89,62 @@ router.get("/:taskId", async (req, res) => {
   } catch (error) {
     console.error("Error checking task status:", error);
     res.status(500).send("Failed to check task status");
+  }
+});
+
+// Webhook endpoint for image generation completion
+router.post("/webhook", async (req, res) => {
+  try {
+    const { task_id, status, output, error } = req.body;
+
+    // Verify webhook secret if configured
+    const webhookSecret = req.headers["x-webhook-secret"];
+    if (process.env.WEBHOOK_SECRET && webhookSecret !== process.env.WEBHOOK_SECRET) {
+      return res.status(401).send("Invalid webhook secret");
+    }
+
+    // Get task data from Redis
+    const taskData = await TaskManager.getTask(task_id);
+    if (!taskData) {
+      return res.status(404).send("Task not found");
+    }
+
+    if (status === "completed" && output?.image_urls) {
+      // Store all image variations in the database
+      const imageRecords = await Promise.all(
+        output.image_urls.map(async (url: string, index: number) => {
+          const [newImage] = await db.insert(images)
+            .values({
+              userId: taskData.userId,
+              url: url,
+              prompt: taskData.prompt,
+              variationIndex: index
+            })
+            .returning();
+          return newImage;
+        })
+      );
+
+      // Update task status in Redis with all image variations
+      await TaskManager.updateTask(task_id, {
+        ...taskData,
+        status: "completed",
+        imageUrls: output.image_urls,
+        imageIds: imageRecords.map(img => img.id)
+      });
+
+    } else if (status === "failed") {
+      await TaskManager.updateTask(task_id, {
+        ...taskData,
+        status: "failed",
+        error: error?.message || "Unknown error"
+      });
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    res.status(500).send("Internal server error");
   }
 });
 

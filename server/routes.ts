@@ -15,6 +15,7 @@ import {
 import { WarGameService } from "./services/game";
 import { MatchmakingService } from "./services/matchmaking";
 import taskRoutes from "./routes/tasks";
+import { TaskService } from "./services/task";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -36,78 +37,17 @@ export function registerRoutes(app: Express): Server {
   // Register task management routes
   app.use("/api/tasks", taskRoutes);
 
+  // Image generation endpoint
   app.post("/api/generate", async (req, res) => {
     try {
-      const { prompt, tags: imageTags } = req.body;
+      const { prompt } = req.body;
 
       if (!prompt) {
         return res.status(400).send("Prompt is required");
       }
 
-      if (!process.env.GOAPI_API_KEY) {
-        throw new Error("GOAPI_API_KEY is not configured");
-      }
-
-      console.log("Calling GoAPI with prompt:", prompt);
-
-      // Call GoAPI Midjourney API to generate image
-      const response = await fetch("https://api.goapi.ai/api/v1/task", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.GOAPI_API_KEY,
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({
-          model: "midjourney",
-          task_type: "imagine",
-          input: {
-            prompt,
-            aspect_ratio: "1:1",
-            process_mode: "fast",
-            skip_prompt_check: false,
-            bot_id: 0
-          },
-          config: {
-            service_mode: "",
-            webhook_config: {
-              endpoint: `${process.env.PUBLIC_URL}/api/webhook/generation`,
-              secret: process.env.WEBHOOK_SECRET || ""
-            }
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("GoAPI error response:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`GoAPI error: ${response.status} - ${errorText || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log("GoAPI response:", result);
-
-      if (!result.data?.task_id) {
-        console.error("Invalid GoAPI response:", result);
-        throw new Error("Invalid response from GoAPI: Missing task ID");
-      }
-
-      // Store task in Redis
-      await TaskManager.createTask(result.data.task_id, {
-        prompt,
-        userId: req.user!.id,
-        createdAt: new Date().toISOString()
-      });
-
-      return res.json({
-        taskId: result.data.task_id,
-        status: "pending"
-      });
-
+      const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
+      res.json(result);
     } catch (error: any) {
       console.error("Error generating image:", error);
       if (error.message.includes("GOAPI_API_KEY")) {
@@ -116,84 +56,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(500).send(error.message);
       }
       res.status(500).send("Failed to generate image");
-    }
-  });
-
-  // Webhook endpoint for image generation completion
-  app.post("/api/webhook/generation", async (req, res) => {
-    try {
-      const { task_id, status, output, error } = req.body;
-
-      // Verify webhook secret if configured
-      const webhookSecret = req.headers["x-webhook-secret"];
-      if (process.env.WEBHOOK_SECRET && webhookSecret !== process.env.WEBHOOK_SECRET) {
-        return res.status(401).send("Invalid webhook secret");
-      }
-
-      // Get task data from Redis
-      const taskData = await TaskManager.getTask(task_id);
-      if (!taskData) {
-        return res.status(404).send("Task not found");
-      }
-
-      if (status === "completed" && output?.image_urls) {
-        // Store all image variations in the database
-        const imageRecords = await Promise.all(
-          output.image_urls.map(async (url: string, index: number) => {
-            const [newImage] = await db.insert(images)
-              .values({
-                userId: taskData.userId,
-                url: url,
-                prompt: taskData.prompt,
-                variationIndex: index
-              })
-              .returning();
-            return newImage;
-          })
-        );
-
-        // Update task status in Redis with all image variations
-        await TaskManager.updateTask(task_id, {
-          ...taskData,
-          status: "completed",
-          imageUrls: output.image_urls,
-          imageIds: imageRecords.map(img => img.id)
-        });
-
-      } else if (status === "failed") {
-        await TaskManager.updateTask(task_id, {
-          ...taskData,
-          status: "failed",
-          error: error?.message || "Unknown error"
-        });
-      }
-
-      res.sendStatus(200);
-    } catch (error) {
-      console.error("Error processing webhook:", error);
-      res.status(500).send("Internal server error");
-    }
-  });
-
-  // Endpoint to check task status
-  app.get("/api/tasks/:taskId", async (req, res) => {
-    try {
-      const { taskId } = req.params;
-      const taskData = await TaskManager.getTask(taskId);
-
-      if (!taskData) {
-        return res.status(404).send("Task not found");
-      }
-
-      // Verify task ownership
-      if (taskData.userId !== req.user!.id) {
-        return res.status(403).send("Unauthorized");
-      }
-
-      res.json(taskData);
-    } catch (error) {
-      console.error("Error checking task status:", error);
-      res.status(500).send("Failed to check task status");
     }
   });
 
