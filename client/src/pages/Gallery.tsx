@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ImagePlus, Library, History } from "lucide-react";
+import { Loader2, ImagePlus, Library, History, ChevronLeft, ChevronRight } from "lucide-react";
 import ImageGrid from "@/components/ImageGrid";
 import TradeModal from "@/components/TradeModal";
 import { Shield, Swords, Zap, Sparkles } from "lucide-react";
@@ -240,8 +240,57 @@ function TradeHistory() {
   );
 }
 
+function Pagination({ currentPage, totalPages, onPageChange }: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-center mt-8 gap-2">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="w-8 h-8 p-0"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <div className="flex items-center gap-1">
+        {Array.from({ length: totalPages }, (_, i) => (
+          <Button
+            key={i + 1}
+            variant={currentPage === i + 1 ? "default" : "outline"}
+            size="icon"
+            onClick={() => onPageChange(i + 1)}
+            className={`w-8 h-8 p-0 ${
+              currentPage === i + 1
+                ? "bg-purple-600 hover:bg-purple-700"
+                : ""
+            }`}
+          >
+            {i + 1}
+          </Button>
+        ))}
+      </div>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="w-8 h-8 p-0"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 function TradingCardGallery() {
   const [selectedCard, setSelectedCard] = useState<TradingCard | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const CARDS_PER_PAGE = 12;
+
   const { data: cards, isLoading } = useQuery<TradingCard[]>({
     queryKey: ["/api/trading-cards"],
   });
@@ -271,112 +320,102 @@ function TradingCardGallery() {
     );
   }
 
+  const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+  const paginatedCards = cards.slice(
+    (currentPage - 1) * CARDS_PER_PAGE,
+    currentPage * CARDS_PER_PAGE
+  );
+
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-        {cards.map((card) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {paginatedCards.map((card) => (
           <div
             key={card.id}
-            className="relative group perspective-1000 cursor-pointer"
+            className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105"
             onClick={() => setSelectedCard(card)}
           >
-            <div className="relative preserve-3d transition-all duration-500 group-hover:rotate-y-10">
-              <div className={`
-                relative rounded-[18px] w-full max-w-[300px] mx-auto aspect-[2.5/3.5] overflow-hidden
-                ${getElementalTypeStyle(card.elementalType)}
-                ${getRarityOverlayStyle(card.rarity)}
-                transform transition-all duration-300 group-hover:scale-105
-                shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(0,0,0,0.4)]
-              `}>
-                <div className="absolute inset-[2px] rounded-[16px] bg-gradient-to-b from-white/10 to-transparent z-10" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="card-frame h-full p-3 flex flex-col">
-                  <div className="card-header flex justify-between items-center bg-gradient-to-r from-black/60 to-black/40 p-2 rounded-t-md mb-1">
-                    <div className="flex flex-col">
-                      <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
-                      <span className="text-purple-300/70 text-xs">by {card.creator?.username || 'Unknown'}</span>
-                    </div>
-                    <span className={`
-                      px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                      ${getElementalTypeBadgeStyle(card.elementalType)}
-                      shadow-sm backdrop-blur-sm
-                    `}>
-                      {card.elementalType}
-                    </span>
+            <div className={`
+              relative aspect-square rounded-xl overflow-hidden
+              ${getElementalTypeStyle(card.elementalType)}
+              ${getRarityOverlayStyle(card.rarity)}
+              shadow-lg hover:shadow-xl
+            `}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+              <div className="absolute top-0 left-0 right-0 z-20 p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                    <span className="text-purple-300/70 text-xs">by {card.creator?.username || 'Unknown'}</span>
                   </div>
-                  <div className="relative flex-grow mb-1">
-                    <div className={`
-                      absolute top-2 right-2 z-20 px-3 py-1
-                      rounded-full text-xs font-bold uppercase tracking-wider
-                      ${getRarityStyle(card.rarity)}
-                      shadow-lg backdrop-blur-sm border border-white/10
-                      transform transition-all duration-300
-                      group-hover:scale-110 group-hover:rotate-3
-                    `}>
-                      {card.rarity}
-                    </div>
-                    <div className="absolute top-0 left-0 w-8 h-8">
-                      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
-                      <div className="absolute top-0 left-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
-                    </div>
-                    <div className="absolute top-0 right-0 w-8 h-8">
-                      <div className="absolute top-0 right-0 w-full h-[2px] bg-gradient-to-l from-white/60 to-transparent" />
-                      <div className="absolute top-0 right-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
-                    </div>
-                    <div className="absolute bottom-0 left-0 w-8 h-8">
-                      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 h-full w-[2px] bg-gradient-to-t from-white/60 to-transparent" />
-                    </div>
-                    <div className="absolute bottom-0 right-0 w-8 h-8">
-                      <div className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-l from-white/60 to-transparent" />
-                      <div className="absolute bottom-0 right-0 h-full w-[2px] bg-gradient-to-t from-white/60 to-transparent" />
-                    </div>
-                    <div className="w-[90%] h-full mx-auto relative rounded-lg overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
-                      <img
-                        src={card.image.url}
-                        alt={card.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-r from-black/60 to-black/40 p-2 text-sm rounded-md mb-1">
-                    <p className="text-purple-200/90 text-xs italic leading-relaxed">
-                      {card.description}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <StatDisplay
-                      icon={<Swords className="w-4 h-4" />}
-                      label="ATK"
-                      value={card.powerStats.attack}
-                      color="red"
-                    />
-                    <StatDisplay
-                      icon={<Shield className="w-4 h-4" />}
-                      label="DEF"
-                      value={card.powerStats.defense}
-                      color="blue"
-                    />
-                    <StatDisplay
-                      icon={<Zap className="w-4 h-4" />}
-                      label="SPD"
-                      value={card.powerStats.speed}
-                      color="yellow"
-                    />
-                    <StatDisplay
-                      icon={<Sparkles className="w-4 h-4" />}
-                      label="MAG"
-                      value={card.powerStats.magic}
-                      color="purple"
-                    />
-                  </div>
+                  <span className={`
+                    px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                    ${getElementalTypeBadgeStyle(card.elementalType)}
+                    shadow-sm backdrop-blur-sm
+                  `}>
+                    {card.elementalType}
+                  </span>
                 </div>
+              </div>
+
+              <img
+                src={card.image.url}
+                alt={card.name}
+                className="w-full h-full object-cover"
+              />
+
+              <div className="absolute bottom-0 left-0 right-0 p-3 z-20">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatDisplay
+                    icon={<Swords className="w-3 h-3" />}
+                    label="ATK"
+                    value={card.powerStats.attack}
+                    color="red"
+                  />
+                  <StatDisplay
+                    icon={<Shield className="w-3 h-3" />}
+                    label="DEF"
+                    value={card.powerStats.defense}
+                    color="blue"
+                  />
+                  <StatDisplay
+                    icon={<Zap className="w-3 h-3" />}
+                    label="SPD"
+                    value={card.powerStats.speed}
+                    color="yellow"
+                  />
+                  <StatDisplay
+                    icon={<Sparkles className="w-3 h-3" />}
+                    label="MAG"
+                    value={card.powerStats.magic}
+                    color="purple"
+                  />
+                </div>
+              </div>
+
+              <div className={`
+                absolute top-2 right-2 z-20 px-2 py-1
+                rounded-full text-xs font-bold uppercase tracking-wider
+                ${getRarityStyle(card.rarity)}
+                shadow-lg backdrop-blur-sm border border-white/10
+                transform transition-all duration-300
+                group-hover:scale-110 group-hover:rotate-3
+              `}>
+                {card.rarity}
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
+
       <TradeModal
         open={!!selectedCard}
         onOpenChange={(open) => !open && setSelectedCard(null)}
