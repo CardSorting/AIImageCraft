@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImagePlus, Library } from "lucide-react";
 
-interface Image {
+export interface Image {
   id: number;
   url: string;
   prompt: string;
@@ -67,18 +67,7 @@ function ImageGallery() {
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {images.map((image) => (
-        <ImageCard 
-          key={image.id}
-          imageId={image.id}
-          imageUrl={image.url}
-          tags={image.tags}
-        />
-      ))}
-    </div>
-  );
+  return <ImageGrid images={images} />;
 }
 
 function TradingCardGallery() {
