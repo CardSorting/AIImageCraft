@@ -1,9 +1,11 @@
 import { Switch, Route } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
-import Home from "@/pages/Home";
-import AuthPage from "@/pages/AuthPage";
 import { useUser } from "@/hooks/use-user";
+import AuthPage from "@/pages/AuthPage";
+import CreateImage from "@/pages/CreateImage";
+import Gallery from "@/pages/Gallery";
+import Profile from "@/pages/Profile";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -25,13 +27,15 @@ function App() {
 
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Gallery} />
+      <Route path="/create" component={CreateImage} />
+      <Route path="/gallery" component={Gallery} />
+      <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// fallback 404 not found page
 function NotFound() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black">
