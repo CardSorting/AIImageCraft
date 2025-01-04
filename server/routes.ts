@@ -1,5 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { fal } from "@fal-ai/client";
+
+fal.config({
+  credentials: process.env.FAL_KEY,
+});
 
 export function registerRoutes(app: Express): Server {
   app.post("/api/generate", async (req, res) => {
@@ -10,12 +15,24 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
-      // TODO: Replace with actual API call to image generation service
-      // This is a mock response for demonstration
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
+      const result = await fal.subscribe("fal-ai/recraft-v3", {
+        input: {
+          prompt,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            console.log("Generation progress:", update.logs.map((log) => log.message));
+          }
+        },
+      });
+
+      if (!result.data?.image?.url) {
+        throw new Error("Failed to generate image");
+      }
+
       return res.json({
-        imageUrl: `https://picsum.photos/seed/${Date.now()}/512/512`,
+        imageUrl: result.data.image.url,
       });
     } catch (error) {
       console.error("Error generating image:", error);
