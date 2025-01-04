@@ -19,6 +19,14 @@ type GameState = {
   player2Cards: number;
 };
 
+// Add type for power stats
+type PowerStats = {
+  attack: number;
+  defense: number;
+  speed: number;
+  hp: number;
+};
+
 export class WarGameService {
   static async createGame(player1Id: number, player2Id: number): Promise<SelectGame> {
     // Start a transaction to ensure data consistency
@@ -182,8 +190,15 @@ export class WarGameService {
   }
 
   private static getCardValue(card: SelectTradingCard): number {
-    const powerStats = card.powerStats as { attack: number };
-    return powerStats.attack;
+    try {
+      const stats = card.powerStats as PowerStats;
+      // Use a combination of stats to determine card value
+      return (stats.attack * 2) + stats.defense + stats.speed + (stats.hp / 2);
+    } catch (error) {
+      console.error('Error calculating card value:', error);
+      // Return a default value if powerStats is invalid
+      return 0;
+    }
   }
 
   private static async getTopCard(tx: any, gameId: number, playerId: number) {
