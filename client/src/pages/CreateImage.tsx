@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -15,14 +15,62 @@ interface GeneratedImage {
   createdAt: string;
 }
 
+interface TaskResponse {
+  taskId: string;
+  status: "pending" | "completed" | "failed";
+  imageUrl?: string;
+  error?: string;
+}
+
 export default function CreateImage() {
   const [showHistory, setShowHistory] = useState(false);
   const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
+  const [currentTask, setCurrentTask] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: images = [], refetch: refetchImages } = useQuery<GeneratedImage[]>({
     queryKey: ["/api/images"],
   });
+
+  // Poll task status when there's an active task
+  useEffect(() => {
+    if (!currentTask) return;
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`/api/tasks/${currentTask}`);
+        if (!res.ok) throw new Error(await res.text());
+
+        const data: TaskResponse = await res.json();
+
+        if (data.status === "completed" && data.imageUrl) {
+          setCurrentImage({
+            url: data.imageUrl,
+            prompt: data.prompt,
+            createdAt: new Date().toISOString(),
+          });
+          setCurrentTask(null);
+          toast({
+            title: "Image generated successfully!",
+            description: "Your AI artwork has been created.",
+          });
+          refetchImages();
+        } else if (data.status === "failed") {
+          setCurrentTask(null);
+          toast({
+            variant: "destructive",
+            title: "Error generating image",
+            description: data.error || "Failed to generate image",
+          });
+        }
+      } catch (error) {
+        console.error("Error checking task status:", error);
+      }
+    };
+
+    const interval = setInterval(checkStatus, 2000);
+    return () => clearInterval(interval);
+  }, [currentTask, toast, refetchImages]);
 
   const { mutate: generateImage, isPending } = useMutation({
     mutationFn: async (prompt: string) => {
@@ -38,18 +86,8 @@ export default function CreateImage() {
 
       return res.json();
     },
-    onSuccess: (data) => {
-      const newImage = {
-        url: data.imageUrl,
-        prompt: data.prompt,
-        createdAt: new Date().toISOString(),
-      };
-      setCurrentImage(newImage);
-      toast({
-        title: "Image generated successfully!",
-        description: "Your AI artwork has been created.",
-      });
-      refetchImages();
+    onSuccess: (data: TaskResponse) => {
+      setCurrentTask(data.taskId);
     },
     onError: (error: Error) => {
       toast({
@@ -83,9 +121,9 @@ export default function CreateImage() {
           </CardContent>
         </Card>
 
-        {isPending && <LoadingAnimation />}
+        {(isPending || currentTask) && <LoadingAnimation />}
 
-        {currentImage && !isPending && (
+        {currentImage && !isPending && !currentTask && (
           <div className="mt-8 w-full max-w-2xl mx-auto">
             <Card className="backdrop-blur-sm bg-black/30 border-purple-500/20">
               <CardContent className="pt-6">
