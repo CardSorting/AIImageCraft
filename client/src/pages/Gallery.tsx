@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ImagePlus, Library, History, Star } from "lucide-react";
+import { Loader2, ImagePlus, Library, History, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import ImageGrid from "@/components/ImageGrid";
 import TradeModal from "@/components/TradeModal";
 import { Shield, Swords, Zap, Sparkles } from "lucide-react";
@@ -436,7 +436,7 @@ function FavoriteButton({ cardId, initialFavorited = false }: { cardId: number; 
 
   const toggleFavorite = async () => {
     try {
-      const res = await fetch(`/api/favorites/${cardId}`, {
+      const res = await fetch(`/api/favorites/card/${cardId}`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -452,15 +452,15 @@ function FavoriteButton({ cardId, initialFavorited = false }: { cardId: number; 
 
       toast({
         title: data.favorited ? "Added to favorites" : "Removed from favorites",
-        description: data.favorited ? 
-          "Card has been added to your favorites" : 
+        description: data.favorited ?
+          "Card has been added to your favorites" :
           "Card has been removed from your favorites",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message,
+        title: "Error favoriting card",
+        description: error.message || "Failed to toggle favorite status",
       });
     }
   };
@@ -474,8 +474,8 @@ function FavoriteButton({ cardId, initialFavorited = false }: { cardId: number; 
         toggleFavorite();
       }}
       className={`absolute top-2 right-2 z-30 rounded-full p-2 backdrop-blur-sm
-        ${favorited ? 
-          'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30' : 
+        ${favorited ?
+          'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30' :
           'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
         }`}
     >
@@ -757,7 +757,8 @@ export default function Gallery() {
           <TabsContent value="favorites" className="mt-0">
             <FavoritesGallery />
           </TabsContent>
-          <TabsContent value="trades" className="mt-0"><TradeHistory />
+          <TabsContent value="trades" className="mt-0">
+            <TradeHistory />
           </TabsContent>
         </Tabs>
       </div>

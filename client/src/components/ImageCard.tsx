@@ -14,14 +14,14 @@ interface ImageCardProps {
   onTradingCardCreated?: () => void;
 }
 
-function FavoriteButton({ cardId }: { cardId: number }) {
+function FavoriteButton({ imageId }: { imageId: number }) {
   const [favorited, setFavorited] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const toggleFavorite = async () => {
     try {
-      const res = await fetch(`/api/favorites/${cardId}`, {
+      const res = await fetch(`/api/favorites/image/${imageId}`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -34,20 +34,20 @@ function FavoriteButton({ cardId }: { cardId: number }) {
       const data = await res.json();
       setFavorited(data.favorited);
 
-      // Invalidate both favorites and trading cards queries
+      // Invalidate both favorites and images queries
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/images"] });
 
       toast({
         title: data.favorited ? "Added to favorites" : "Removed from favorites",
         description: data.favorited ? 
-          "Card has been added to your favorites" : 
-          "Card has been removed from your favorites",
+          "Image has been added to your favorites" : 
+          "Image has been removed from your favorites",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error favoriting card",
+        title: "Error favoriting image",
         description: error.message || "Failed to toggle favorite status",
       });
     }
@@ -136,7 +136,7 @@ export default function ImageCard({
             </div>
           </div>
         </div>
-        <FavoriteButton cardId={imageId} />
+        <FavoriteButton imageId={imageId} />
       </Card>
 
       <CreateTradingCard
