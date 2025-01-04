@@ -1,13 +1,9 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImagePlus, Library, History, Star } from "lucide-react";
+import { ImagePlus, Star } from "lucide-react";
 import Header from "@/components/Header";
 import { ImageGallery } from "@/features/gallery/components/ImageGallery";
-import { CardGallery } from "@/features/gallery/components/CardGallery";
-import { TradeHistory } from "@/features/gallery/components/TradeHistory";
 import { FavoritesGallery } from "@/features/gallery/components/FavoritesGallery";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Gallery() {
   return (
@@ -18,35 +14,21 @@ export default function Gallery() {
           Your Collection
         </h1>
         <Tabs defaultValue="images" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-4 mb-8">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
             <TabsTrigger value="images" className="text-white">
               <ImagePlus className="w-4 h-4 mr-2" />
               Images
-            </TabsTrigger>
-            <TabsTrigger value="cards" className="text-white">
-              <Library className="w-4 h-4 mr-2" />
-              Cards
             </TabsTrigger>
             <TabsTrigger value="favorites" className="text-white">
               <Star className="w-4 h-4 mr-2" />
               Favorites
             </TabsTrigger>
-            <TabsTrigger value="trades" className="text-white">
-              <History className="w-4 h-4 mr-2" />
-              Trades
-            </TabsTrigger>
           </TabsList>
           <TabsContent value="images" className="mt-0">
             <ImageGallery />
           </TabsContent>
-          <TabsContent value="cards" className="mt-0">
-            <CardGallery />
-          </TabsContent>
           <TabsContent value="favorites" className="mt-0">
             <FavoritesGallery />
-          </TabsContent>
-          <TabsContent value="trades" className="mt-0">
-            <TradeHistory />
           </TabsContent>
         </Tabs>
       </div>
