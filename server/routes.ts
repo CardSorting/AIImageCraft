@@ -11,12 +11,13 @@ import {
   games,
   insertTradingCardSchema,
   insertTradeSchema,
+  cardTemplates,
+  favorites,
 } from "@db/schema";
 import { WarGameService } from "./services/game/war/war.service";
 import { AIOpponentService } from "./services/game/ai/ai-opponent.service";
 import taskRoutes from "./routes/tasks";
 import { TaskService } from "./services/task";
-import { favorites } from "@db/schema";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -136,13 +137,32 @@ export function registerRoutes(app: Express): Server {
       const userCards = await db.query.tradingCards.findMany({
         where: eq(tradingCards.userId, req.user!.id),
         with: {
-          image: true,
-          creator: true,
+          template: {
+            with: {
+              image: true,
+              creator: true,
+            },
+          },
         },
         orderBy: (cards, { desc }) => [desc(cards.createdAt)],
       });
 
-      res.json(userCards);
+      // Transform the response to match the expected format
+      const transformedCards = userCards.map(card => ({
+        id: card.id,
+        name: card.template.name,
+        description: card.template.description,
+        elementalType: card.template.elementalType,
+        rarity: card.template.rarity,
+        powerStats: card.template.powerStats,
+        image: {
+          url: card.template.image.url,
+        },
+        createdAt: card.createdAt,
+        creator: card.template.creator,
+      }));
+
+      res.json(transformedCards);
     } catch (error) {
       console.error("Error fetching trading cards:", error);
       res.status(500).send("Failed to fetch trading cards");
@@ -220,7 +240,11 @@ export function registerRoutes(app: Express): Server {
             with: {
               card: {
                 with: {
-                  image: true
+                  template: {
+                    with: {
+                      image: true
+                    }
+                  }
                 }
               },
               offerer: true
@@ -423,8 +447,22 @@ export function registerRoutes(app: Express): Server {
         orderBy: (favorites, { desc }) => [desc(favorites.createdAt)],
       });
 
-      const cards = userFavorites.map(fav => fav.card);
-      res.json(cards);
+      // Transform the cards to match the expected format
+      const transformedCards = userFavorites.map(fav => ({
+        id: fav.card.id,
+        name: fav.card.template.name,
+        description: fav.card.template.description,
+        elementalType: fav.card.template.elementalType,
+        rarity: fav.card.template.rarity,
+        powerStats: fav.card.template.powerStats,
+        image: {
+          url: fav.card.template.image.url,
+        },
+        createdAt: fav.card.createdAt,
+        creator: fav.card.template.creator,
+      }));
+
+      res.json(transformedCards);
     } catch (error) {
       console.error("Error fetching favorites:", error);
       res.status(500).send("Failed to fetch favorites");
