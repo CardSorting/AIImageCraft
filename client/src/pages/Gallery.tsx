@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ImagePlus, Library, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, ImagePlus, Library, History, Star } from "lucide-react";
 import ImageGrid from "@/components/ImageGrid";
 import TradeModal from "@/components/TradeModal";
 import { Shield, Swords, Zap, Sparkles } from "lucide-react";
@@ -403,6 +403,7 @@ function TradingCardGallery() {
               `}>
                 {card.rarity}
               </div>
+              <FavoriteButton cardId={card.id} />
             </div>
           </div>
         ))}
@@ -422,6 +423,205 @@ function TradingCardGallery() {
         card={selectedCard!}
         onTrade={() => {
           queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
+        }}
+      />
+    </>
+  );
+}
+
+function FavoriteButton({ cardId, initialFavorited = false }: { cardId: number; initialFavorited?: boolean }) {
+  const [favorited, setFavorited] = useState(initialFavorited);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const toggleFavorite = async () => {
+    try {
+      const res = await fetch(`/api/favorites/${cardId}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+
+      const data = await res.json();
+      setFavorited(data.favorited);
+
+      // Invalidate both favorites and trading cards queries
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
+
+      toast({
+        title: data.favorited ? "Added to favorites" : "Removed from favorites",
+        description: data.favorited ? 
+          "Card has been added to your favorites" : 
+          "Card has been removed from your favorites",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleFavorite();
+      }}
+      className={`absolute top-2 right-2 z-30 rounded-full p-2 backdrop-blur-sm
+        ${favorited ? 
+          'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30' : 
+          'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+        }`}
+    >
+      <Star className={`h-4 w-4 ${favorited ? 'fill-current' : ''}`} />
+    </Button>
+  );
+}
+
+function FavoritesGallery() {
+  const [selectedCard, setSelectedCard] = useState<TradingCard | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const CARDS_PER_PAGE = 12;
+
+  const { data: cards, isLoading } = useQuery<TradingCard[]>({
+    queryKey: ["/api/favorites"],
+  });
+  const queryClient = useQueryClient();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  if (!cards?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-24 h-24 rounded-full bg-purple-500/10 flex items-center justify-center mb-6">
+          <Star className="w-12 h-12 text-purple-400" />
+        </div>
+        <h2 className="text-2xl font-semibold text-white mb-2">
+          No favorite cards yet
+        </h2>
+        <p className="text-purple-300/70 mb-6 max-w-md">
+          Click the star icon on any card to add it to your favorites!
+        </p>
+      </div>
+    );
+  }
+
+  const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+  const paginatedCards = cards.slice(
+    (currentPage - 1) * CARDS_PER_PAGE,
+    currentPage * CARDS_PER_PAGE
+  );
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {paginatedCards.map((card) => (
+          <div
+            key={card.id}
+            className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105"
+            onClick={() => setSelectedCard(card)}
+          >
+            <div className={`
+              relative aspect-square rounded-xl overflow-hidden
+              ${getElementalTypeStyle(card.elementalType)}
+              ${getRarityOverlayStyle(card.rarity)}
+              shadow-lg hover:shadow-xl
+            `}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+              <div className="absolute top-0 left-0 right-0 z-20 p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                    <span className="text-purple-300/70 text-xs">by {card.creator?.username || 'Unknown'}</span>
+                  </div>
+                  <span className={`
+                    px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                    ${getElementalTypeBadgeStyle(card.elementalType)}
+                    shadow-sm backdrop-blur-sm
+                  `}>
+                    {card.elementalType}
+                  </span>
+                </div>
+              </div>
+
+              <img
+                src={card.image.url}
+                alt={card.name}
+                className="w-full h-full object-cover"
+              />
+
+              <div className="absolute bottom-0 left-0 right-0 p-3 z-20">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatDisplay
+                    icon={<Swords className="w-3 h-3" />}
+                    label="ATK"
+                    value={card.powerStats.attack}
+                    color="red"
+                  />
+                  <StatDisplay
+                    icon={<Shield className="w-3 h-3" />}
+                    label="DEF"
+                    value={card.powerStats.defense}
+                    color="blue"
+                  />
+                  <StatDisplay
+                    icon={<Zap className="w-3 h-3" />}
+                    label="SPD"
+                    value={card.powerStats.speed}
+                    color="yellow"
+                  />
+                  <StatDisplay
+                    icon={<Sparkles className="w-3 h-3" />}
+                    label="MAG"
+                    value={card.powerStats.magic}
+                    color="purple"
+                  />
+                </div>
+              </div>
+
+              <div className={`
+                absolute top-2 right-2 z-20 px-2 py-1
+                rounded-full text-xs font-bold uppercase tracking-wider
+                ${getRarityStyle(card.rarity)}
+                shadow-lg backdrop-blur-sm border border-white/10
+                transform transition-all duration-300
+                group-hover:scale-110 group-hover:rotate-3
+              `}>
+                {card.rarity}
+              </div>
+              <FavoriteButton cardId={card.id} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
+
+      <TradeModal
+        open={!!selectedCard}
+        onOpenChange={(open) => !open && setSelectedCard(null)}
+        card={selectedCard!}
+        onTrade={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
         }}
       />
     </>
@@ -530,14 +730,18 @@ export default function Gallery() {
           Your Collection
         </h1>
         <Tabs defaultValue="images" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-8">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-4 mb-8">
             <TabsTrigger value="images" className="text-white">
               <ImagePlus className="w-4 h-4 mr-2" />
               Images
             </TabsTrigger>
             <TabsTrigger value="cards" className="text-white">
               <Library className="w-4 h-4 mr-2" />
-              Trading Cards
+              Cards
+            </TabsTrigger>
+            <TabsTrigger value="favorites" className="text-white">
+              <Star className="w-4 h-4 mr-2" />
+              Favorites
             </TabsTrigger>
             <TabsTrigger value="trades" className="text-white">
               <History className="w-4 h-4 mr-2" />
@@ -550,8 +754,10 @@ export default function Gallery() {
           <TabsContent value="cards" className="mt-0">
             <TradingCardGallery />
           </TabsContent>
-          <TabsContent value="trades" className="mt-0">
-            <TradeHistory />
+          <TabsContent value="favorites" className="mt-0">
+            <FavoritesGallery />
+          </TabsContent>
+          <TabsContent value="trades" className="mt-0"><TradeHistory />
           </TabsContent>
         </Tabs>
       </div>

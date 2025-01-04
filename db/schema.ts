@@ -89,7 +89,13 @@ export const gameCards = pgTable("game_cards", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-// Relations
+export const favorites = pgTable("favorites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  cardId: integer("card_id").notNull().references(() => tradingCards.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   images: many(images),
   tradingCards: many(tradingCards),
@@ -99,6 +105,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   gamesAsPlayer1: many(games, { relationName: "player1" }),
   gamesAsPlayer2: many(games, { relationName: "player2" }),
   wonGames: many(games, { relationName: "winner" }),
+  favorites: many(favorites),
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -132,6 +139,7 @@ export const tradingCardsRelations = relations(tradingCards, ({ one, many }) => 
     references: [users.id],
   }),
   tradeItems: many(tradeItems),
+  favoritedBy: many(favorites),
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -207,7 +215,17 @@ export const gameCardsRelations = relations(gameCards, ({ one }) => ({
   }),
 }));
 
-// Schemas
+export const favoritesRelations = relations(favorites, ({ one }) => ({
+  user: one(users, {
+    fields: [favorites.userId],
+    references: [users.id],
+  }),
+  card: one(tradingCards, {
+    fields: [favorites.cardId],
+    references: [tradingCards.id],
+  }),
+}));
+
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
 
@@ -238,7 +256,9 @@ export const selectGameSchema = createSelectSchema(games);
 export const insertGameCardSchema = createInsertSchema(gameCards);
 export const selectGameCardSchema = createSelectSchema(gameCards);
 
-// Types
+export const insertFavoriteSchema = createInsertSchema(favorites);
+export const selectFavoriteSchema = createSelectSchema(favorites);
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -268,3 +288,6 @@ export type SelectGame = typeof games.$inferSelect;
 
 export type InsertGameCard = typeof gameCards.$inferInsert;
 export type SelectGameCard = typeof gameCards.$inferSelect;
+
+export type InsertFavorite = typeof favorites.$inferInsert;
+export type SelectFavorite = typeof favorites.$inferSelect;

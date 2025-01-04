@@ -16,6 +16,7 @@ import { WarGameService } from "./services/game/war/war.service";
 import { AIOpponentService } from "./services/game/ai/ai-opponent.service";
 import taskRoutes from "./routes/tasks";
 import { TaskService } from "./services/task";
+import { favorites } from "@db/schema";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -402,6 +403,66 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get user's favorite cards
+  app.get("/api/favorites", async (req, res) => {
+    try {
+      const userFavorites = await db.query.favorites.findMany({
+        where: eq(favorites.userId, req.user!.id),
+        with: {
+          card: {
+            with: {
+              template: {
+                with: {
+                  image: true,
+                  creator: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: (favorites, { desc }) => [desc(favorites.createdAt)],
+      });
+
+      const cards = userFavorites.map(fav => fav.card);
+      res.json(cards);
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      res.status(500).send("Failed to fetch favorites");
+    }
+  });
+
+  // Add a card to favorites
+  app.post("/api/favorites/:cardId", async (req, res) => {
+    try {
+      const { cardId } = req.params;
+
+      // Check if already favorited
+      const existing = await db.query.favorites.findFirst({
+        where: and(
+          eq(favorites.userId, req.user!.id),
+          eq(favorites.cardId, parseInt(cardId))
+        ),
+      });
+
+      if (existing) {
+        // If already favorited, remove it
+        await db.delete(favorites)
+          .where(eq(favorites.id, existing.id));
+        res.json({ favorited: false });
+      } else {
+        // Add to favorites
+        await db.insert(favorites)
+          .values({
+            userId: req.user!.id,
+            cardId: parseInt(cardId),
+          });
+        res.json({ favorited: true });
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      res.status(500).send("Failed to toggle favorite");
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
