@@ -91,16 +91,55 @@ app.post("/api/generate", async (req, res) => {
       const result = await response.json();
       console.log("GoAPI response:", result);
 
-      if (!result.data?.url) {
+      if (!result.data?.task_id) {
         console.error("Invalid GoAPI response:", result);
-        throw new Error("Invalid response from GoAPI: Missing image URL");
+        throw new Error("Invalid response from GoAPI: Missing task ID");
+      }
+
+      // Poll for task completion
+      let imageUrl = null;
+      let attempts = 0;
+      const maxAttempts = 30; // Maximum 30 attempts (5 minutes total with 10s delay)
+      const taskId = result.data.task_id;
+
+      while (attempts < maxAttempts) {
+        attempts++;
+
+        // Wait 10 seconds between polls
+        await new Promise(resolve => setTimeout(resolve, 10000));
+
+        const statusResponse = await fetch(`https://api.goapi.ai/api/v1/task/${taskId}`, {
+          headers: {
+            "x-api-key": process.env.GOAPI_API_KEY,
+            "Accept": "application/json"
+          }
+        });
+
+        if (!statusResponse.ok) {
+          console.error(`Failed to check task status (attempt ${attempts}):`, statusResponse.statusText);
+          continue;
+        }
+
+        const statusResult = await statusResponse.json();
+        console.log(`Task status check ${attempts}:`, statusResult.data.status);
+
+        if (statusResult.data.status === 'completed' && statusResult.data.output?.image_url) {
+          imageUrl = statusResult.data.output.image_url;
+          break;
+        } else if (statusResult.data.status === 'failed') {
+          throw new Error("Image generation failed: " + (statusResult.data.error?.message || "Unknown error"));
+        }
+      }
+
+      if (!imageUrl) {
+        throw new Error("Image generation timed out after " + maxAttempts + " attempts");
       }
 
       // Store the image in the database
       const [newImage] = await db.insert(images)
         .values({
           userId: req.user!.id,
-          url: result.data.url,
+          url: imageUrl,
           prompt,
         })
         .returning();
@@ -131,7 +170,7 @@ app.post("/api/generate", async (req, res) => {
       }
 
       return res.json({
-        imageUrl: result.data.url,
+        imageUrl,
       });
     } catch (error: any) {
       console.error("Error generating image:", error);
@@ -378,7 +417,7 @@ app.post("/api/generate", async (req, res) => {
         }
 
         const newStatus = action === 'accept' ? 'accepted' : 
-                         action === 'reject' ? 'rejected' : 'cancelled';
+                           action === 'reject' ? 'rejected' : 'cancelled';
 
         // If accepting, transfer card ownership
         if (action === 'accept') {
