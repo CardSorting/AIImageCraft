@@ -17,6 +17,7 @@ import {
 } from "@db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { WarGameService } from "./services/game";
+import { MatchmakingService } from "./services/matchmaking";
 
 fal.config({
   credentials: process.env.FAL_KEY,
@@ -462,6 +463,27 @@ export function registerRoutes(app: Express): Server {
       res.json(userGames);
     } catch (error: any) {
       console.error("Error fetching games:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  // Matchmaking routes
+  app.post("/api/matchmaking", async (req, res) => {
+    try {
+      const gameId = await MatchmakingService.findMatch(req.user!.id);
+      res.json({ gameId });
+    } catch (error: any) {
+      console.error("Error in matchmaking:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  app.get("/api/matchmaking/status", async (req, res) => {
+    try {
+      const gameId = await MatchmakingService.getActiveGame(req.user!.id);
+      res.json({ gameId });
+    } catch (error: any) {
+      console.error("Error checking game status:", error);
       res.status(500).send(error.message);
     }
   });

@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { User, ImagePlus, Images, LogOut } from "lucide-react";
+import { User, ImagePlus, Images, LogOut, Swords } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useUser();
@@ -18,7 +18,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-purple-500/20 backdrop-blur-sm bg-black/30">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-          AI Image Generator
+          AI Trading Cards
         </Link>
 
         <nav className="flex items-center gap-4">
@@ -32,6 +32,12 @@ export default function Header() {
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <Images className="h-4 w-4 mr-2" />
               Gallery
+            </Button>
+          </Link>
+          <Link href="/queue">
+            <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
+              <Swords className="h-4 w-4 mr-2" />
+              Play Game
             </Button>
           </Link>
           <Link href="/profile">

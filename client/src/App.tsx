@@ -6,6 +6,7 @@ import AuthPage from "@/pages/AuthPage";
 import CreateImage from "@/pages/CreateImage";
 import Gallery from "@/pages/Gallery";
 import Profile from "@/pages/Profile";
+import GameQueue from "@/pages/GameQueue";
 import LandingPage from "@/pages/LandingPage";
 
 function App() {
@@ -45,6 +46,9 @@ function App() {
       </Route>
       <Route path="/profile">
         {user ? <Profile /> : <AuthPage />}
+      </Route>
+      <Route path="/queue">
+        {user ? <GameQueue /> : <AuthPage />}
       </Route>
       <Route component={NotFound} />
     </Switch>
