@@ -12,8 +12,8 @@ export class MatchmakingService {
         .from(tradingCards)
         .where(eq(tradingCards.userId, userId));
 
-      if (Number(userCardCount.count) < 26) {
-        throw new Error("You need at least 26 cards to play");
+      if (Number(userCardCount.count) < 8) {
+        throw new Error("You need at least 8 cards to play");
       }
 
       // Find another user with enough cards who isn't already in an active game
@@ -35,7 +35,7 @@ export class MatchmakingService {
           )
         )
         .groupBy(users.id)
-        .having(sql`count(${tradingCards.id}) >= 26`)
+        .having(sql`count(${tradingCards.id}) >= 8`)
         .limit(1);
 
       if (potentialOpponents.length === 0) {

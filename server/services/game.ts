@@ -38,20 +38,20 @@ export class WarGameService {
         })
         .returning();
 
-      // Get 26 cards from each player's collection
+      // Get 8 cards from each player's collection instead of 26
       const player1Cards = await tx.query.tradingCards.findMany({
         where: eq(tradingCards.userId, player1Id),
-        limit: 26,
+        limit: 8,
       });
 
       const player2Cards = await tx.query.tradingCards.findMany({
         where: eq(tradingCards.userId, player2Id),
-        limit: 26,
+        limit: 8,
       });
 
       // Validate that both players have enough cards
-      if (player1Cards.length < 26 || player2Cards.length < 26) {
-        throw new Error("Both players must have at least 26 cards to play");
+      if (player1Cards.length < 8 || player2Cards.length < 8) {
+        throw new Error("Both players must have at least 8 cards to play");
       }
 
       // Shuffle and assign cards to the game
@@ -59,7 +59,7 @@ export class WarGameService {
       const gameCardsData = shuffledCards.map((card, index) => ({
         gameId: game.id,
         cardId: card.id,
-        ownerId: index < 26 ? player1Id : player2Id,
+        ownerId: index < 8 ? player1Id : player2Id,
         position: 'DECK',
         order: index,
       }));
@@ -69,8 +69,8 @@ export class WarGameService {
       // Update game state with initial card counts
       const updatedGameState: GameState = {
         ...game.gameState as GameState,
-        player1Cards: 26,
-        player2Cards: 26,
+        player1Cards: 8,
+        player2Cards: 8,
       };
 
       const [updatedGame] = await tx.update(games)
