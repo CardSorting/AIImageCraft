@@ -1,0 +1,31 @@
+Warning: validateDOMNesting(...): <a> cannot appear as a descendant of &lt;a&gt;.
+    at a
+    at a
+    at https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:337:18
+    at div
+    at div
+    at header
+    at LandingHeader
+    at div
+    at LandingPage
+    at Route (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:323:16)
+    at Switch (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:379:17)
+    at App (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/src/App.tsx:29:31)
+    at QueryClientProvider (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5a4c308b:2805:3)
+at a
+at a
+at https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:337:18
+at div
+at div
+at header
+at LandingHeader
+at div
+at LandingPage
+at Route (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:323:16)
+at Switch (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5a4c308b:379:17)
+at App (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/src/App.tsx:29:31)
+at QueryClientProvider (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5a4c308b:2805:3)
+at t.value (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://718ff048-b06b-4222-bfaf-8d9dfbd84a2b-00-2ww08li5rykzh.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

@@ -7,10 +7,8 @@ export default function LandingHeader() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-purple-500/20 backdrop-blur-sm bg-black/30">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link href="/">
-            <a className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-              AI Trading Cards
-            </a>
+          <Link href="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+            AI Trading Cards
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
@@ -26,15 +24,11 @@ export default function LandingHeader() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <Link href="/auth">
-              <Button variant="ghost" className="text-purple-200 hover:text-purple-100 hover:bg-purple-500/20">
-                Log in
-              </Button>
+            <Link href="/auth" className="text-purple-200 hover:text-purple-100 hover:bg-purple-500/20 px-4 py-2 rounded-md transition-colors">
+              Log in
             </Link>
-            <Link href="/auth">
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Sign up
-              </Button>
+            <Link href="/auth" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-4 py-2 rounded-md text-white transition-colors">
+              Sign up
             </Link>
           </div>
         </div>
