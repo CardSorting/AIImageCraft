@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
@@ -10,6 +10,12 @@ import LandingPage from "@/pages/LandingPage";
 
 function App() {
   const { user, isLoading } = useUser();
+  const [location, setLocation] = useLocation();
+
+  // Redirect to gallery if user is logged in and trying to access auth page
+  if (user && location === "/auth") {
+    setLocation("/gallery");
+  }
 
   if (isLoading) {
     return (
@@ -22,16 +28,13 @@ function App() {
     );
   }
 
-  // If there's no user and we're not on the landing page, show auth page
-  if (!user && window.location.pathname !== "/") {
-    return <AuthPage />;
-  }
-
   return (
     <Switch>
       {/* Public routes */}
       <Route path="/" component={LandingPage} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/auth">
+        {user ? <Gallery /> : <AuthPage />}
+      </Route>
 
       {/* Protected routes - redirect to auth if not logged in */}
       <Route path="/create">

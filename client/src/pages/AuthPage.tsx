@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -32,6 +33,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { toast } = useToast();
   const { login, register } = useUser();
+  const [, setLocation] = useLocation();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,7 +46,7 @@ export default function AuthPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       const result = await (isLogin ? login(values) : register(values));
-      
+
       if (!result.ok) {
         toast({
           variant: "destructive",
@@ -58,6 +60,9 @@ export default function AuthPage() {
         title: isLogin ? "Login successful" : "Registration successful",
         description: isLogin ? "Welcome back!" : "Your account has been created.",
       });
+
+      // Redirect to gallery after successful login/registration
+      setLocation("/gallery");
     } catch (error: any) {
       toast({
         variant: "destructive",
