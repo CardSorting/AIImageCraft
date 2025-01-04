@@ -32,6 +32,7 @@ export class WarGameService {
             player2Cards: 0,
             isAIGame: true,
           } as GameState,
+          status: 'ACTIVE'
         })
         .returning();
 
@@ -39,6 +40,13 @@ export class WarGameService {
       const playerCards = await tx.query.tradingCards.findMany({
         where: eq(tradingCards.userId, playerId),
         limit: 8,
+        with: {
+          template: {
+            with: {
+              image: true
+            }
+          }
+        }
       });
 
       if (playerCards.length < 8) {
@@ -89,23 +97,28 @@ export class WarGameService {
       if (!game) throw new Error("Game not found");
       if (game.status === 'COMPLETED') throw new Error("Game is already completed");
 
-      const player1Card = await this.getTopCard(tx, gameId, game.player1Id);
-      const player2Card = await this.getTopCard(tx, gameId, game.player2Id);
+      const player1Cards = await this.getPlayerCards(tx, gameId, game.player1Id);
+      const player2Cards = await this.getPlayerCards(tx, gameId, game.player2Id);
 
-      if (!player1Card?.card || !player2Card?.card) {
+      const player1Card = player1Cards[0];
+      const player2Card = player2Cards[0];
+
+      if (!player1Card || !player2Card) {
         const winnerId = !player1Card ? game.player2Id : game.player1Id;
         return await this.endGame(tx, game, winnerId);
       }
 
       // Get AI's decision for narrative
-      const aiDecision = AIOpponentService.getAIDecision(player1Card.card, player2Card.card);
+      const aiDecision = game.player2Id === -1 ? 
+        AIOpponentService.getAIDecision(player1Card.card, player2Card.card) : '';
 
-      if (this.getCardValue(player1Card.card) === this.getCardValue(player2Card.card)) {
+      const player1Value = this.getCardValue(player1Card.card);
+      const player2Value = this.getCardValue(player2Card.card);
+
+      if (player1Value === player2Value) {
         return await this.handleWar(tx, game, aiDecision);
       } else {
-        const winner = this.getCardValue(player1Card.card) > this.getCardValue(player2Card.card)
-          ? game.player1Id : game.player2Id;
-
+        const winner = player1Value > player2Value ? game.player1Id : game.player2Id;
         await this.moveCardsToWinner(tx, gameId, winner, [player1Card, player2Card]);
         return await this.updateGameState(tx, game, winner, aiDecision);
       }
@@ -124,13 +137,10 @@ export class WarGameService {
     const player1FaceUp = player1Cards[player1Cards.length - 1];
     const player2FaceUp = player2Cards[player2Cards.length - 1];
 
-    if (!player1FaceUp.card || !player2FaceUp.card) {
-      throw new Error("Invalid card state during war");
-    }
+    const player1Value = this.getCardValue(player1FaceUp.card);
+    const player2Value = this.getCardValue(player2FaceUp.card);
 
-    const winner = this.getCardValue(player1FaceUp.card) > this.getCardValue(player2FaceUp.card)
-      ? game.player1Id : game.player2Id;
-
+    const winner = player1Value > player2Value ? game.player1Id : game.player2Id;
     await this.moveCardsToWinner(tx, game.id, winner, [...player1Cards, ...player2Cards]);
     return await this.updateGameState(tx, game, winner, aiDecision);
   }
@@ -140,22 +150,6 @@ export class WarGameService {
     game: SelectGame,
     winnerId: number
   ): Promise<SelectGame> {
-    const loserCards = await tx.query.gameCards.findMany({
-      where: and(
-        eq(gameCards.gameId, game.id),
-        eq(gameCards.ownerId, winnerId === game.player1Id ? game.player2Id : game.player1Id)
-      ),
-      with: {
-        card: true
-      }
-    });
-
-    for (const gameCard of loserCards) {
-      await tx.update(tradingCards)
-        .set({ userId: winnerId })
-        .where(eq(tradingCards.id, gameCard.card.id));
-    }
-
     const [updatedGame] = await tx.update(games)
       .set({ 
         status: 'COMPLETED',
@@ -168,17 +162,9 @@ export class WarGameService {
     return updatedGame;
   }
 
-  private static shuffleCards(cards: SelectTradingCard[]): SelectTradingCard[] {
-    for (let i = cards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [cards[i], cards[j]] = [cards[j], cards[i]];
-    }
-    return cards;
-  }
-
   private static getCardValue(card: SelectTradingCard): number {
     try {
-      const stats = card.powerStats as PowerStats;
+      const stats = card.template.powerStats as PowerStats;
       return (stats.attack * 2) + stats.defense + stats.speed + (stats.hp / 2);
     } catch (error) {
       console.error('Error calculating card value:', error);
@@ -186,30 +172,11 @@ export class WarGameService {
     }
   }
 
-  private static async getTopCard(
+  private static async getPlayerCards(
     tx: GameServiceTransaction,
     gameId: number,
-    playerId: number
-  ): Promise<SelectGameCard | undefined> {
-    const [card] = await tx.query.gameCards.findMany({
-      where: and(
-        eq(gameCards.gameId, gameId),
-        eq(gameCards.ownerId, playerId),
-        eq(gameCards.position, 'DECK')
-      ),
-      with: {
-        card: true
-      },
-      orderBy: (cards: any, { asc }: { asc: any }) => [asc(cards.order)],
-      limit: 1,
-    });
-    return card;
-  }
-
-  private static async getWarCards(
-    tx: GameServiceTransaction,
-    gameId: number,
-    playerId: number
+    playerId: number,
+    limit: number = 1
   ): Promise<SelectGameCard[]> {
     return await tx.query.gameCards.findMany({
       where: and(
@@ -218,11 +185,27 @@ export class WarGameService {
         eq(gameCards.position, 'DECK')
       ),
       with: {
-        card: true
+        card: {
+          with: {
+            template: {
+              with: {
+                image: true
+              }
+            }
+          }
+        }
       },
-      orderBy: (cards: any, { asc }: { asc: any }) => [asc(cards.order)],
-      limit: 4,
+      orderBy: (cards, { asc }) => [asc(cards.order)],
+      limit,
     });
+  }
+
+  private static async getWarCards(
+    tx: GameServiceTransaction,
+    gameId: number,
+    playerId: number
+  ): Promise<SelectGameCard[]> {
+    return this.getPlayerCards(tx, gameId, playerId, 4);
   }
 
   private static async moveCardsToWinner(
@@ -283,7 +266,7 @@ export class WarGameService {
       lastAction: aiDecision || `Player ${lastWinner === game.player1Id ? '1' : 'AI'} won the round`,
       player1Cards: Number(player1Cards.count),
       player2Cards: Number(player2Cards.count),
-      isAIGame: true,
+      isAIGame: game.player2Id === -1,
     };
 
     const [updatedGame] = await tx.update(games)
@@ -408,22 +391,6 @@ export class WarGameService {
     game: SelectGame,
     winnerId: number
   ): Promise<SelectGame> {
-    const loserCards = await tx.query.gameCards.findMany({
-      where: and(
-        eq(gameCards.gameId, game.id),
-        eq(gameCards.ownerId, winnerId === game.player1Id ? game.player2Id : game.player1Id)
-      ),
-      with: {
-        card: true
-      }
-    });
-
-    for (const gameCard of loserCards) {
-      await tx.update(tradingCards)
-        .set({ userId: winnerId })
-        .where(eq(tradingCards.id, gameCard.card.id));
-    }
-
     const [updatedGame] = await tx.update(games)
       .set({ 
         status: 'COMPLETED',
@@ -446,7 +413,7 @@ export class WarGameService {
 
   private static getCardValue(card: SelectTradingCard): number {
     try {
-      const stats = card.powerStats as PowerStats;
+      const stats = card.template.powerStats as PowerStats;
       return (stats.attack * 2) + stats.defense + stats.speed + (stats.hp / 2);
     } catch (error) {
       console.error('Error calculating card value:', error);
@@ -466,9 +433,17 @@ export class WarGameService {
         eq(gameCards.position, 'DECK')
       ),
       with: {
-        card: true
+        card: {
+          with: {
+            template: {
+              with: {
+                image: true
+              }
+            }
+          }
+        }
       },
-      orderBy: (cards: any, { asc }: { asc: any }) => [asc(cards.order)],
+      orderBy: (cards, { asc }) => [asc(cards.order)],
       limit: 1,
     });
     return card;
@@ -486,9 +461,17 @@ export class WarGameService {
         eq(gameCards.position, 'DECK')
       ),
       with: {
-        card: true
+        card: {
+          with: {
+            template: {
+              with: {
+                image: true
+              }
+            }
+          }
+        }
       },
-      orderBy: (cards: any, { asc }: { asc: any }) => [asc(cards.order)],
+      orderBy: (cards, { asc }) => [asc(cards.order)],
       limit: 4,
     });
   }
@@ -551,7 +534,7 @@ export class WarGameService {
       lastAction: aiDecision || `Player ${lastWinner === game.player1Id ? '1' : 'AI'} won the round`,
       player1Cards: Number(player1Cards.count),
       player2Cards: Number(player2Cards.count),
-      isAIGame: game.player2Id === -1, //Added to check if it is an AI game.
+      isAIGame: game.player2Id === -1,
     };
 
     const [updatedGame] = await tx.update(games)

@@ -1,33 +1,53 @@
 import { db } from "@db";
 import { 
   tradingCards,
-  type SelectTradingCard
+  cardTemplates,
+  type SelectTradingCard,
+  type SelectCardTemplate
 } from "@db/schema";
 import { sql } from "drizzle-orm";
+import { PowerStats } from "../types";
 
 export class AIOpponentService {
   static async buildDeck(): Promise<SelectTradingCard[]> {
-    // Fetch a random selection of cards from the global pool
-    const cards = await db.query.tradingCards.findMany({
+    const aiId = -1; // AI's user ID
+
+    // Get random card templates from the global pool
+    const templates = await db.query.cardTemplates.findMany({
       orderBy: sql`RANDOM()`,
       limit: 8, // AI needs 8 cards for a game
       with: {
-        image: true
+        image: true,
       }
     });
 
-    if (cards.length < 8) {
-      throw new Error("Not enough cards in the global pool to create an AI deck");
+    if (templates.length < 8) {
+      throw new Error("Not enough card templates in the global pool");
     }
 
-    return cards;
+    // Create temporary trading cards for the AI based on the templates
+    const aiCards = await Promise.all(templates.map(async (template) => {
+      const [card] = await db.insert(tradingCards)
+        .values({
+          templateId: template.id,
+          userId: aiId,
+        })
+        .returning();
+
+      return {
+        ...card,
+        template,
+      };
+    }));
+
+    return aiCards;
   }
 
   static getAIDecision(playerCard: SelectTradingCard, aiCard: SelectTradingCard): string {
     // Implement basic AI decision making - can be expanded for more complex strategies
-    const playerValue = this.calculateCardValue(playerCard);
-    const aiValue = this.calculateCardValue(aiCard);
-    
+    const playerValue = this.calculateCardValue(playerCard.template);
+    const aiValue = this.calculateCardValue(aiCard.template);
+
     if (aiValue > playerValue) {
       return "AI plays confidently with a stronger card";
     } else if (aiValue === playerValue) {
@@ -37,8 +57,8 @@ export class AIOpponentService {
     }
   }
 
-  private static calculateCardValue(card: SelectTradingCard): number {
-    const stats = card.powerStats as any;
+  private static calculateCardValue(template: SelectCardTemplate): number {
+    const stats = template.powerStats as PowerStats;
     return (stats.attack * 2) + stats.defense + stats.speed + (stats.hp / 2);
   }
 }
