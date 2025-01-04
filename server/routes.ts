@@ -43,18 +43,26 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
+      // Verify API key exists
+      if (!process.env.GOAPI_API_KEY) {
+        throw new Error("GOAPI_API_KEY is not configured");
+      }
+
+      console.log("Calling GoAPI with prompt:", prompt);
+
       // Call GoAPI Midjourney API to generate image
       const response = await fetch("https://api.goapi.ai/api/v1/task", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${process.env.GOAPI_API_KEY}`,
+          "Accept": "application/json"
         },
         body: JSON.stringify({
           prompt,
           model: "midjourney",
           version: "6",
-          action: "task/generate",
+          action: "generate",
           quality: 2, // High quality
           aspect_ratio: "1:1", // Square images for cards
           style: "raw", // No additional styling
@@ -62,13 +70,21 @@ export function registerRoutes(app: Express): Server {
       });
 
       if (!response.ok) {
-        throw new Error(`GoAPI error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("GoAPI error response:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`GoAPI error: ${response.status} - ${errorText || response.statusText}`);
       }
 
       const result = await response.json();
+      console.log("GoAPI response:", result);
 
       if (!result.imageUrl) {
-        throw new Error("Failed to generate image");
+        console.error("Invalid GoAPI response:", result);
+        throw new Error("Invalid response from GoAPI: Missing imageUrl");
       }
 
       // Store the image in the database
@@ -108,8 +124,16 @@ export function registerRoutes(app: Express): Server {
       return res.json({
         imageUrl: result.imageUrl,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating image:", error);
+
+      // Send more specific error messages to the client
+      if (error.message.includes("GOAPI_API_KEY")) {
+        return res.status(500).send("API configuration error");
+      } else if (error.message.includes("GoAPI error")) {
+        return res.status(500).send(error.message);
+      }
+
       res.status(500).send("Failed to generate image");
     }
   });
