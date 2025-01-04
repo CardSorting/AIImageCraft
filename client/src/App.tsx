@@ -18,6 +18,12 @@ function App() {
     setLocation("/gallery");
   }
 
+  // Redirect to auth if user is not logged in and trying to access protected routes
+  if (!user && location !== "/" && location !== "/auth") {
+    setLocation("/auth");
+    return null;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
@@ -50,7 +56,12 @@ function App() {
       <Route path="/queue">
         {user ? <GameQueue /> : <AuthPage />}
       </Route>
-      <Route component={NotFound} />
+      <Route path="/games/:id">
+        {user ? <GameQueue /> : <AuthPage />}
+      </Route>
+      <Route>
+        {() => <NotFound />}
+      </Route>
     </Switch>
   );
 }
