@@ -17,7 +17,6 @@ import {
 } from "@db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { WarGameService } from "./services/game";
-import { MatchmakingService } from "./services/matchmaking";
 
 fal.config({
   credentials: process.env.FAL_KEY,
@@ -26,14 +25,6 @@ fal.config({
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
   setupAuth(app);
-
-  const httpServer = createServer(app);
-
-  // Initialize matchmaking service
-  const matchmaking = MatchmakingService.initialize(httpServer);
-
-  // Pass matchmaking service to WarGameService for real-time updates
-  WarGameService.setMatchmakingService(matchmaking);
 
   // Middleware to check authentication for all /api routes except auth routes
   app.use("/api", (req, res, next) => {
@@ -475,5 +466,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  const httpServer = createServer(app);
   return httpServer;
 }

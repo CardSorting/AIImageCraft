@@ -10,7 +10,6 @@ import {
 } from "@db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import type { MatchmakingService } from "./matchmaking";
 
 type GameState = {
   warActive: boolean;
@@ -21,12 +20,6 @@ type GameState = {
 };
 
 export class WarGameService {
-  private static matchmakingService: MatchmakingService;
-
-  static setMatchmakingService(service: MatchmakingService) {
-    this.matchmakingService = service;
-  }
-
   static async createGame(player1Id: number, player2Id: number): Promise<SelectGame> {
     // Start a transaction to ensure data consistency
     return await db.transaction(async (tx) => {
@@ -80,17 +73,10 @@ export class WarGameService {
         player2Cards: 26,
       };
 
-      const [updatedGame] = await tx
-        .update(games)
+      const [updatedGame] = await tx.update(games)
         .set({ gameState: updatedGameState })
         .where(eq(games.id, game.id))
         .returning();
-
-      // Send initial game state to both players
-      this.matchmakingService?.broadcastGameUpdate(game.id, [player1Id, player2Id], {
-        state: updatedGameState,
-        action: "GAME_STARTED"
-      });
 
       return updatedGame;
     });
@@ -112,34 +98,14 @@ export class WarGameService {
       if (!player1Card || !player2Card) {
         // Handle game over condition
         const winnerId = !player1Card ? game.player2Id : game.player1Id;
-        const updatedGame = await this.endGame(tx, game, winnerId);
-
-        // Notify players of game end
-        this.matchmakingService?.broadcastGameUpdate(gameId, [game.player1Id, game.player2Id], {
-          state: updatedGame.gameState,
-          action: "GAME_OVER",
-          winner: winnerId
-        });
-
-        return updatedGame;
+        await this.endGame(tx, game, winnerId);
+        return game;
       }
 
       // Compare cards and handle war
       if (this.getCardValue(player1Card) === this.getCardValue(player2Card)) {
         // War scenario
-        const updatedGame = await this.handleWar(tx, game);
-
-        // Notify players of war
-        this.matchmakingService?.broadcastGameUpdate(gameId, [game.player1Id, game.player2Id], {
-          state: updatedGame.gameState,
-          action: "WAR_STARTED",
-          cards: {
-            player1: player1Card,
-            player2: player2Card
-          }
-        });
-
-        return updatedGame;
+        return await this.handleWar(tx, game);
       } else {
         // Normal turn
         const winner = this.getCardValue(player1Card) > this.getCardValue(player2Card)
@@ -150,18 +116,6 @@ export class WarGameService {
 
         // Update game state
         const updatedGame = await this.updateGameState(tx, game, winner);
-
-        // Notify players of turn result
-        this.matchmakingService?.broadcastGameUpdate(gameId, [game.player1Id, game.player2Id], {
-          state: updatedGame.gameState,
-          action: "TURN_COMPLETE",
-          winner,
-          cards: {
-            player1: player1Card,
-            player2: player2Card
-          }
-        });
-
         return updatedGame;
       }
     });
