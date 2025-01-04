@@ -35,7 +35,7 @@ export function registerRoutes(app: Express): Server {
     next();
   });
 
-  app.post("/api/generate", async (req, res) => {
+app.post("/api/generate", async (req, res) => {
     try {
       const { prompt, tags: imageTags } = req.body;
 
@@ -55,17 +55,26 @@ export function registerRoutes(app: Express): Server {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.GOAPI_API_KEY}`,
+          "x-api-key": process.env.GOAPI_API_KEY,
           "Accept": "application/json"
         },
         body: JSON.stringify({
-          prompt,
           model: "midjourney",
-          version: "6",
-          action: "generate",
-          quality: 2, // High quality
-          aspect_ratio: "1:1", // Square images for cards
-          style: "raw", // No additional styling
+          task_type: "imagine",
+          input: {
+            prompt,
+            aspect_ratio: "1:1",  // Square images for cards
+            process_mode: "fast",
+            skip_prompt_check: false,
+            bot_id: 0
+          },
+          config: {
+            service_mode: "",
+            webhook_config: {
+              endpoint: "",
+              secret: ""
+            }
+          }
         }),
       });
 
@@ -82,16 +91,16 @@ export function registerRoutes(app: Express): Server {
       const result = await response.json();
       console.log("GoAPI response:", result);
 
-      if (!result.imageUrl) {
+      if (!result.data?.url) {
         console.error("Invalid GoAPI response:", result);
-        throw new Error("Invalid response from GoAPI: Missing imageUrl");
+        throw new Error("Invalid response from GoAPI: Missing image URL");
       }
 
       // Store the image in the database
       const [newImage] = await db.insert(images)
         .values({
           userId: req.user!.id,
-          url: result.imageUrl,
+          url: result.data.url,
           prompt,
         })
         .returning();
@@ -122,7 +131,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       return res.json({
-        imageUrl: result.imageUrl,
+        imageUrl: result.data.url,
       });
     } catch (error: any) {
       console.error("Error generating image:", error);
