@@ -33,13 +33,15 @@ router.get("/", async (req, res) => {
                   creator: true,
                 },
               },
+              owner: true,
             },
           });
 
           if (!card) return null;
 
           return {
-            id: card.id,
+            id: favorite.id,
+            itemId: card.id,
             type: 'card',
             name: card.template.name,
             description: card.template.description,
@@ -51,6 +53,7 @@ router.get("/", async (req, res) => {
             },
             createdAt: card.createdAt,
             creator: card.template.creator,
+            owner: card.owner,
           };
         }
 
@@ -65,7 +68,8 @@ router.get("/", async (req, res) => {
           if (!image) return null;
 
           return {
-            id: image.id,
+            id: favorite.id,
+            itemId: image.id,
             type: 'image',
             url: image.url,
             prompt: image.prompt,
