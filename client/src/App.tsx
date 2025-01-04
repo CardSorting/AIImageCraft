@@ -6,6 +6,7 @@ import AuthPage from "@/pages/AuthPage";
 import CreateImage from "@/pages/CreateImage";
 import Gallery from "@/pages/Gallery";
 import Profile from "@/pages/Profile";
+import LandingPage from "@/pages/LandingPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -21,21 +22,33 @@ function App() {
     );
   }
 
-  if (!user) {
+  // If there's no user and we're not on the landing page, show auth page
+  if (!user && window.location.pathname !== "/") {
     return <AuthPage />;
   }
 
   return (
     <Switch>
-      <Route path="/" component={Gallery} />
-      <Route path="/create" component={CreateImage} />
-      <Route path="/gallery" component={Gallery} />
-      <Route path="/profile" component={Profile} />
+      {/* Public routes */}
+      <Route path="/" component={LandingPage} />
+      <Route path="/auth" component={AuthPage} />
+
+      {/* Protected routes - redirect to auth if not logged in */}
+      <Route path="/create">
+        {user ? <CreateImage /> : <AuthPage />}
+      </Route>
+      <Route path="/gallery">
+        {user ? <Gallery /> : <AuthPage />}
+      </Route>
+      <Route path="/profile">
+        {user ? <Profile /> : <AuthPage />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
 }
 
+// fallback 404 not found page
 function NotFound() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black">
