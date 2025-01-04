@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { fal } from "@fal-ai/client";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { images, tags, imageTags, insertImageSchema } from "@db/schema";
+import { images, tags, imageTags, tradingCards, insertTradingCardSchema } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 fal.config({
@@ -11,7 +11,6 @@ fal.config({
 });
 
 export function registerRoutes(app: Express): Server {
-  // Set up authentication routes and middleware
   setupAuth(app);
 
   app.post("/api/generate", async (req, res) => {
@@ -125,6 +124,75 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching images:", error);
       res.status(500).send("Failed to fetch images");
+    }
+  });
+
+  // Create a trading card from an existing image
+  app.post("/api/trading-cards", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Must be logged in to create trading cards");
+      }
+
+      const result = insertTradingCardSchema.safeParse({
+        ...req.body,
+        userId: req.user.id,
+      });
+
+      if (!result.success) {
+        return res
+          .status(400)
+          .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
+      }
+
+      // Verify the image exists and belongs to the user
+      const [image] = await db
+        .select()
+        .from(images)
+        .where(eq(images.id, result.data.imageId))
+        .limit(1);
+
+      if (!image) {
+        return res.status(404).send("Image not found");
+      }
+
+      if (image.userId !== req.user.id) {
+        return res.status(403).send("You can only create cards from your own images");
+      }
+
+      // Create the trading card
+      const [newCard] = await db
+        .insert(tradingCards)
+        .values(result.data)
+        .returning();
+
+      res.json(newCard);
+    } catch (error) {
+      console.error("Error creating trading card:", error);
+      res.status(500).send("Failed to create trading card");
+    }
+  });
+
+  // Get user's trading cards
+  app.get("/api/trading-cards", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).send("Must be logged in to view trading cards");
+      }
+
+      const userCards = await db.query.tradingCards.findMany({
+        where: eq(tradingCards.userId, req.user.id),
+        with: {
+          image: true,
+          creator: true,
+        },
+        orderBy: (cards, { desc }) => [desc(cards.createdAt)],
+      });
+
+      res.json(userCards);
+    } catch (error) {
+      console.error("Error fetching trading cards:", error);
+      res.status(500).send("Failed to fetch trading cards");
     }
   });
 

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
@@ -17,6 +17,18 @@ export const images = pgTable("images", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const tradingCards = pgTable("trading_cards", {
+  id: serial("id").primaryKey(),
+  imageId: integer("image_id").notNull().references(() => images.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description").notNull(), // Story/flavor text
+  elementalType: text("elemental_type").notNull(),
+  rarity: text("rarity").notNull(),
+  powerStats: jsonb("power_stats").notNull(), // Store attack, defense, etc.
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const tags = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: text("name").unique().notNull(),
@@ -31,6 +43,7 @@ export const imageTags = pgTable("image_tags", {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   images: many(images),
+  tradingCards: many(tradingCards),
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -39,6 +52,18 @@ export const imagesRelations = relations(images, ({ one, many }) => ({
     references: [users.id],
   }),
   tags: many(imageTags),
+  tradingCard: many(tradingCards),
+}));
+
+export const tradingCardsRelations = relations(tradingCards, ({ one }) => ({
+  image: one(images, {
+    fields: [tradingCards.imageId],
+    references: [images.id],
+  }),
+  creator: one(users, {
+    fields: [tradingCards.userId],
+    references: [users.id],
+  }),
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -63,6 +88,9 @@ export const selectUserSchema = createSelectSchema(users);
 export const insertImageSchema = createInsertSchema(images);
 export const selectImageSchema = createSelectSchema(images);
 
+export const insertTradingCardSchema = createInsertSchema(tradingCards);
+export const selectTradingCardSchema = createSelectSchema(tradingCards);
+
 export const insertTagSchema = createInsertSchema(tags);
 export const selectTagSchema = createSelectSchema(tags);
 
@@ -75,6 +103,9 @@ export type SelectUser = typeof users.$inferSelect;
 
 export type InsertImage = typeof images.$inferInsert;
 export type SelectImage = typeof images.$inferSelect;
+
+export type InsertTradingCard = typeof tradingCards.$inferInsert;
+export type SelectTradingCard = typeof tradingCards.$inferSelect;
 
 export type InsertTag = typeof tags.$inferInsert;
 export type SelectTag = typeof tags.$inferSelect;
