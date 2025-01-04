@@ -26,11 +26,15 @@ function FavoriteButton({ cardId }: { cardId: number }) {
         credentials: 'include',
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
 
       const data = await res.json();
       setFavorited(data.favorited);
 
+      // Invalidate both favorites and trading cards queries
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
 
@@ -43,8 +47,8 @@ function FavoriteButton({ cardId }: { cardId: number }) {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message,
+        title: "Error favoriting card",
+        description: error.message || "Failed to toggle favorite status",
       });
     }
   };

@@ -435,12 +435,26 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/favorites/:cardId", async (req, res) => {
     try {
       const { cardId } = req.params;
+      const cardIdNum = parseInt(cardId);
+
+      if (isNaN(cardIdNum)) {
+        return res.status(400).send("Invalid card ID format");
+      }
+
+      // First verify the card exists
+      const card = await db.query.tradingCards.findFirst({
+        where: eq(tradingCards.id, cardIdNum),
+      });
+
+      if (!card) {
+        return res.status(404).send("Card not found");
+      }
 
       // Check if already favorited
       const existing = await db.query.favorites.findFirst({
         where: and(
           eq(favorites.userId, req.user!.id),
-          eq(favorites.cardId, parseInt(cardId))
+          eq(favorites.cardId, cardIdNum)
         ),
       });
 
@@ -454,7 +468,7 @@ export function registerRoutes(app: Express): Server {
         await db.insert(favorites)
           .values({
             userId: req.user!.id,
-            cardId: parseInt(cardId),
+            cardId: cardIdNum,
           });
         res.json({ favorited: true });
       }
