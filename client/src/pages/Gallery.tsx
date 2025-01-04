@@ -104,45 +104,27 @@ function TradingCardGallery() {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       {cards.map((card) => (
         <div key={card.id} className="relative group perspective-1000">
-          {/* Card container with enhanced 3D hover effect */}
           <div className="relative preserve-3d transition-all duration-500 group-hover:rotate-y-10">
-            {/* Card frame with improved styling */}
             <div className={`
-              relative rounded-xl w-full max-w-[300px] mx-auto aspect-[2.5/3.5] overflow-hidden
+              relative rounded-[18px] w-full max-w-[300px] mx-auto aspect-[2.5/3.5] overflow-hidden
               ${getElementalTypeStyle(card.elementalType)}
               transform transition-all duration-300 group-hover:scale-105
               shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(0,0,0,0.4)]
-              before:absolute before:inset-[1px] before:rounded-[10px] before:bg-gradient-to-b before:from-white/10 before:to-transparent before:z-10
             `}>
-              {/* Holographic effect overlay */}
+              <div className="absolute inset-[2px] rounded-[16px] bg-gradient-to-b from-white/10 to-transparent z-10" />
               <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-              {/* Card content container */}
-              <div className="relative h-full bg-gradient-to-b from-black/40 via-black/50 to-black/60 backdrop-blur-sm">
-                {/* Card header */}
-                <div className="absolute top-0 left-0 right-0 p-3 z-20">
-                  <div className="flex justify-between items-start">
-                    {/* Card name with decorative underline */}
-                    <div className="relative">
-                      <h3 className="text-lg font-bold text-white leading-tight tracking-tight">
-                        {card.name}
-                      </h3>
-                      <div className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-                    </div>
-                    {/* Element type badge */}
-                    <span className={`
-                      px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                      ${getElementalTypeBadgeStyle(card.elementalType)}
-                      shadow-sm backdrop-blur-sm
-                    `}>
-                      {card.elementalType}
-                    </span>
-                  </div>
+              <div className="card-frame h-full p-3 flex flex-col">
+                <div className="card-header flex justify-between items-center bg-gradient-to-r from-black/60 to-black/40 p-2 rounded-t-md mb-1">
+                  <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                  <span className={`
+                    px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                    ${getElementalTypeBadgeStyle(card.elementalType)}
+                    shadow-sm backdrop-blur-sm
+                  `}>
+                    {card.elementalType}
+                  </span>
                 </div>
-
-                {/* Card image section with improved framing */}
-                <div className="relative h-[60%] mt-12 mx-4">
-                  {/* Decorative corner frames with enhanced styling */}
+                <div className="relative flex-grow mb-1">
                   <div className="absolute top-0 left-0 w-8 h-8">
                     <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-white/60 to-transparent" />
                     <div className="absolute top-0 left-0 h-full w-[2px] bg-gradient-to-b from-white/60 to-transparent" />
@@ -159,9 +141,7 @@ function TradingCardGallery() {
                     <div className="absolute bottom-0 right-0 w-full h-[2px] bg-gradient-to-l from-white/60 to-transparent" />
                     <div className="absolute bottom-0 right-0 h-full w-[2px] bg-gradient-to-t from-white/60 to-transparent" />
                   </div>
-
-                  {/* Image with enhanced container */}
-                  <div className="relative h-full rounded-lg overflow-hidden">
+                  <div className="w-[90%] h-full mx-auto relative rounded-lg overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
                     <img
                       src={card.image.url}
@@ -170,55 +150,42 @@ function TradingCardGallery() {
                     />
                   </div>
                 </div>
-
-                {/* Card info section with improved layout */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
-                  {/* Rarity indicator with enhanced styling */}
-                  <div className={`
-                    absolute -top-3 right-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                    ${getRarityStyle(card.rarity)}
-                    shadow-lg backdrop-blur-sm border border-white/10
-                  `}>
-                    {card.rarity}
-                  </div>
-
-                  {/* Description box with improved styling */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="relative border border-white/10 rounded-lg bg-black/40 backdrop-blur-sm p-2.5">
-                      <p className="text-purple-200/90 text-xs italic line-clamp-2 leading-relaxed">
-                        {card.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats grid with improved visual hierarchy */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <StatDisplay
-                      icon={<Swords className="w-4 h-4" />}
-                      label="ATK"
-                      value={card.powerStats.attack}
-                      color="red"
-                    />
-                    <StatDisplay
-                      icon={<Shield className="w-4 h-4" />}
-                      label="DEF"
-                      value={card.powerStats.defense}
-                      color="blue"
-                    />
-                    <StatDisplay
-                      icon={<Zap className="w-4 h-4" />}
-                      label="SPD"
-                      value={card.powerStats.speed}
-                      color="yellow"
-                    />
-                    <StatDisplay
-                      icon={<Sparkles className="w-4 h-4" />}
-                      label="MAG"
-                      value={card.powerStats.magic}
-                      color="purple"
-                    />
-                  </div>
+                <div className="bg-gradient-to-r from-black/60 to-black/40 p-2 text-sm rounded-md mb-1">
+                  <p className="text-purple-200/90 text-xs italic leading-relaxed">
+                    {card.description}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatDisplay
+                    icon={<Swords className="w-4 h-4" />}
+                    label="ATK"
+                    value={card.powerStats.attack}
+                    color="red"
+                  />
+                  <StatDisplay
+                    icon={<Shield className="w-4 h-4" />}
+                    label="DEF"
+                    value={card.powerStats.defense}
+                    color="blue"
+                  />
+                  <StatDisplay
+                    icon={<Zap className="w-4 h-4" />}
+                    label="SPD"
+                    value={card.powerStats.speed}
+                    color="yellow"
+                  />
+                  <StatDisplay
+                    icon={<Sparkles className="w-4 h-4" />}
+                    label="MAG"
+                    value={card.powerStats.magic}
+                    color="purple"
+                  />
+                </div>
+                <div className={`
+                  mt-1 px-3 py-1 text-xs font-bold uppercase tracking-wider text-center rounded-md
+                  ${getRarityStyle(card.rarity)}
+                `}>
+                  {card.rarity}
                 </div>
               </div>
             </div>
@@ -229,15 +196,14 @@ function TradingCardGallery() {
   );
 }
 
-// Helper components with enhanced styling
-function StatDisplay({ 
-  icon, 
-  label, 
-  value, 
-  color 
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
+function StatDisplay({
+  icon,
+  label,
+  value,
+  color
+}: {
+  icon: React.ReactNode;
+  label: string;
   value: number;
   color: 'red' | 'blue' | 'yellow' | 'purple';
 }) {
@@ -318,7 +284,6 @@ export default function Gallery() {
         <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
           Your Collection
         </h1>
-
         <Tabs defaultValue="images" className="w-full">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
             <TabsTrigger value="images" className="text-white">
