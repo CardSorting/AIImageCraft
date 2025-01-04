@@ -101,46 +101,24 @@ function TradingCardGallery() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       {cards.map((card) => (
         <div key={card.id} className="relative group perspective-1000">
           {/* Card container with 3D hover effect */}
           <div className="relative preserve-3d transition-transform duration-500 group-hover:rotate-y-10">
             {/* Card frame based on elemental type */}
             <div className={`
-              relative rounded-lg overflow-hidden
+              relative rounded-xl w-full max-w-[300px] mx-auto aspect-[2.5/3.5] overflow-hidden
               ${getElementalTypeStyle(card.elementalType)}
               transform transition-transform duration-300 group-hover:scale-105
               shadow-xl hover:shadow-2xl
             `}>
-              {/* Rarity indicator */}
-              <div className={`
-                absolute top-2 right-2 z-10 px-3 py-1 rounded-full
-                text-xs font-bold
-                ${getRarityStyle(card.rarity)}
-              `}>
-                {card.rarity}
-              </div>
-
               {/* Card content */}
-              <div className="relative bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-sm">
-                {/* Card image */}
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <img
-                    src={card.image.url}
-                    alt={card.name}
-                    className="w-full h-48 object-cover"
-                  />
-                </div>
-
-                {/* Card info */}
-                <div className="p-4 space-y-3">
-                  {/* Card name and type */}
+              <div className="relative h-full bg-gradient-to-b from-black/40 to-black/60 backdrop-blur-sm">
+                {/* Card header with name and type */}
+                <div className="absolute top-0 left-0 right-0 p-3 z-10">
                   <div className="flex justify-between items-start">
-                    <h3 className="text-xl font-bold text-white leading-tight">
-                      {card.name}
-                    </h3>
+                    <h3 className="text-lg font-bold text-white leading-tight">{card.name}</h3>
                     <span className={`
                       px-2 py-1 rounded text-xs font-semibold
                       ${getElementalTypeBadgeStyle(card.elementalType)}
@@ -148,14 +126,42 @@ function TradingCardGallery() {
                       {card.elementalType}
                     </span>
                   </div>
+                </div>
 
-                  {/* Card description */}
-                  <p className="text-purple-200/80 text-sm italic border-t border-purple-500/20 pt-2">
-                    {card.description}
-                  </p>
+                {/* Card image section */}
+                <div className="relative h-[55%] mt-2">
+                  {/* Decorative frame corners */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-white/30 rounded-tl-lg" />
+                  <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-white/30 rounded-tr-lg" />
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-l-2 border-b-2 border-white/30 rounded-bl-lg" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-r-2 border-b-2 border-white/30 rounded-br-lg" />
+
+                  <img
+                    src={card.image.url}
+                    alt={card.name}
+                    className="w-[92%] h-full mx-auto object-cover rounded-lg"
+                  />
+                </div>
+
+                {/* Card info section */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
+                  {/* Rarity indicator */}
+                  <div className={`
+                    absolute -top-3 right-3 px-3 py-1 rounded-full text-xs font-bold
+                    ${getRarityStyle(card.rarity)}
+                  `}>
+                    {card.rarity}
+                  </div>
+
+                  {/* Description */}
+                  <div className="border border-white/10 rounded-lg bg-black/30 p-2">
+                    <p className="text-purple-200/80 text-xs italic line-clamp-2">
+                      {card.description}
+                    </p>
+                  </div>
 
                   {/* Stats grid */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-purple-500/20">
+                  <div className="grid grid-cols-2 gap-1.5">
                     <StatDisplay
                       icon={<Swords className="w-4 h-4" />}
                       label="ATK"
@@ -190,10 +196,10 @@ function TradingCardGallery() {
 // Helper components and functions
 function StatDisplay({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="flex items-center gap-1 text-sm">
+    <div className="flex items-center gap-1 bg-black/30 rounded p-1 border border-white/10">
       {icon}
-      <span className="text-purple-300/70">{label}:</span>
-      <span className="text-white font-semibold">{value}</span>
+      <span className="text-purple-300/70 text-xs">{label}:</span>
+      <span className="text-white font-semibold text-xs">{value}</span>
     </div>
   );
 }
