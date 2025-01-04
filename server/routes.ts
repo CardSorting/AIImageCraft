@@ -2,13 +2,43 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { images } from "@db/schema";
+import { 
+  images, 
+  tags, 
+  imageTags, 
+  tradingCards, 
+  trades,
+  tradeItems,
+  games,
+  gameCards,
+  insertTradingCardSchema,
+  insertTradeSchema,
+} from "@db/schema";
+import { eq, and, or, inArray } from "drizzle-orm";
+import { WarGameService } from "./services/game";
+import { MatchmakingService } from "./services/matchmaking";
 import { TaskManager } from "./services/redis";
 
 export function registerRoutes(app: Express): Server {
+  // Set up authentication routes first
+  setupAuth(app);
+
+  // Middleware to check authentication for all /api routes except auth routes
+  app.use("/api", (req, res, next) => {
+    // Skip auth check for auth-related endpoints
+    if (req.path.startsWith("/auth") || req.path === "/user") {
+      return next();
+    }
+
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Must be logged in to access this resource");
+    }
+    next();
+  });
+
   app.post("/api/generate", async (req, res) => {
     try {
-      const { prompt } = req.body;
+      const { prompt, tags: imageTags } = req.body;
 
       if (!prompt) {
         return res.status(400).send("Prompt is required");
@@ -39,7 +69,7 @@ export function registerRoutes(app: Express): Server {
             bot_id: 0
           },
           config: {
-            service_mode: "private",
+            service_mode: "",
             webhook_config: {
               endpoint: `${process.env.PUBLIC_URL}/api/webhook/generation`,
               secret: process.env.WEBHOOK_SECRET || ""
@@ -89,91 +119,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Endpoint to check task status
-  app.get("/api/tasks/:taskId", async (req, res) => {
-    try {
-      const { taskId } = req.params;
-      const taskData = await TaskManager.getTask(taskId);
-
-      if (!taskData) {
-        return res.status(404).send("Task not found");
-      }
-
-      // Check status directly from GoAPI
-      const response = await fetch(`https://api.goapi.ai/api/v1/task/${taskId}`, {
-        headers: {
-          "x-api-key": process.env.GOAPI_API_KEY!,
-          "Accept": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to check GoAPI status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("GoAPI status check response:", result);
-
-      if (result.data?.status === "completed" && result.data?.output?.image_urls) {
-        // Store all image variations in the database
-        const imageRecords = await Promise.all(
-          result.data.output.image_urls.map(async (url: string, index: number) => {
-            const [newImage] = await db.insert(images)
-              .values({
-                userId: taskData.userId,
-                url,
-                prompt: taskData.prompt,
-                variationIndex: index
-              })
-              .returning();
-            return newImage;
-          })
-        );
-
-        // Update task in Redis with all image variations
-        const updatedTask = {
-          ...taskData,
-          status: "completed",
-          imageUrls: result.data.output.image_urls,
-          prompt: taskData.prompt
-        };
-        await TaskManager.updateTask(taskId, updatedTask);
-        return res.json(updatedTask);
-      } else if (result.data?.status === "failed") {
-        // Update task in Redis with the failed status
-        const updatedTask = {
-          ...taskData,
-          status: "failed",
-          error: result.data.error?.message || "Task failed"
-        };
-        await TaskManager.updateTask(taskId, updatedTask);
-        return res.json(updatedTask);
-      }
-
-      // Still pending
-      return res.json({
-        ...taskData,
-        status: "pending"
-      });
-
-    } catch (error) {
-      console.error("Error checking task status:", error);
-      res.status(500).send("Failed to check task status");
-    }
-  });
-  // Middleware to check authentication for all /api routes except auth routes
-  app.use("/api", (req, res, next) => {
-    // Skip auth check for auth-related endpoints
-    if (req.path.startsWith("/auth") || req.path === "/user") {
-      return next();
-    }
-
-    if (!req.isAuthenticated()) {
-      return res.status(401).send("Must be logged in to access this resource");
-    }
-    next();
-  });
-
+  // Webhook endpoint for image generation completion
   app.post("/api/webhook/generation", async (req, res) => {
     try {
       const { task_id, status, output, error } = req.body;
@@ -197,7 +143,7 @@ export function registerRoutes(app: Express): Server {
             const [newImage] = await db.insert(images)
               .values({
                 userId: taskData.userId,
-                url,
+                url: url,
                 prompt: taskData.prompt,
                 variationIndex: index
               })
@@ -226,6 +172,28 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error processing webhook:", error);
       res.status(500).send("Internal server error");
+    }
+  });
+
+  // Endpoint to check task status
+  app.get("/api/tasks/:taskId", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const taskData = await TaskManager.getTask(taskId);
+
+      if (!taskData) {
+        return res.status(404).send("Task not found");
+      }
+
+      // Verify task ownership
+      if (taskData.userId !== req.user!.id) {
+        return res.status(403).send("Unauthorized");
+      }
+
+      res.json(taskData);
+    } catch (error) {
+      console.error("Error checking task status:", error);
+      res.status(500).send("Failed to check task status");
     }
   });
 
