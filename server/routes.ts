@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { fal } from "@fal-ai/client";
 import { setupAuth } from "./auth";
 import { db } from "@db";
 import { 
@@ -18,10 +17,6 @@ import {
 import { eq, and, or, inArray } from "drizzle-orm";
 import { WarGameService } from "./services/game";
 import { MatchmakingService } from "./services/matchmaking";
-
-fal.config({
-  credentials: process.env.FAL_KEY,
-});
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -48,19 +43,31 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
-      const result = await fal.subscribe("fal-ai/recraft-v3", {
-        input: {
+      // Call GoAPI Midjourney API to generate image
+      const response = await fetch("https://api.goapi.ai/api/v1/task", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.GOAPI_API_KEY}`,
+        },
+        body: JSON.stringify({
           prompt,
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            console.log("Generation progress:", update.logs.map((log) => log.message));
-          }
-        },
+          model: "midjourney",
+          version: "6",
+          action: "task/generate",
+          quality: 2, // High quality
+          aspect_ratio: "1:1", // Square images for cards
+          style: "raw", // No additional styling
+        }),
       });
 
-      if (!result.data?.images?.[0]?.url) {
+      if (!response.ok) {
+        throw new Error(`GoAPI error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.imageUrl) {
         throw new Error("Failed to generate image");
       }
 
@@ -68,7 +75,7 @@ export function registerRoutes(app: Express): Server {
       const [newImage] = await db.insert(images)
         .values({
           userId: req.user!.id,
-          url: result.data.images[0].url,
+          url: result.imageUrl,
           prompt,
         })
         .returning();
@@ -99,7 +106,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       return res.json({
-        imageUrl: result.data.images[0].url,
+        imageUrl: result.imageUrl,
       });
     } catch (error) {
       console.error("Error generating image:", error);
