@@ -6,6 +6,7 @@ export type GameState = {
   lastAction: string;
   player1Cards: number;
   player2Cards: number;
+  isAIGame?: boolean;
 };
 
 export type PowerStats = {

@@ -13,7 +13,7 @@ import {
   insertTradeSchema,
 } from "@db/schema";
 import { WarGameService } from "./services/game/war/war.service";
-import { MatchmakingService } from "./services/game/matchmaking/matchmaking.service";
+import { AIOpponentService } from "./services/game/ai/ai-opponent.service";
 import taskRoutes from "./routes/tasks";
 import { TaskService } from "./services/task";
 
@@ -323,16 +323,10 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // War Game routes
+  // Updated War Game routes
   app.post("/api/games", async (req, res) => {
     try {
-      const { opponentId } = req.body;
-
-      if (!opponentId) {
-        return res.status(400).send("Opponent ID is required");
-      }
-
-      const game = await WarGameService.createGame(req.user!.id, opponentId);
+      const game = await WarGameService.createGameWithAI(req.user!.id);
       res.json(game);
     } catch (error: any) {
       console.error("Error creating game:", error);
@@ -408,26 +402,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Matchmaking routes
-  app.post("/api/matchmaking", async (req, res) => {
-    try {
-      const gameId = await MatchmakingService.findMatch(req.user!.id);
-      res.json({ gameId });
-    } catch (error: any) {
-      console.error("Error in matchmaking:", error);
-      res.status(500).send(error.message);
-    }
-  });
-
-  app.get("/api/matchmaking/status", async (req, res) => {
-    try {
-      const gameId = await MatchmakingService.getActiveGame(req.user!.id);
-      res.json({ gameId });
-    } catch (error: any) {
-      console.error("Error checking game status:", error);
-      res.status(500).send(error.message);
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;
