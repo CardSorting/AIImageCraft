@@ -158,14 +158,22 @@ export class WarGameService {
 
   private static async endGame(tx: any, game: SelectGame, winnerId: number): Promise<SelectGame> {
     // Transfer all cards to winner's collection
-    await tx.update(tradingCards)
-      .set({ userId: winnerId })
-      .where(
-        and(
-          eq(gameCards.gameId, game.id),
-          eq(gameCards.ownerId, winnerId === game.player1Id ? game.player2Id : game.player1Id)
-        )
-      );
+    const loserCards = await tx.query.gameCards.findMany({
+      where: and(
+        eq(gameCards.gameId, game.id),
+        eq(gameCards.ownerId, winnerId === game.player1Id ? game.player2Id : game.player1Id)
+      ),
+      with: {
+        card: true
+      }
+    });
+
+    // Update ownership of cards
+    for (const gameCard of loserCards) {
+      await tx.update(tradingCards)
+        .set({ userId: winnerId })
+        .where(eq(tradingCards.id, gameCard.card.id));
+    }
 
     // Update game status
     const [updatedGame] = await tx.update(games)
@@ -208,7 +216,10 @@ export class WarGameService {
         eq(gameCards.ownerId, playerId),
         eq(gameCards.position, 'DECK')
       ),
-      orderBy: (cards: any, { asc }: any) => [asc(cards.order)],
+      with: {
+        card: true
+      },
+      orderBy: (cards, { asc }) => [asc(cards.order)],
       limit: 1,
     });
     return card;
@@ -221,7 +232,10 @@ export class WarGameService {
         eq(gameCards.ownerId, playerId),
         eq(gameCards.position, 'DECK')
       ),
-      orderBy: (cards: any, { asc }: any) => [asc(cards.order)],
+      with: {
+        card: true
+      },
+      orderBy: (cards, { asc }) => [asc(cards.order)],
       limit: 4,
     });
   }
