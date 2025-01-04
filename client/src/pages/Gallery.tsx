@@ -5,8 +5,15 @@ import ImageCard from "@/components/ImageCard";
 import { Button } from "@/components/ui/button";
 import { Loader2, ImagePlus } from "lucide-react";
 
+interface Image {
+  url: string;
+  prompt: string;
+  tags: string[];
+  createdAt: string;
+}
+
 export default function Gallery() {
-  const { data: images, isLoading } = useQuery({
+  const { data: images, isLoading } = useQuery<Image[]>({
     queryKey: ["/api/images"],
   });
 
@@ -42,8 +49,12 @@ export default function Gallery() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {images.map((image: { url: string }, index: number) => (
-              <ImageCard key={index} imageUrl={image.url} />
+            {images.map((image, index) => (
+              <ImageCard 
+                key={index} 
+                imageUrl={image.url} 
+                tags={image.tags}
+              />
             ))}
           </div>
         )}
