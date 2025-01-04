@@ -2,6 +2,7 @@ import { Switch, Route, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
+import { useEffect } from "react";
 import AuthPage from "@/pages/AuthPage";
 import CreateImage from "@/pages/CreateImage";
 import Gallery from "@/pages/Gallery";
@@ -13,16 +14,18 @@ function App() {
   const { user, isLoading } = useUser();
   const [location, setLocation] = useLocation();
 
-  // Redirect to gallery if user is logged in and trying to access auth page
-  if (user && location === "/auth") {
-    setLocation("/gallery");
-  }
+  useEffect(() => {
+    // Redirect to gallery if user is logged in and trying to access auth page
+    if (user && location === "/auth") {
+      setLocation("/gallery");
+      return;
+    }
 
-  // Redirect to auth if user is not logged in and trying to access protected routes
-  if (!user && location !== "/" && location !== "/auth") {
-    setLocation("/auth");
-    return null;
-  }
+    // Redirect to auth if user is not logged in and trying to access protected routes
+    if (!user && !isLoading && location !== "/" && location !== "/auth") {
+      setLocation("/auth");
+    }
+  }, [user, location, isLoading]);
 
   if (isLoading) {
     return (
@@ -43,7 +46,7 @@ function App() {
         {user ? <Gallery /> : <AuthPage />}
       </Route>
 
-      {/* Protected routes - redirect to auth if not logged in */}
+      {/* Protected routes */}
       <Route path="/create">
         {user ? <CreateImage /> : <AuthPage />}
       </Route>
