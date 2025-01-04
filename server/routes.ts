@@ -121,13 +121,13 @@ app.post("/api/generate", async (req, res) => {
         }
 
         const statusResult = await statusResponse.json();
-        console.log(`Task status check ${attempts}:`, statusResult.status);
+        console.log(`Task status check ${attempts}:`, statusResult.data.status);
 
-        if (statusResult.status === 'completed' && statusResult.output?.image_url) {
-          imageUrl = statusResult.output.image_url;
+        if (statusResult.data.status === 'completed' && statusResult.data.output?.image_url) {
+          imageUrl = statusResult.data.output.image_url;
           break;
-        } else if (statusResult.status === 'failed') {
-          throw new Error("Image generation failed: " + (statusResult.error?.message || "Unknown error"));
+        } else if (statusResult.data.status === 'failed') {
+          throw new Error("Image generation failed: " + (statusResult.data.error?.message || "Unknown error"));
         }
       }
 
