@@ -1,15 +1,86 @@
-import { useState } from "react";
+import { useState, useEffect as ReactuseEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Copy, RefreshCw, Sparkles, Trophy, Users } from "lucide-react";
+import { Copy, RefreshCw, Sparkles, Trophy, Users, Lock, Star, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useReferral } from "../hooks/use-credits";
 import { ReferralQRCode } from "./ReferralQRCode";
+import { motion, AnimatePresence } from "framer-motion";
+
+const TierBadge = ({ tier, isActive, isLocked, bonus }: { 
+  tier: number; 
+  isActive: boolean; 
+  isLocked: boolean;
+  bonus: number;
+}) => (
+  <motion.div
+    initial={{ scale: 0.8, opacity: 0 }}
+    animate={{ scale: 1, opacity: 1 }}
+    className={`relative rounded-lg p-4 ${
+      isActive 
+        ? "bg-gradient-to-br from-purple-600 to-blue-600 text-white" 
+        : isLocked
+          ? "bg-gray-800/50 text-gray-400"
+          : "bg-purple-950/30 text-purple-300"
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      {isLocked ? (
+        <Lock className="w-5 h-5" />
+      ) : (
+        <Trophy className={`w-5 h-5 ${isActive ? "text-yellow-300" : ""}`} />
+      )}
+      <span className="font-bold">Tier {tier}</span>
+    </div>
+    <div className="mt-2 text-sm">
+      {isLocked ? (
+        "Locked"
+      ) : (
+        <>
+          <Star className="inline-block w-4 h-4 mr-1 text-yellow-300" />
+          {bonus} credits per referral
+        </>
+      )}
+    </div>
+    {isActive && (
+      <motion.div
+        className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500"
+        initial={{ scale: 0 }}
+        animate={{ scale: [0, 1.2, 1] }}
+        transition={{ duration: 0.3 }}
+      />
+    )}
+  </motion.div>
+);
+
+const RewardAnimation = ({ show }: { show: boolean }) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        initial={{ scale: 0, y: 50 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0, y: -50 }}
+        className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+      >
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-8 rounded-2xl shadow-xl">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, ease: "linear" }}
+          >
+            <Gift className="w-16 h-16 text-white" />
+          </motion.div>
+          <p className="mt-4 text-xl font-bold text-white text-center">New Tier Unlocked!</p>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export function ReferralCode() {
   const [showInput, setShowInput] = useState(false);
   const [referralToUse, setReferralToUse] = useState("");
+  const [showReward, setShowReward] = useState(false);
   const { toast } = useToast();
   const {
     referralCode,
@@ -56,47 +127,122 @@ export function ReferralCode() {
 
   const nextTierProgress = referralStats ? 
     (referralStats.referralCount % 5) / 5 * 100 : 0;
-  const currentTier = referralStats ? 
-    Math.floor(referralStats.referralCount / 5) + 1 : 1;
+
+  const currentTier = referralStats ? Math.floor(referralStats.referralCount / 5) + 1 : 1;
+
+  // Show reward animation when tier changes
+  ReactuseEffect(() => {
+    if (referralStats?.referralCount && referralStats.referralCount % 5 === 0) {
+      setShowReward(true);
+      setTimeout(() => setShowReward(false), 3000);
+    }
+  }, [referralStats?.referralCount]);
 
   return (
     <div className="space-y-6">
-      {/* Referral Stats */}
+      <RewardAnimation show={showReward} />
+
+      {/* Tier Badges */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((tier) => (
+          <TierBadge
+            key={tier}
+            tier={tier}
+            isActive={currentTier === tier}
+            isLocked={currentTier < tier}
+            bonus={
+              tier === 1 ? 5 :
+              tier === 2 ? 7 :
+              tier === 3 ? 10 :
+              15
+            }
+          />
+        ))}
+      </div>
+
+      {/* Stats Cards */}
       {referralStats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3"
+          >
             <Users className="w-5 h-5 text-purple-400" />
             <div>
               <p className="text-sm text-purple-300/70">Total Referrals</p>
-              <p className="text-2xl font-bold text-white">{referralStats.referralCount}</p>
+              <motion.p
+                key={referralStats.referralCount}
+                initial={{ scale: 1.2, color: "#A855F7" }}
+                animate={{ scale: 1, color: "#FFFFFF" }}
+                className="text-2xl font-bold"
+              >
+                {referralStats.referralCount}
+              </motion.p>
             </div>
-          </div>
-          <div className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3">
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3"
+          >
             <Sparkles className="w-5 h-5 text-purple-400" />
             <div>
               <p className="text-sm text-purple-300/70">Credits Earned</p>
-              <p className="text-2xl font-bold text-white">{referralStats.creditsEarned}</p>
+              <motion.p
+                key={referralStats.creditsEarned}
+                initial={{ scale: 1.2, color: "#A855F7" }}
+                animate={{ scale: 1, color: "#FFFFFF" }}
+                className="text-2xl font-bold"
+              >
+                {referralStats.creditsEarned}
+              </motion.p>
             </div>
-          </div>
-          <div className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3">
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="bg-purple-950/30 rounded-lg p-4 flex items-center gap-3"
+          >
             <Trophy className="w-5 h-5 text-purple-400" />
             <div>
               <p className="text-sm text-purple-300/70">Current Tier</p>
-              <p className="text-2xl font-bold text-white">{currentTier}</p>
+              <motion.p
+                key={currentTier}
+                initial={{ scale: 1.2, color: "#A855F7" }}
+                animate={{ scale: 1, color: "#FFFFFF" }}
+                className="text-2xl font-bold"
+              >
+                {currentTier}
+              </motion.p>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* Progress to Next Tier */}
       {referralStats && (
-        <div className="space-y-2">
+        <motion.div 
+          className="space-y-2"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <div className="flex justify-between text-sm text-purple-300/70">
             <span>Progress to Tier {currentTier + 1}</span>
             <span>{referralStats.referralCount % 5}/5 referrals</span>
           </div>
-          <Progress value={nextTierProgress} className="h-2" />
-        </div>
+          <div className="relative">
+            <Progress value={nextTierProgress} className="h-2" />
+            <motion.div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500/20 to-blue-500/20"
+              style={{ width: `${nextTierProgress}%` }}
+              animate={{
+                opacity: [0.5, 1, 0.5],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+              }}
+            />
+          </div>
+        </motion.div>
       )}
 
       {/* Referral Code Management */}
