@@ -11,6 +11,7 @@ import GameQueue from "@/pages/GameQueue";
 import LandingPage from "@/pages/LandingPage";
 import TradingCardsPage from "@/features/trading-cards/pages/TradingCardsPage";
 import CreateTradingCardPage from "@/features/trading-cards/pages/CreateTradingCardPage";
+import { DailyChallengesPage } from "@/pages/DailyChallengesPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -69,6 +70,9 @@ function App() {
       </Route>
       <Route path="/games/:id">
         {user ? <GameQueue /> : <AuthPage />}
+      </Route>
+      <Route path="/challenges">
+        {user ? <DailyChallengesPage /> : <AuthPage />}
       </Route>
       <Route>
         {() => <NotFound />}
