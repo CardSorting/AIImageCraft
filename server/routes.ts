@@ -41,6 +41,42 @@ export function registerRoutes(app: Express): Server {
   // Register trading card routes
   app.use("/api/trading-cards", tradingCardRoutes);
 
+  // Get a single image by ID
+  app.get("/api/images/:id", async (req, res) => {
+    try {
+      const imageId = parseInt(req.params.id);
+
+      const [image] = await db.query.images.findMany({
+        where: and(
+          eq(images.id, imageId),
+          eq(images.userId, req.user!.id)
+        ),
+        with: {
+          tags: {
+            with: {
+              tag: true,
+            },
+          },
+        },
+      });
+
+      if (!image) {
+        return res.status(404).send("Image not found");
+      }
+
+      // Transform the data to include tag names directly
+      const transformedImage = {
+        ...image,
+        tags: image.tags.map(t => t.tag.name),
+      };
+
+      res.json(transformedImage);
+    } catch (error: any) {
+      console.error("Error fetching image:", error);
+      res.status(500).send("Failed to fetch image");
+    }
+  });
+
   // Image generation endpoint
   app.post("/api/generate", async (req, res) => {
     try {
