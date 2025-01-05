@@ -31,6 +31,17 @@ interface CardGridProps {
   cards: TradingCard[];
 }
 
+interface CardPack {
+  id: number;
+  name: string;
+  description?: string;
+  cards?: Array<{
+    id: number;
+    name: string;
+    image: { url: string };
+  }>;
+}
+
 type SortOption = {
   label: string;
   value: string;
@@ -185,10 +196,45 @@ export function CardGrid({ cards }: CardGridProps) {
   };
 
   const handlePackSelect = (packId: string) => {
-    setSelectedPackId(packId);
-    if (packId) {
-      addCardsToPack({ packId: parseInt(packId) });
+    // Pre-validate before attempting to add cards
+    const targetPack = cardPacks?.find(p => p.id === parseInt(packId));
+    if (!targetPack) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Selected pack not found",
+      });
+      return;
     }
+
+    // Check for duplicates before proceeding
+    const selectedCardsList = Array.from(selectedCards);
+    const duplicateCards = selectedCardsList.filter(cardId => 
+      targetPack.cards?.some(existingCard => existingCard.id === cardId)
+    );
+
+    if (duplicateCards.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate cards detected",
+        description: "Some selected cards are already in this pack",
+      });
+      return;
+    }
+
+    // Check if adding these cards would exceed the limit
+    const totalCardsAfterAddition = (targetPack.cards?.length || 0) + selectedCards.size;
+    if (totalCardsAfterAddition > 10) {
+      toast({
+        variant: "destructive",
+        title: "Pack limit exceeded",
+        description: `This pack can only accept ${10 - (targetPack.cards?.length || 0)} more cards`,
+      });
+      return;
+    }
+
+    setSelectedPackId(packId);
+    addCardsToPack({ packId: parseInt(packId) });
   };
 
   return (
@@ -293,21 +339,26 @@ export function CardGrid({ cards }: CardGridProps) {
                 </SelectTrigger>
                 <SelectContent className="bg-black/90 border-purple-500/20">
                   {cardPacks.map((pack) => {
-                    const totalCards = (pack.cards?.length || 0) + selectedCards.size;
-                    const isDisabled = totalCards > 10;
+                    const totalCards = (pack.cards?.length || 0);
+                    const availableSlots = 10 - totalCards;
+                    const isDisabled = availableSlots < selectedCards.size;
+                    const hasDuplicates = Array.from(selectedCards).some(cardId => 
+                      pack.cards?.some(existingCard => existingCard.id === cardId)
+                    );
 
                     return (
                       <SelectItem
                         key={pack.id}
                         value={pack.id.toString()}
-                        disabled={isDisabled}
+                        disabled={isDisabled || hasDuplicates}
                         className="text-white hover:bg-purple-500/20 focus:bg-purple-500/20 focus:text-white"
                       >
                         <span className="flex items-center justify-between w-full">
                           <span>{pack.name}</span>
                           <span className="text-sm text-purple-300/70">
-                            {pack.cards?.length || 0}/10 
+                            {totalCards}/10
                             {isDisabled && " (Not enough space)"}
+                            {hasDuplicates && " (Has duplicates)"}
                           </span>
                         </span>
                       </SelectItem>
