@@ -12,59 +12,80 @@ import { PowerStats } from "../types";
 
 export class AIOpponentService {
   static async getAIUser(): Promise<SelectUser> {
-    // Try to find existing AI user
-    const [aiUser] = await db.select()
-      .from(users)
-      .where(eq(users.username, 'AI_OPPONENT'));
+    try {
+      // First try to find existing AI user
+      const [existingAiUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, 'AI_OPPONENT'));
 
-    if (aiUser) {
-      return aiUser;
-    }
-
-    // Create AI user if it doesn't exist
-    const [newAiUser] = await db.insert(users)
-      .values({
-        username: 'AI_OPPONENT',
-        password: 'AI_OPPONENT', // This user can't login normally
-      })
-      .returning();
-
-    return newAiUser;
-  }
-
-  static async buildDeck(): Promise<SelectTradingCard[]> {
-    // Get or create AI user
-    const aiUser = await this.getAIUser();
-
-    // Get random card templates from the global pool
-    const templates = await db.query.cardTemplates.findMany({
-      orderBy: sql`RANDOM()`,
-      limit: 8, // AI needs 8 cards for a game
-      with: {
-        image: true,
+      if (existingAiUser) {
+        return existingAiUser;
       }
-    });
 
-    if (templates.length < 8) {
-      throw new Error("Not enough card templates in the global pool");
-    }
-
-    // Create temporary trading cards for the AI based on the templates
-    const aiCards = await Promise.all(templates.map(async (template) => {
-      const [card] = await db.insert(tradingCards)
+      // If no AI user exists, create one
+      const [newAiUser] = await db.insert(users)
         .values({
-          templateId: template.id,
-          userId: aiUser.id,
+          username: 'AI_OPPONENT',
+          password: 'AI_OPPONENT_' + Date.now(), // Ensure unique password
         })
         .returning();
 
-      return {
-        ...card,
-        template,
-      };
-    }));
+      return newAiUser;
+    } catch (error: any) {
+      // If we hit a unique constraint error, try to fetch the user again
+      if (error.code === '23505') { // Unique constraint violation
+        const [aiUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, 'AI_OPPONENT'));
 
-    return aiCards;
+        if (aiUser) {
+          return aiUser;
+        }
+      }
+      throw error;
+    }
+  }
+
+  static async buildDeck(): Promise<SelectTradingCard[]> {
+    try {
+      // Get or create AI user
+      const aiUser = await this.getAIUser();
+
+      // Get random card templates from the global pool
+      const templates = await db.query.cardTemplates.findMany({
+        orderBy: sql`RANDOM()`,
+        limit: 8, // AI needs 8 cards for a game
+        with: {
+          image: true,
+        }
+      });
+
+      if (templates.length < 8) {
+        throw new Error("Not enough card templates in the global pool");
+      }
+
+      // Create temporary trading cards for the AI based on the templates
+      const aiCards = await Promise.all(templates.map(async (template) => {
+        const [card] = await db.insert(tradingCards)
+          .values({
+            templateId: template.id,
+            userId: aiUser.id,
+          })
+          .returning();
+
+        return {
+          ...card,
+          template,
+        };
+      }));
+
+      return aiCards;
+    } catch (error) {
+      console.error('Error building AI deck:', error);
+      throw error;
+    }
   }
 
   static async getAIDecision(playerCard: SelectTradingCard, aiCard: SelectTradingCard): Promise<string> {
