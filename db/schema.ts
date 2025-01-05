@@ -83,6 +83,23 @@ export const tradingCards = pgTable("trading_cards", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// Add new tables for card packs after the tradingCards table
+export const cardPacks = pgTable("card_packs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const cardPackCards = pgTable("card_pack_cards", {
+  id: serial("id").primaryKey(),
+  packId: integer("pack_id").notNull().references(() => cardPacks.id),
+  cardId: integer("card_id").notNull().references(() => tradingCards.id),
+  position: integer("position").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const tags = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: text("name").unique().notNull(),
@@ -168,6 +185,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   images: many(images),
   tradingCards: many(tradingCards),
   cardTemplates: many(cardTemplates, { relationName: "creator" }),
+  cardPacks: many(cardPacks),
   initiatedTrades: many(trades, { relationName: "initiator" }),
   receivedTrades: many(trades, { relationName: "receiver" }),
   gamesAsPlayer1: many(games, { relationName: "player1" }),
@@ -177,7 +195,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   referralsGiven: many(referrals, { relationName: "referrer" }),
   referralsReceived: many(referrals, { relationName: "referee" }),
   challengeProgress: many(challengeProgress),
-  rewards: many(userRewards), // Add relation to rewards
+  rewards: many(userRewards),
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -213,6 +231,27 @@ export const tradingCardsRelations = relations(tradingCards, ({ one, many }) => 
   tradeItems: many(tradeItems),
   favoritedBy: many(userFavorites),
 }));
+
+// Add relations for card packs after the tradingCardsRelations
+export const cardPacksRelations = relations(cardPacks, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [cardPacks.userId],
+    references: [users.id],
+  }),
+  cards: many(cardPackCards),
+}));
+
+export const cardPackCardsRelations = relations(cardPackCards, ({ one }) => ({
+  pack: one(cardPacks, {
+    fields: [cardPackCards.packId],
+    references: [cardPacks.id],
+  }),
+  card: one(tradingCards, {
+    fields: [cardPackCards.cardId],
+    references: [tradingCards.id],
+  }),
+}));
+
 
 export const tagsRelations = relations(tags, ({ many }) => ({
   images: many(imageTags),
@@ -397,6 +436,13 @@ export const selectLevelMilestoneSchema = createSelectSchema(levelMilestones);
 export const insertUserRewardSchema = createInsertSchema(userRewards);
 export const selectUserRewardSchema = createSelectSchema(userRewards);
 
+// Add schemas for the new tables
+export const insertCardPackSchema = createInsertSchema(cardPacks);
+export const selectCardPackSchema = createSelectSchema(cardPacks);
+
+export const insertCardPackCardSchema = createInsertSchema(cardPackCards);
+export const selectCardPackCardSchema = createSelectSchema(cardPackCards);
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -447,3 +493,10 @@ export type SelectLevelMilestone = typeof levelMilestones.$inferSelect;
 
 export type InsertUserReward = typeof userRewards.$inferInsert;
 export type SelectUserReward = typeof userRewards.$inferSelect;
+
+// Add types for the new tables
+export type InsertCardPack = typeof cardPacks.$inferInsert;
+export type SelectCardPack = typeof cardPacks.$inferSelect;
+
+export type InsertCardPackCard = typeof cardPackCards.$inferInsert;
+export type SelectCardPackCard = typeof cardPackCards.$inferSelect;

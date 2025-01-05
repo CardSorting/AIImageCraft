@@ -20,6 +20,7 @@ import { WarGameService } from "./services/game/war/war.service";
 import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
+import cardPackRoutes from "./routes/card-packs";
 import { TaskService } from "./services/task";
 import { PulseCreditManager } from "./services/redis";
 
@@ -38,6 +39,9 @@ export function registerRoutes(app: Express): Server {
     }
     next();
   });
+
+  // Register card packs routes
+  app.use("/api/card-packs", cardPackRoutes);
 
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
