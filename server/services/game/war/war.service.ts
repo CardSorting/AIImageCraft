@@ -18,14 +18,16 @@ import { AIOpponentService } from "../ai/ai-opponent.service";
 export class WarGameService {
   static async createGameWithAI(playerId: number): Promise<SelectGame> {
     return await db.transaction(async (tx) => {
+      // Get or create AI user
+      const aiUser = await AIOpponentService.getAIUser();
+
       // Get AI's deck from global card pool
       const aiDeck = await AIOpponentService.buildDeck();
-      const aiId = -1; // Using -1 to represent AI player
 
       const [game] = await tx.insert(games)
         .values({
           player1Id: playerId,
-          player2Id: aiId, // AI player
+          player2Id: aiUser.id,
           gameState: {
             warActive: false,
             cardsInWar: 0,
@@ -67,7 +69,7 @@ export class WarGameService {
         ...aiDeck.map((card, index) => ({
           gameId: game.id,
           cardId: card.id,
-          ownerId: aiId,
+          ownerId: aiUser.id,
           position: 'DECK',
           order: index + 8,
         }))

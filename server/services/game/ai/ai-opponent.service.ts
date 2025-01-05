@@ -2,15 +2,39 @@ import { db } from "@db";
 import { 
   tradingCards,
   cardTemplates,
+  users,
   type SelectTradingCard,
-  type SelectCardTemplate
+  type SelectCardTemplate,
+  type SelectUser
 } from "@db/schema";
 import { sql, eq } from "drizzle-orm";
 import { PowerStats } from "../types";
 
 export class AIOpponentService {
+  static async getAIUser(): Promise<SelectUser> {
+    // Try to find existing AI user
+    const [aiUser] = await db.select()
+      .from(users)
+      .where(eq(users.username, 'AI_OPPONENT'));
+
+    if (aiUser) {
+      return aiUser;
+    }
+
+    // Create AI user if it doesn't exist
+    const [newAiUser] = await db.insert(users)
+      .values({
+        username: 'AI_OPPONENT',
+        password: 'AI_OPPONENT', // This user can't login normally
+      })
+      .returning();
+
+    return newAiUser;
+  }
+
   static async buildDeck(): Promise<SelectTradingCard[]> {
-    const aiId = -1; // AI's user ID
+    // Get or create AI user
+    const aiUser = await this.getAIUser();
 
     // Get random card templates from the global pool
     const templates = await db.query.cardTemplates.findMany({
@@ -30,7 +54,7 @@ export class AIOpponentService {
       const [card] = await db.insert(tradingCards)
         .values({
           templateId: template.id,
-          userId: aiId,
+          userId: aiUser.id,
         })
         .returning();
 
