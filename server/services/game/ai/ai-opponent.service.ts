@@ -5,7 +5,7 @@ import {
   type SelectTradingCard,
   type SelectCardTemplate
 } from "@db/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { PowerStats } from "../types";
 
 export class AIOpponentService {
