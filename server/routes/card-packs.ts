@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
-import { cardPacks, cardPackCards, tradingCards, globalCardPool } from "@db/schema";
+import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
@@ -39,7 +39,6 @@ router.post("/", async (req, res) => {
 // Get user's card packs with cards
 router.get("/", async (req, res) => {
   try {
-    // Get all packs belonging to the user with their cards
     const userPacks = await db.query.cardPacks.findMany({
       where: eq(cardPacks.userId, req.user!.id),
       with: {
@@ -69,15 +68,17 @@ router.get("/", async (req, res) => {
       name: pack.name,
       description: pack.description,
       createdAt: pack.createdAt.toISOString(),
-      cards: pack.cards.map(({ globalPoolCard }) => ({
-        id: globalPoolCard.card.id,
-        name: globalPoolCard.card.template.name,
-        image: {
-          url: globalPoolCard.card.template.image.url,
-        },
-        elementalType: globalPoolCard.card.template.elementalType,
-        rarity: globalPoolCard.card.template.rarity,
-      })),
+      cards: pack.cards
+        .filter(({ globalPoolCard }) => globalPoolCard?.card?.template)
+        .map(({ globalPoolCard }) => ({
+          id: globalPoolCard.card.id,
+          name: globalPoolCard.card.template.name,
+          image: {
+            url: globalPoolCard.card.template.image.url,
+          },
+          elementalType: globalPoolCard.card.template.elementalType,
+          rarity: globalPoolCard.card.template.rarity,
+        })),
     }));
 
     res.json(transformedPacks);
@@ -121,6 +122,9 @@ router.post("/:packId/cards", async (req, res) => {
         eq(tradingCards.userId, req.user!.id),
         inArray(tradingCards.id, result.data.cardIds)
       ),
+      with: {
+        template: true,
+      },
     });
 
     if (userCards.length !== result.data.cardIds.length) {
@@ -142,7 +146,7 @@ router.post("/:packId/cards", async (req, res) => {
             })
             .returning();
 
-          // Update card ownership
+          // Remove card from user's collection
           await tx
             .update(tradingCards)
             .set({ userId: null })
@@ -209,19 +213,21 @@ router.get("/:packId/cards", async (req, res) => {
       orderBy: (cards, { asc }) => [asc(cards.position)],
     });
 
-    const transformedCards = packCards.map(({ globalPoolCard }) => ({
-      id: globalPoolCard.card.id,
-      name: globalPoolCard.card.template.name,
-      description: globalPoolCard.card.template.description,
-      elementalType: globalPoolCard.card.template.elementalType,
-      rarity: globalPoolCard.card.template.rarity,
-      powerStats: globalPoolCard.card.template.powerStats,
-      image: {
-        url: globalPoolCard.card.template.image.url,
-      },
-      originalOwnerId: globalPoolCard.originalOwnerId,
-      creator: globalPoolCard.card.template.creator,
-    }));
+    const transformedCards = packCards
+      .filter(({ globalPoolCard }) => globalPoolCard?.card?.template)
+      .map(({ globalPoolCard }) => ({
+        id: globalPoolCard.card.id,
+        name: globalPoolCard.card.template.name,
+        description: globalPoolCard.card.template.description,
+        elementalType: globalPoolCard.card.template.elementalType,
+        rarity: globalPoolCard.card.template.rarity,
+        powerStats: globalPoolCard.card.template.powerStats,
+        image: {
+          url: globalPoolCard.card.template.image.url,
+        },
+        originalOwnerId: globalPoolCard.originalOwnerId,
+        creator: globalPoolCard.card.template.creator,
+      }));
 
     res.json(transformedCards);
   } catch (error: any) {
