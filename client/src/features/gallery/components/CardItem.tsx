@@ -7,7 +7,7 @@ import type { TradingCard } from "@/features/trading-cards/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Package, Plus, Loader2 } from "lucide-react";
+import { Package, Plus, Loader2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface CardItemProps {
   card: TradingCard;
   isCardsRoute: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }
 
 interface CardPack {
@@ -42,7 +45,7 @@ interface CardPack {
   }>;
 }
 
-export function CardItem({ card, isCardsRoute }: CardItemProps) {
+export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: CardItemProps) {
   const [isAddingToPack, setIsAddingToPack] = useState(false);
   const [selectedPackId, setSelectedPackId] = useState<string>("");
   const { toast } = useToast();
@@ -88,53 +91,6 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
     },
   });
 
-  // Mutation for creating new pack with card
-  const { mutate: createPackWithCard, isPending: isCreatingPack } = useMutation({
-    mutationFn: async ({ name, description }: { name: string; description?: string }) => {
-      // First create the pack
-      const createPackRes = await fetch("/api/card-packs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
-        credentials: "include",
-      });
-
-      if (!createPackRes.ok) {
-        throw new Error(await createPackRes.text());
-      }
-
-      const newPack = await createPackRes.json();
-
-      // Then add the card to the new pack
-      const addCardRes = await fetch(`/api/card-packs/${newPack.id}/cards`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardIds: [card.id] }),
-        credentials: "include",
-      });
-
-      if (!addCardRes.ok) {
-        throw new Error(await addCardRes.text());
-      }
-
-      return addCardRes.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: "New pack created with your card.",
-      });
-      setIsAddingToPack(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error creating pack",
-        description: error.message,
-      });
-    },
-  });
-
   // Handler for when a pack is selected from the dropdown
   const handlePackSelect = (packId: string) => {
     setSelectedPackId(packId);
@@ -147,7 +103,13 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
     <>
       <div className="space-y-4">
         {/* Card Display */}
-        <div className="relative group transform transition-all duration-300 hover:scale-105">
+        <div 
+          className={cn(
+            "relative group transform transition-all duration-300 hover:scale-105",
+            isSelected && "ring-4 ring-purple-500 rounded-[18px]"
+          )}
+          onClick={onSelect}
+        >
           <div
             ref={cardRef}
             className={`
@@ -159,8 +121,16 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
               bg-gradient-to-br from-gray-900 to-gray-800
               border-2 border-purple-500/20
               ${shouldUse3DEffect ? 'card-3d' : ''}
+              ${isSelected ? 'opacity-90' : ''}
             `}
           >
+            {/* Selection Indicator */}
+            {isCardsRoute && isSelected && (
+              <div className="absolute top-2 left-2 z-50 w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                <Check className="w-5 h-5 text-white" />
+              </div>
+            )}
+
             {/* Card Header - Name and Type */}
             <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/90 via-black/60 to-transparent">
               <div className="flex justify-between items-start mb-2">
@@ -356,7 +326,7 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
                   />
                   <Button
                     type="submit"
-                    disabled={isCreatingPack}
+                    disabled={isAddingCard || isCreatingPack}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
                     {isCreatingPack ? (
