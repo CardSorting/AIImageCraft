@@ -36,6 +36,53 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Get user's card packs with cards
+router.get("/", async (req, res) => {
+  try {
+    // Get all packs belonging to the user with their cards
+    const userPacks = await db.query.cardPacks.findMany({
+      where: eq(cardPacks.userId, req.user!.id),
+      with: {
+        cards: {
+          with: {
+            card: {
+              with: {
+                template: {
+                  with: {
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Transform the data to match the expected client interface
+    const transformedPacks = userPacks.map(pack => ({
+      id: pack.id,
+      name: pack.name,
+      description: pack.description,
+      createdAt: pack.createdAt.toISOString(),
+      cards: pack.cards.map(({ card }) => ({
+        id: card.id,
+        name: card.template.name,
+        image: {
+          url: card.template.image.url,
+        },
+        elementalType: card.template.elementalType,
+        rarity: card.template.rarity,
+      })),
+    }));
+
+    res.json(transformedPacks);
+  } catch (error: any) {
+    console.error("Error fetching card packs:", error);
+    res.status(500).send(error.message);
+  }
+});
+
 // Add cards to a pack
 router.post("/:packId/cards", async (req, res) => {
   try {
@@ -93,21 +140,6 @@ router.post("/:packId/cards", async (req, res) => {
     res.json(packCards);
   } catch (error: any) {
     console.error("Error adding cards to pack:", error);
-    res.status(500).send(error.message);
-  }
-});
-
-// Get user's card packs
-router.get("/", async (req, res) => {
-  try {
-    const userPacks = await db
-      .select()
-      .from(cardPacks)
-      .where(eq(cardPacks.userId, req.user!.id));
-
-    res.json(userPacks);
-  } catch (error: any) {
-    console.error("Error fetching card packs:", error);
     res.status(500).send(error.message);
   }
 });
