@@ -25,6 +25,67 @@
     transform: rotateY(10deg);
   }
 
+  /* 3D Card Effect Classes */
+  .card-3d {
+    transition: transform 0.1s ease-out;
+    transform-style: preserve-3d;
+    will-change: transform;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shine-effect {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    right: -50%;
+    bottom: -50%;
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.5) 25%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.1) 75%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    mix-blend-mode: soft-light;
+  }
+
+  .rainbow-shine-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .rainbow-shine-effect {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    right: -50%;
+    bottom: -50%;
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 0, 0, 0.3),
+      rgba(255, 165, 0, 0.3),
+      rgba(255, 255, 0, 0.3),
+      rgba(0, 255, 0, 0.3),
+      rgba(0, 0, 255, 0.3),
+      rgba(75, 0, 130, 0.3),
+      rgba(238, 130, 238, 0.3)
+    );
+    opacity: 0;
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    mix-blend-mode: color-dodge;
+    filter: blur(10px);
+  }
+
   /* Rarity-based animation utilities */
   .animate-common {
     @apply transition-all duration-300;
