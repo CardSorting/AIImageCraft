@@ -36,42 +36,35 @@
 
   .shine-effect {
     position: absolute;
-    top: -100%;
-    left: -100%;
-    right: -100%;
-    bottom: -100%;
-    background: radial-gradient(
-      circle at 50% 50%,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.6) 20%,
-      rgba(255, 255, 255, 0.3) 40%,
-      rgba(255, 255, 255, 0.1) 60%,
-      rgba(255, 255, 255, 0) 100%
+    inset: -100%;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.8) 15%,
+      rgba(255, 255, 255, 0.9) 30%,
+      rgba(255, 255, 255, 0.8) 45%,
+      transparent 60%
     );
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.3s ease-out, transform 0.3s ease-out;
     mix-blend-mode: overlay;
-    transform: scale(2);
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    filter: brightness(1.5) contrast(1.2);
   }
 
   .rainbow-shine-container {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     overflow: hidden;
     pointer-events: none;
     mix-blend-mode: color-dodge;
+    mask-image: radial-gradient(circle at 50% 50%, black, transparent);
   }
 
   .rainbow-shine-effect {
     position: absolute;
-    top: -100%;
-    left: -100%;
-    right: -100%;
-    bottom: -100%;
+    inset: -150%;
     background: conic-gradient(
       from 0deg at 50% 50%,
       rgba(255, 0, 0, 0.5),
@@ -84,19 +77,50 @@
       rgba(255, 0, 0, 0.5)
     );
     opacity: 0;
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-    filter: blur(35px);
-    transform: scale(2) rotate(0deg);
-    animation: rotate 10s linear infinite;
+    transition: opacity 0.3s ease-out;
+    filter: blur(35px) brightness(1.5);
+    transform-origin: center;
+    animation: rotate 8s linear infinite;
+  }
+
+  /* Secondary rainbow effect for more depth */
+  .rainbow-shine-effect::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: inherit;
+    filter: blur(50px) brightness(1.2);
+    transform: scale(0.95);
+    animation: rotate 12s linear infinite reverse;
+    mix-blend-mode: color-dodge;
   }
 
   @keyframes rotate {
     from {
-      transform: scale(2) rotate(0deg);
+      transform: rotate(0deg);
     }
     to {
-      transform: scale(2) rotate(360deg);
+      transform: rotate(360deg);
     }
+  }
+
+  /* Shine animation for the main effect */
+  @keyframes shine {
+    from {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    to {
+      transform: translateX(200%) translateY(200%) rotate(45deg);
+    }
+  }
+
+  .card-3d:hover .shine-effect {
+    opacity: 0.8;
+    animation: shine 1.5s ease-in-out infinite;
+  }
+
+  .card-3d:hover .rainbow-shine-effect {
+    opacity: 0.5;
   }
 
   /* Rarity-based animation utilities */
