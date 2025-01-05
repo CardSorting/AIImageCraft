@@ -53,10 +53,10 @@ export class AIOpponentService {
       // Get or create AI user
       const aiUser = await this.getAIUser();
 
-      // Get random card templates from the global pool
+      // Get templates with verification
       const templates = await db.query.cardTemplates.findMany({
         orderBy: sql`RANDOM()`,
-        limit: 8, // AI needs 8 cards for a game
+        limit: 8,
         with: {
           image: true,
         }
@@ -66,38 +66,49 @@ export class AIOpponentService {
         throw new Error("Not enough card templates in the global pool");
       }
 
-      // Create temporary trading cards for the AI based on the templates
-      const aiCards = await Promise.all(templates.map(async (template) => {
-        const [card] = await db.insert(tradingCards)
-          .values({
-            templateId: template.id,
-            userId: aiUser.id,
-          })
-          .returning();
+      // Create trading cards for AI in a transaction
+      return await db.transaction(async (tx) => {
+        const aiCards = await Promise.all(templates.map(async (template) => {
+          // Check if card already exists
+          const [existingCard] = await tx
+            .select()
+            .from(tradingCards)
+            .where(eq(tradingCards.userId, aiUser.id))
+            .limit(1);
 
-        return {
-          ...card,
-          template,
-        };
-      }));
+          // If AI already has cards, use them instead of creating new ones
+          if (existingCard) {
+            return {
+              ...existingCard,
+              template,
+            };
+          }
 
-      return aiCards;
+          // Create new card
+          const [card] = await tx.insert(tradingCards)
+            .values({
+              templateId: template.id,
+              userId: aiUser.id,
+            })
+            .returning();
+
+          return {
+            ...card,
+            template,
+          };
+        }));
+
+        return aiCards;
+      });
     } catch (error) {
       console.error('Error building AI deck:', error);
-      throw error;
+      throw new Error(`Failed to build AI deck: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  static async getAIDecision(playerCard: SelectTradingCard, aiCard: SelectTradingCard): Promise<string> {
-    const [playerTemplate] = await db.select().from(cardTemplates).where(eq(cardTemplates.id, playerCard.templateId));
-    const [aiTemplate] = await db.select().from(cardTemplates).where(eq(cardTemplates.id, aiCard.templateId));
-
-    if (!playerTemplate || !aiTemplate) {
-      return "AI makes a move";
-    }
-
-    const playerValue = this.calculateCardValue(playerTemplate);
-    const aiValue = this.calculateCardValue(aiTemplate);
+  static async getAIDecision(playerCard: SelectCardTemplate, aiCard: SelectCardTemplate): Promise<string> {
+    const playerValue = this.calculateCardValue(playerCard);
+    const aiValue = this.calculateCardValue(aiCard);
 
     if (aiValue > playerValue) {
       return "AI plays confidently with a stronger card";

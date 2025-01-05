@@ -3,27 +3,31 @@ import {
   games, 
   gameCards, 
   tradingCards,
-  cardTemplates,
-  type InsertGame,
   type SelectGame,
-  type SelectGameCard,
-  type SelectTradingCard,
-  type SelectCardTemplate 
 } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import { GameState, PowerStats, GameServiceTransaction } from "../types";
+import { GameState } from "../types";
 import { AIOpponentService } from "../ai/ai-opponent.service";
 
 export class WarGameService {
   static async createGameWithAI(playerId: number): Promise<SelectGame> {
     return await db.transaction(async (tx) => {
-      // Get or create AI user
-      const aiUser = await AIOpponentService.getAIUser();
+      // First verify player has enough cards
+      const [playerCardCount] = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(tradingCards)
+        .where(eq(tradingCards.userId, playerId));
 
-      // Get AI's deck from global card pool
+      if (Number(playerCardCount.count) < 8) {
+        throw new Error("You must have at least 8 cards to play");
+      }
+
+      // Get or create AI user and build their deck
+      const aiUser = await AIOpponentService.getAIUser();
       const aiDeck = await AIOpponentService.buildDeck();
 
+      // Create the game
       const [game] = await tx.insert(games)
         .values({
           player1Id: playerId,
@@ -32,8 +36,8 @@ export class WarGameService {
             warActive: false,
             cardsInWar: 0,
             lastAction: "Game started against AI",
-            player1Cards: 0,
-            player2Cards: 0,
+            player1Cards: 8,
+            player2Cards: 8,
             isAIGame: true,
           } as GameState,
           status: 'ACTIVE'
@@ -53,11 +57,7 @@ export class WarGameService {
         }
       });
 
-      if (playerCards.length < 8) {
-        throw new Error("You must have at least 8 cards to play");
-      }
-
-      // Prepare game cards for both player and AI
+      // Add cards to the game
       const gameCardsData = [
         ...playerCards.map((card, index) => ({
           gameId: game.id,
@@ -77,21 +77,7 @@ export class WarGameService {
 
       await tx.insert(gameCards).values(gameCardsData);
 
-      const updatedGameState: GameState = {
-        warActive: false,
-        cardsInWar: 0,
-        lastAction: "Game started against AI",
-        player1Cards: 8,
-        player2Cards: 8,
-        isAIGame: true,
-      };
-
-      const [updatedGame] = await tx.update(games)
-        .set({ gameState: updatedGameState })
-        .where(eq(games.id, game.id))
-        .returning();
-
-      return updatedGame;
+      return game;
     });
   }
 
