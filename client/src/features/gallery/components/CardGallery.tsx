@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Loader2, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import TradeModal from "@/components/TradeModal";
 import { useToast } from "@/hooks/use-toast";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { getElementalTypeStyle, getRarityStyle, getRarityOverlayStyle, getElementalTypeBadgeStyle } from "../utils/styles";
@@ -12,7 +11,6 @@ import { Pagination } from "./Pagination";
 import type { TradingCard } from "../types";
 
 export function CardGallery() {
-  const [selectedCard, setSelectedCard] = useState<TradingCard | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [location] = useLocation();
   const isCardsRoute = location === "/cards";
@@ -21,7 +19,6 @@ export function CardGallery() {
   const { data: cards, isLoading } = useQuery<TradingCard[]>({
     queryKey: ["/api/trading-cards"],
   });
-  const queryClient = useQueryClient();
 
   if (isLoading) {
     return (
@@ -38,10 +35,10 @@ export function CardGallery() {
           <Library className="w-12 h-12 text-purple-400" />
         </div>
         <h2 className="text-2xl font-semibold text-white mb-2">
-          No trading cards yet
+          No cards yet
         </h2>
         <p className="text-purple-300/70 mb-6 max-w-md">
-          Transform your AI-generated images into unique trading cards with special attributes and powers!
+          Transform your AI-generated images into unique cards with special attributes and powers!
         </p>
       </div>
     );
@@ -59,8 +56,7 @@ export function CardGallery() {
         {paginatedCards.map((card) => (
           <div
             key={card.id}
-            className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105"
-            onClick={() => setSelectedCard(card)}
+            className="relative group transform transition-all duration-300 hover:scale-105"
           >
             {/* Card Frame */}
             <div className={`
@@ -172,15 +168,6 @@ export function CardGallery() {
           onPageChange={setCurrentPage}
         />
       )}
-
-      <TradeModal
-        open={!!selectedCard}
-        onOpenChange={(open) => !open && setSelectedCard(null)}
-        card={selectedCard!}
-        onTrade={() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
-        }}
-      />
     </>
   );
 }
