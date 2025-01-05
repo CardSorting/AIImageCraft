@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { User, ImagePlus, Images, LogOut, Swords, Library } from "lucide-react";
+import { User, ImagePlus, Images, LogOut, Library } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useUser();
@@ -38,12 +38,6 @@ export default function Header() {
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <Library className="h-4 w-4 mr-2" />
               Trading Cards
-            </Button>
-          </Link>
-          <Link href="/queue">
-            <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
-              <Swords className="h-4 w-4 mr-2" />
-              Play Game
             </Button>
           </Link>
           <Link href="/profile">
