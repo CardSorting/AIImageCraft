@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
 import { eq, and } from "drizzle-orm";
-import { images, tradingCards, insertTradingCardSchema } from "@db/schema";
+import { images, cardTemplates, tradingCards } from "@db/schema";
 import { z } from "zod";
 import { ELEMENTAL_TYPES, RARITIES } from "../constants/cards";
 
@@ -25,10 +25,6 @@ router.post("/", async (req, res) => {
       return res.status(400).send("All fields are required: imageId, name, description, elementalType");
     }
 
-    // Generate random attributes
-    const rarity = RARITIES[Math.floor(Math.random() * RARITIES.length)];
-    const powerStats = generateRandomStats();
-
     // Verify the image exists and belongs to the user
     const [image] = await db
       .select()
@@ -48,24 +44,57 @@ router.post("/", async (req, res) => {
       return res.status(400).send(`Invalid elemental type. Must be one of: ${ELEMENTAL_TYPES.join(', ')}`);
     }
 
-    // Create the trading card with the validated data
-    const [newCard] = await db
-      .insert(tradingCards)
-      .values({
-        userId: req.user!.id,
-        name,
-        description,
-        elementalType,
-        rarity,
-        powerStats,
-        imageId: image.id
-      })
-      .returning();
+    // Generate random attributes
+    const rarity = RARITIES[Math.floor(Math.random() * RARITIES.length)];
+    const powerStats = generateRandomStats();
 
-    res.json(newCard);
-  } catch (error) {
+    // Start a transaction to ensure data consistency
+    const result = await db.transaction(async (tx) => {
+      // First create the card template
+      const [template] = await tx
+        .insert(cardTemplates)
+        .values({
+          imageId,
+          name,
+          description,
+          elementalType,
+          rarity,
+          powerStats,
+          creatorId: req.user!.id,
+        })
+        .returning();
+
+      // Then create the trading card instance
+      const [card] = await tx
+        .insert(tradingCards)
+        .values({
+          templateId: template.id,
+          userId: req.user!.id,
+        })
+        .returning();
+
+      return {
+        id: card.id,
+        name: template.name,
+        description: template.description,
+        elementalType: template.elementalType,
+        rarity: template.rarity,
+        powerStats: template.powerStats,
+        image: {
+          url: image.url,
+        },
+        createdAt: card.createdAt,
+        creator: {
+          id: req.user!.id,
+          username: req.user!.username,
+        },
+      };
+    });
+
+    res.json(result);
+  } catch (error: any) {
     console.error("Error creating trading card:", error);
-    res.status(500).send("Failed to create trading card");
+    res.status(500).send(error.message);
   }
 });
 
@@ -75,8 +104,12 @@ router.get("/", async (req, res) => {
     const userCards = await db.query.tradingCards.findMany({
       where: eq(tradingCards.userId, req.user!.id),
       with: {
-        image: true,
-        user: true,
+        template: {
+          with: {
+            image: true,
+            creator: true,
+          },
+        },
       },
       orderBy: (cards, { desc }) => [desc(cards.createdAt)],
     });
@@ -84,16 +117,16 @@ router.get("/", async (req, res) => {
     // Transform the response to match the expected format
     const transformedCards = userCards.map(card => ({
       id: card.id,
-      name: card.name,
-      description: card.description,
-      elementalType: card.elementalType,
-      rarity: card.rarity,
-      powerStats: card.powerStats,
+      name: card.template.name,
+      description: card.template.description,
+      elementalType: card.template.elementalType,
+      rarity: card.template.rarity,
+      powerStats: card.template.powerStats,
       image: {
-        url: card.image.url,
+        url: card.template.image.url,
       },
       createdAt: card.createdAt,
-      creator: card.user,
+      creator: card.template.creator,
     }));
 
     res.json(transformedCards);
