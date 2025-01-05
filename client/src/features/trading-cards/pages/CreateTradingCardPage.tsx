@@ -64,22 +64,30 @@ export default function CreateTradingCardPage() {
     const formData = new FormData(e.currentTarget);
 
     try {
+      const cardData = {
+        imageId: parseInt(imageId),
+        name: formData.get("name")?.toString(),
+        description: formData.get("description")?.toString(),
+        elementalType: formData.get("elementalType")?.toString(),
+      };
+
+      // Validate required fields
+      if (!cardData.name || !cardData.description || !cardData.elementalType) {
+        throw new Error("All fields are required");
+      }
+
       const res = await fetch("/api/trading-cards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: 'include',
-        body: JSON.stringify({
-          imageId: parseInt(imageId),
-          name: formData.get("name"),
-          description: formData.get("description"),
-          elementalType: formData.get("elementalType"),
-        }),
+        body: JSON.stringify(cardData),
       });
 
       if (!res.ok) {
-        throw new Error(await res.text());
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to create trading card");
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
