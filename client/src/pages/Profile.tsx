@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { ReferralCode } from "@/features/credits/components/ReferralCode";
-import { DailyChallenges } from "@/features/credits/components/DailyChallenges";
+import { DailyChallenges } from "@/features/daily-challenges/components/DailyChallenges";
 
 export default function Profile() {
   const { user } = useUser();
