@@ -4,7 +4,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Lightbulb } from "lucide-react";
+import { Sparkles, Lightbulb, Coins } from "lucide-react";
 import { useState } from "react";
 
 const formSchema = z.object({
@@ -76,21 +76,28 @@ export default function PromptForm({ onSubmit, isSubmitting }: PromptFormProps) 
           </Button>
         </div>
 
-        <div className="flex items-center gap-4">
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className={`
-              flex-1 h-12 bg-gradient-to-r from-purple-600 to-blue-600 
-              hover:from-purple-700 hover:to-blue-700
-              disabled:from-purple-800 disabled:to-blue-800
-              transition-all duration-300 transform hover:scale-[1.02]
-              ${isSubmitting ? 'animate-pulse' : ''}
-            `}
-          >
-            <Sparkles className={`mr-2 h-5 w-5 ${isSubmitting ? 'animate-spin' : ''}`} />
-            {isSubmitting ? 'Generating...' : 'Generate Image'}
-          </Button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-center gap-2 text-sm text-purple-300/70">
+            <Coins className="h-4 w-4" />
+            <span>Costs 5 credits per generation</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={`
+                flex-1 h-12 bg-gradient-to-r from-purple-600 to-blue-600 
+                hover:from-purple-700 hover:to-blue-700
+                disabled:from-purple-800 disabled:to-blue-800
+                transition-all duration-300 transform hover:scale-[1.02]
+                ${isSubmitting ? 'animate-pulse' : ''}
+              `}
+            >
+              <Sparkles className={`mr-2 h-5 w-5 ${isSubmitting ? 'animate-spin' : ''}`} />
+              {isSubmitting ? 'Generating...' : 'Generate Image'}
+            </Button>
+          </div>
         </div>
       </form>
     </Form>
