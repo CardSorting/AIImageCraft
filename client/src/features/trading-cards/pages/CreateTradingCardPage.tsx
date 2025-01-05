@@ -18,30 +18,43 @@ export default function CreateTradingCardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Fetch image details when component mounts
     const fetchImage = async () => {
-      try {
-        const res = await fetch(`/api/images/${imageId}`, {
-          credentials: 'include', // Important: Include credentials for authentication
-        });
-        if (!res.ok) throw new Error("Failed to fetch image");
-        const data = await res.json();
-        setImageUrl(data.url);
-      } catch (error) {
+      if (!imageId) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to load image details",
+          description: "No image ID provided",
+        });
+        setLocation("/cards");
+        return;
+      }
+
+      try {
+        console.log("Fetching image with ID:", imageId); // Debug log
+        const res = await fetch(`/api/images/${imageId}`, {
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || "Failed to fetch image");
+        }
+
+        const data = await res.json();
+        console.log("Image data received:", data); // Debug log
+        setImageUrl(data.url);
+      } catch (error: any) {
+        console.error("Error fetching image:", error); // Debug log
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message || "Failed to load image details",
         });
         setLocation("/cards");
       }
     };
 
-    if (imageId) {
-      fetchImage();
-    } else {
-      setLocation("/cards");
-    }
+    fetchImage();
   }, [imageId, setLocation, toast]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -57,7 +70,7 @@ export default function CreateTradingCardPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: 'include', // Important: Include credentials for authentication
+        credentials: 'include',
         body: JSON.stringify({
           imageId: parseInt(imageId),
           name: formData.get("name"),
@@ -89,10 +102,6 @@ export default function CreateTradingCardPage() {
       setIsSubmitting(false);
     }
   };
-
-  if (!imageId) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
