@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, CheckCircle2, Clock, ArrowRight, Lock } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, Clock, ArrowRight, Lock, Star } from "lucide-react";
 import { DailyChallenge } from "../types";
 import { useDailyChallenges } from "../hooks/use-daily-challenges";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,22 +26,36 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center"
+          className="relative w-8 h-8"
         >
-          <CheckCircle2 className="w-5 h-5 text-green-400" />
+          <div className="absolute inset-0 bg-green-500/20 rounded-full" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5 text-green-400" />
+          </div>
+          <motion.div
+            animate={{ scale: [1, 1.5], opacity: [1, 0] }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className="absolute inset-0 bg-green-500/20 rounded-full"
+          />
         </motion.div>
       );
     }
     if (hoursLeft === 0) {
       return (
-        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-          <Lock className="w-5 h-5 text-red-400" />
+        <div className="relative w-8 h-8">
+          <div className="absolute inset-0 bg-red-500/20 rounded-full" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-red-400" />
+          </div>
         </div>
       );
     }
     return (
-      <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-        <Clock className="w-5 h-5 text-purple-400" />
+      <div className="relative w-8 h-8">
+        <div className="absolute inset-0 bg-purple-500/20 rounded-full" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Clock className="w-5 h-5 text-purple-400" />
+        </div>
       </div>
     );
   };
@@ -58,13 +72,18 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
         challenge.completed ? "bg-gradient-to-r from-green-500/10 to-emerald-500/10" : "bg-black/30",
         isHovered && !challenge.completed && "bg-gradient-to-r from-purple-500/10 to-blue-500/10"
       )}>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 bg-[url('/patterns/grid.svg')] opacity-5"
+        />
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-3">
                 {getStatusIcon()}
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-white">
+                  <h3 className="font-semibold text-lg text-white group-hover:text-purple-300 transition-colors">
                     {challenge.title}
                   </h3>
                   {!challenge.completed && hoursLeft > 0 && (
@@ -93,14 +112,18 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
                       challenge.completed ? "bg-green-950/50" : "bg-purple-950/50"
                     )} 
                   />
-                  {progress > 0 && progress < 100 && (
+                  {progress > 0 && (
                     <motion.div
                       className="absolute top-0 left-0 h-full overflow-hidden"
                       initial={{ width: "0%" }}
                       animate={{ width: `${progress}%` }}
                       transition={{ duration: 1, ease: "easeOut" }}
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                      <motion.div 
+                        animate={{ x: ["-100%", "100%"] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-1/2"
+                      />
                     </motion.div>
                   )}
                 </div>
@@ -111,12 +134,15 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-md",
+                  "flex items-center gap-1 px-3 py-1.5 rounded-md relative group",
                   challenge.completed ? "bg-green-500/20 text-green-300" : "bg-purple-500/20 text-purple-300"
                 )}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 group-hover:animate-spin" />
                 <span className="font-medium">{challenge.creditReward}</span>
+                {challenge.completed && (
+                  <Star className="w-3 h-3 absolute -top-1 -right-1 text-yellow-400" />
+                )}
               </motion.div>
 
               <AnimatePresence>
@@ -134,6 +160,7 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
                       className={cn(
                         "relative group overflow-hidden",
                         "text-purple-200 border-purple-500/30 hover:bg-purple-500/20",
+                        "transition-all duration-300"
                       )}
                     >
                       {isChecking ? (
@@ -144,6 +171,12 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
                           <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                         </>
                       )}
+                      <motion.div
+                        initial={{ x: "-100%" }}
+                        animate={{ x: "100%" }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      />
                     </Button>
                   </motion.div>
                 )}
