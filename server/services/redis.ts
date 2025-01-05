@@ -42,14 +42,22 @@ export class TaskManager {
 
 export class PulseCreditManager {
   private static readonly CREDIT_PREFIX = "pulse_credits:";
+  private static readonly SHARE_PREFIX = "shares:";
   private static readonly DEFAULT_CREDITS = 10; // New users get 10 credits
 
   // Cost configuration
   static readonly IMAGE_GENERATION_COST = 2;
   static readonly CARD_CREATION_COST = 1;
+  static readonly SHARE_REWARD = 1; // Credits earned per successful share
+  static readonly MAX_DAILY_SHARE_REWARDS = 5; // Maximum shares that can earn credits per day
 
   private static getCreditKey(userId: number): string {
     return `${this.CREDIT_PREFIX}${userId}`;
+  }
+
+  private static getShareKey(userId: number): string {
+    const today = new Date().toISOString().split('T')[0];
+    return `${this.SHARE_PREFIX}${userId}:${today}`;
   }
 
   static async initializeCredits(userId: number): Promise<number> {
@@ -100,6 +108,44 @@ export class PulseCreditManager {
   static async hasEnoughCredits(userId: number, amount: number): Promise<boolean> {
     const credits = await this.getCredits(userId);
     return credits >= amount;
+  }
+
+  static async trackAndRewardShare(userId: number, sharedItemType: 'image' | 'card', itemId: number): Promise<{
+    credited: boolean;
+    creditsEarned: number;
+    dailySharesCount: number;
+  }> {
+    const shareKey = this.getShareKey(userId);
+
+    // Check if user has reached daily share limit
+    const dailyShares = parseInt(await redis.get(shareKey) || "0");
+    if (dailyShares >= this.MAX_DAILY_SHARE_REWARDS) {
+      return {
+        credited: false,
+        creditsEarned: 0,
+        dailySharesCount: dailyShares
+      };
+    }
+
+    // Record the share and increment daily counter
+    await redis.incr(shareKey);
+    // Set expiry for 24 hours if not already set
+    await redis.expire(shareKey, 24 * 60 * 60);
+
+    // Award credits
+    await this.addCredits(userId, this.SHARE_REWARD);
+
+    return {
+      credited: true,
+      creditsEarned: this.SHARE_REWARD,
+      dailySharesCount: dailyShares + 1
+    };
+  }
+
+  static async getDailySharesCount(userId: number): Promise<number> {
+    const shareKey = this.getShareKey(userId);
+    const count = await redis.get(shareKey);
+    return parseInt(count || "0");
   }
 }
 

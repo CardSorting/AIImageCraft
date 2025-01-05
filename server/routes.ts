@@ -449,6 +449,48 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add this new route after the /api/credits endpoint and before the httpServer creation
+  app.post("/api/share", async (req, res) => {
+    try {
+      const { itemType, itemId } = req.body;
+
+      if (!['image', 'card'].includes(itemType) || !itemId) {
+        return res.status(400).send("Invalid share data. Required: itemType (image or card) and itemId");
+      }
+
+      const result = await PulseCreditManager.trackAndRewardShare(
+        req.user!.id,
+        itemType as 'image' | 'card',
+        itemId
+      );
+
+      res.json({
+        success: true,
+        ...result,
+        message: result.credited
+          ? `Earned ${result.creditsEarned} credits for sharing! (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS} daily shares)`
+          : `Daily share limit reached (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS}). Try again tomorrow!`
+      });
+    } catch (error) {
+      console.error("Error processing share:", error);
+      res.status(500).send("Failed to process share");
+    }
+  });
+
+  app.get("/api/share/daily-limit", async (req, res) => {
+    try {
+      const count = await PulseCreditManager.getDailySharesCount(req.user!.id);
+      res.json({
+        count,
+        limit: PulseCreditManager.MAX_DAILY_SHARE_REWARDS,
+        remaining: Math.max(0, PulseCreditManager.MAX_DAILY_SHARE_REWARDS - count)
+      });
+    } catch (error) {
+      console.error("Error fetching share limit:", error);
+      res.status(500).send("Failed to fetch share limit");
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
