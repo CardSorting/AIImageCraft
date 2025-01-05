@@ -46,6 +46,7 @@ export function CardPacks() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedPackId, setSelectedPackId] = useState<number | null>(null);
   const [isAddingCards, setIsAddingCards] = useState(false);
+  const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -103,6 +104,26 @@ export function CardPacks() {
 
   const { mutate: addCardsToPack, isPending: isAddingCardsPending } = useMutation({
     mutationFn: async ({ packId, cardIds }: { packId: number; cardIds: number[] }) => {
+      // Get the target pack's current capacity
+      const targetPack = cardPacks?.find(p => p.id === packId);
+      if (!targetPack) throw new Error("Pack not found");
+
+      const currentCardCount = targetPack.cards.length;
+      const availableSlots = 10 - currentCardCount;
+
+      if (cardIds.length > availableSlots) {
+        throw new Error(`This pack can only accept ${availableSlots} more cards`);
+      }
+
+      // Check for duplicates
+      const duplicates = cardIds.filter(cardId => 
+        targetPack.cards.some(card => card.id === cardId)
+      );
+
+      if (duplicates.length > 0) {
+        throw new Error("Some selected cards are already in this pack");
+      }
+
       const res = await fetch(`/api/card-packs/${packId}/cards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,6 +144,7 @@ export function CardPacks() {
         description: "Cards have been added to your pack.",
       });
       setIsAddingCards(false);
+      setSelectedCards(new Set());
       setSelectedPackId(null);
     },
     onError: (error: Error) => {
@@ -133,6 +155,46 @@ export function CardPacks() {
       });
     },
   });
+
+  const handleCardSelect = (cardId: number, packId: number) => {
+    const targetPack = cardPacks?.find(p => p.id === packId);
+    if (!targetPack) return;
+
+    const newSelected = new Set(selectedCards);
+
+    // If card is already selected, remove it
+    if (selectedCards.has(cardId)) {
+      newSelected.delete(cardId);
+      setSelectedCards(newSelected);
+      return;
+    }
+
+    // Check available slots
+    const availableSlots = 10 - targetPack.cards.length;
+
+    // Check if adding this card would exceed the limit
+    if (selectedCards.size >= availableSlots) {
+      toast({
+        variant: "destructive",
+        title: "Pack limit reached",
+        description: `This pack can only accept ${availableSlots} more cards`,
+      });
+      return;
+    }
+
+    // Check if card is already in the pack
+    if (targetPack.cards.some(card => card.id === cardId)) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate card",
+        description: "This card is already in the pack",
+      });
+      return;
+    }
+
+    newSelected.add(cardId);
+    setSelectedCards(newSelected);
+  };
 
   if (isLoading) {
     return (
@@ -245,6 +307,7 @@ export function CardPacks() {
                   onClick={() => {
                     setSelectedPackId(pack.id);
                     setIsAddingCards(true);
+                    setSelectedCards(new Set()); // Reset selection when opening dialog
                   }}
                   disabled={pack.cards?.length >= 10}
                   className="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300"
@@ -314,11 +377,17 @@ export function CardPacks() {
 
       {/* Add Cards Dialog */}
       <Dialog open={isAddingCards} onOpenChange={setIsAddingCards}>
-        <DialogContent className="sm:max-w-[600px] bg-black/80 border-purple-500/20 text-white">
+        <DialogContent className="sm:max-w-[800px] bg-black/80 border-purple-500/20 text-white">
           <DialogHeader>
             <DialogTitle>Add Cards to Pack</DialogTitle>
             <DialogDescription className="text-purple-300/70">
-              Select cards from your collection to add to this pack.
+              Select cards to add to your pack. Cards already in the pack will be disabled.
+              {selectedPackId && cardPacks && (
+                <div className="mt-2">
+                  <span className="font-medium">Available slots: </span>
+                  {10 - (cardPacks.find(p => p.id === selectedPackId)?.cards.length || 0)}
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -330,52 +399,67 @@ export function CardPacks() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const selectedCards = Array.from(formData.keys()).map(Number);
-                if (selectedCards.length === 0) {
-                  toast({
-                    variant: "destructive",
-                    title: "No cards selected",
-                    description: "Please select at least one card to add to the pack.",
+                if (selectedPackId && selectedCards.size > 0) {
+                  addCardsToPack({
+                    packId: selectedPackId,
+                    cardIds: Array.from(selectedCards),
                   });
-                  return;
-                }
-                if (selectedPackId) {
-                  addCardsToPack({ packId: selectedPackId, cardIds: selectedCards });
                 }
               }}
               className="space-y-4"
             >
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto p-4">
-                {tradingCards.map((card) => (
-                  <label
-                    key={card.id}
-                    className="relative group cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      name={card.id.toString()}
-                      className="peer sr-only"
-                    />
-                    <div className="relative overflow-hidden rounded-lg border-2 border-transparent peer-checked:border-purple-500 transition-all">
-                      <img
-                        src={card.image.url}
-                        alt={card.name}
-                        className="w-full h-32 object-cover"
+                {tradingCards.map((card) => {
+                  const targetPack = cardPacks?.find(p => p.id === selectedPackId);
+                  const isInPack = targetPack?.cards.some(c => c.id === card.id);
+                  const isSelectable = targetPack && 
+                    !isInPack && 
+                    (targetPack.cards.length + selectedCards.size) < 10;
+
+                  return (
+                    <label
+                      key={card.id}
+                      className={`relative group cursor-pointer ${
+                        !isSelectable && "opacity-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCards.has(card.id)}
+                        onChange={() => selectedPackId && handleCardSelect(card.id, selectedPackId)}
+                        disabled={!isSelectable}
+                        className="peer sr-only"
                       />
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white text-sm font-medium">
-                          {card.name}
-                        </span>
+                      <div className="relative overflow-hidden rounded-lg border-2 border-transparent peer-checked:border-purple-500 transition-all">
+                        <img
+                          src={card.image.url}
+                          alt={card.name}
+                          className="w-full h-32 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isInPack ? (
+                            <span className="text-white text-sm font-medium px-3 py-1 bg-purple-500/50 rounded-full">
+                              Already in pack
+                            </span>
+                          ) : !isSelectable ? (
+                            <span className="text-white text-sm font-medium px-3 py-1 bg-red-500/50 rounded-full">
+                              Pack is full
+                            </span>
+                          ) : (
+                            <span className="text-white text-sm font-medium">
+                              {card.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
+                    </label>
+                  );
+                })}
               </div>
 
               <Button
                 type="submit"
-                disabled={isAddingCardsPending}
+                disabled={isAddingCardsPending || selectedCards.size === 0}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 {isAddingCardsPending ? (
@@ -383,7 +467,7 @@ export function CardPacks() {
                 ) : (
                   <Plus className="mr-2 h-4 w-4" />
                 )}
-                Add Selected Cards
+                Add Selected Cards ({selectedCards.size})
               </Button>
             </form>
           ) : (
