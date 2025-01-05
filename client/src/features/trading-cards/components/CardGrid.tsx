@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CardItem } from "@/features/gallery/components/CardItem";
 import type { TradingCard } from "@/features/trading-cards/types";
 import { Button } from "@/components/ui/button";
-import { Package, X } from "lucide-react";
+import { Package, X, ArrowUpDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -25,24 +31,81 @@ interface CardGridProps {
   cards: TradingCard[];
 }
 
-interface CardPack {
-  id: number;
-  name: string;
-  description?: string;
-  cards?: Array<{
-    id: number;
-    name: string;
-    image: {
-      url: string;
-    };
-  }>;
-}
+type SortOption = {
+  label: string;
+  value: string;
+  compareFn: (a: TradingCard, b: TradingCard) => number;
+};
+
+const sortOptions: SortOption[] = [
+  {
+    label: "Name (A-Z)",
+    value: "name-asc",
+    compareFn: (a, b) => a.name.localeCompare(b.name),
+  },
+  {
+    label: "Name (Z-A)",
+    value: "name-desc",
+    compareFn: (a, b) => b.name.localeCompare(a.name),
+  },
+  {
+    label: "Rarity (Highest)",
+    value: "rarity-desc",
+    compareFn: (a, b) => {
+      const rarityOrder = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5 };
+      return (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0) - 
+             (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0);
+    },
+  },
+  {
+    label: "Rarity (Lowest)",
+    value: "rarity-asc",
+    compareFn: (a, b) => {
+      const rarityOrder = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5 };
+      return (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0) - 
+             (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0);
+    },
+  },
+  {
+    label: "Attack (Highest)",
+    value: "attack-desc",
+    compareFn: (a, b) => b.powerStats.attack - a.powerStats.attack,
+  },
+  {
+    label: "Defense (Highest)",
+    value: "defense-desc",
+    compareFn: (a, b) => b.powerStats.defense - a.powerStats.defense,
+  },
+  {
+    label: "Speed (Highest)",
+    value: "speed-desc",
+    compareFn: (a, b) => b.powerStats.speed - a.powerStats.speed,
+  },
+  {
+    label: "Magic (Highest)",
+    value: "magic-desc",
+    compareFn: (a, b) => b.powerStats.magic - a.powerStats.magic,
+  },
+  {
+    label: "Element (A-Z)",
+    value: "element-asc",
+    compareFn: (a, b) => a.elementalType.localeCompare(b.elementalType),
+  },
+];
 
 export function CardGrid({ cards }: CardGridProps) {
   const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set());
   const [isAddingToPack, setIsAddingToPack] = useState(false);
   const [selectedPackId, setSelectedPackId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("name-asc");
+  const [isCompactView, setIsCompactView] = useState(false);
   const { toast } = useToast();
+
+  // Sort cards based on selected option
+  const sortedCards = [...cards].sort(
+    sortOptions.find(option => option.value === sortBy)?.compareFn ||
+    sortOptions[0].compareFn
+  );
 
   // Fetch existing card packs
   const { data: cardPacks, isLoading: isLoadingPacks } = useQuery<CardPack[]>({
@@ -110,8 +173,44 @@ export function CardGrid({ cards }: CardGridProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative">
-        {cards.map((card) => (
+      {/* Controls */}
+      <div className="flex justify-between items-center mb-6 gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <ArrowUpDown className="h-4 w-4" />
+              Sort by: {sortOptions.find(option => option.value === sortBy)?.label}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            {sortOptions.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => setSortBy(option.value)}
+                className="cursor-pointer"
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button
+          variant="ghost"
+          onClick={() => setIsCompactView(!isCompactView)}
+          className="px-2"
+        >
+          {isCompactView ? "Expanded View" : "Compact View"}
+        </Button>
+      </div>
+
+      {/* Card Grid */}
+      <div className={`grid gap-6 ${
+        isCompactView 
+          ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
+          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      }`}>
+        {sortedCards.map((card) => (
           <CardItem
             key={card.id}
             card={card}
@@ -176,7 +275,7 @@ export function CardGrid({ cards }: CardGridProps) {
                   {cardPacks.map((pack) => {
                     const totalCards = (pack.cards?.length || 0) + selectedCards.size;
                     const isDisabled = totalCards > 10;
-                    
+
                     return (
                       <SelectItem
                         key={pack.id}
