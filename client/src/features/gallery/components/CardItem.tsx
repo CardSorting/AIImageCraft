@@ -15,6 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface CardItemProps {
   card: TradingCard;
@@ -36,6 +44,7 @@ interface CardPack {
 
 export function CardItem({ card, isCardsRoute }: CardItemProps) {
   const [isAddingToPack, setIsAddingToPack] = useState(false);
+  const [selectedPackId, setSelectedPackId] = useState<string>("");
   const { toast } = useToast();
   const shouldUse3DEffect = ['Rare', 'Epic', 'Legendary', 'Mythic'].includes(card.rarity);
   const { cardRef, shineRef, rainbowShineRef } = shouldUse3DEffect ? use3DCardEffect() : { cardRef: null, shineRef: null, rainbowShineRef: null };
@@ -68,6 +77,7 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
         description: "The card has been added to your selected pack.",
       });
       setIsAddingToPack(false);
+      setSelectedPackId("");
     },
     onError: (error: Error) => {
       toast({
@@ -124,6 +134,14 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
       });
     },
   });
+
+  // Handler for when a pack is selected from the dropdown
+  const handlePackSelect = (packId: string) => {
+    setSelectedPackId(packId);
+    if (packId) {
+      addCardToPack({ packId: parseInt(packId) });
+    }
+  };
 
   return (
     <>
@@ -272,35 +290,46 @@ export function CardItem({ card, isCardsRoute }: CardItemProps) {
               <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Existing Packs */}
+            <div className="space-y-6">
+              {/* Existing Packs Dropdown */}
               {cardPacks && cardPacks.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="font-medium text-white">Existing Packs</h3>
-                  <div className="space-y-2">
-                    {cardPacks.map((pack) => (
-                      <Button
-                        key={pack.id}
-                        onClick={() => addCardToPack({ packId: pack.id })}
-                        disabled={isAddingCard || (pack.cards?.length || 0) >= 10}
-                        className="w-full justify-between bg-purple-600/20 hover:bg-purple-600/30"
-                      >
-                        <span className="flex items-center">
-                          <Package className="w-4 h-4 mr-2" />
-                          {pack.name}
-                        </span>
-                        <span className="text-sm opacity-70">
-                          {pack.cards?.length || 0}/10
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                  <label className="text-sm font-medium text-white">
+                    Select Existing Pack
+                  </label>
+                  <Select
+                    value={selectedPackId}
+                    onValueChange={handlePackSelect}
+                  >
+                    <SelectTrigger className="w-full bg-purple-950/30 border-purple-500/30 text-white">
+                      <SelectValue placeholder="Choose a pack" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 border-purple-500/20">
+                      {cardPacks.map((pack) => (
+                        <SelectItem
+                          key={pack.id}
+                          value={pack.id.toString()}
+                          disabled={(pack.cards?.length || 0) >= 10}
+                          className="text-white hover:bg-purple-500/20 focus:bg-purple-500/20 focus:text-white"
+                        >
+                          <span className="flex items-center justify-between w-full">
+                            <span>{pack.name}</span>
+                            <span className="text-sm text-purple-300/70">
+                              {pack.cards?.length || 0}/10
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
+              <Separator className="bg-purple-500/20" />
+
               {/* Create New Pack */}
               <div className="space-y-2">
-                <h3 className="font-medium text-white">Create New Pack</h3>
+                <h3 className="text-sm font-medium text-white">Create New Pack</h3>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
