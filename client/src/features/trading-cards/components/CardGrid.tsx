@@ -116,6 +116,26 @@ export function CardGrid({ cards }: CardGridProps) {
   // Mutation for adding cards to pack
   const { mutate: addCardsToPack, isPending: isAddingCards } = useMutation({
     mutationFn: async ({ packId }: { packId: number }) => {
+      // Get the target pack's current cards
+      const targetPack = cardPacks?.find(p => p.id === packId);
+      if (!targetPack) throw new Error("Pack not found");
+
+      // Check for duplicates
+      const selectedCardsList = Array.from(selectedCards);
+      const duplicateCards = selectedCardsList.filter(cardId => 
+        targetPack.cards?.some(existingCard => existingCard.id === cardId)
+      );
+
+      if (duplicateCards.length > 0) {
+        throw new Error("Some selected cards are already in this pack");
+      }
+
+      // Check total cards after addition won't exceed 10
+      const totalCardsAfterAddition = (targetPack.cards?.length || 0) + selectedCards.size;
+      if (totalCardsAfterAddition > 10) {
+        throw new Error(`Adding ${selectedCards.size} cards would exceed the pack limit of 10 cards`);
+      }
+
       const res = await fetch(`/api/card-packs/${packId}/cards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
