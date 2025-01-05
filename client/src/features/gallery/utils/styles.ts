@@ -36,10 +36,10 @@ export function getElementalTypeBadgeStyle(type: string): string {
 
 export function getRarityStyle(rarity: string): string {
   const styles = {
-    Common: "bg-gray-500/20 text-gray-300",
-    Uncommon: "bg-green-500/20 text-green-300 animate-shimmer",
-    Rare: "bg-blue-500/20 text-blue-300 animate-shine bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0 bg-[length:200%_100%]",
-    Epic: "bg-purple-500/20 text-purple-300 animate-pulse-glow",
+    Common: "bg-gray-500/20 text-gray-300 animate-common",
+    Uncommon: "bg-green-500/20 text-green-300 animate-uncommon",
+    Rare: "bg-blue-500/20 text-blue-300 animate-rare",
+    Epic: "bg-purple-500/20 text-purple-300 animate-epic",
     Legendary: "bg-orange-500/20 text-orange-300 animate-legendary",
     Mythic: "bg-red-500/20 text-red-300 animate-mythic",
   };
@@ -49,11 +49,11 @@ export function getRarityStyle(rarity: string): string {
 export function getRarityOverlayStyle(rarity: string): string {
   const styles = {
     Common: "",
-    Uncommon: "after:absolute after:inset-0 after:bg-gradient-to-t after:from-green-500/5 after:to-transparent after:animate-shimmer",
-    Rare: "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-blue-500/10 after:via-blue-300/5 after:to-transparent after:animate-shine",
-    Epic: "after:absolute after:inset-0 after:bg-gradient-to-r after:from-purple-500/10 after:via-pink-500/5 after:to-purple-500/10 after:animate-pulse-glow",
-    Legendary: "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-orange-500/15 after:via-yellow-500/10 after:to-transparent after:animate-legendary",
-    Mythic: "after:absolute after:inset-0 after:bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] after:from-red-500/20 after:via-purple-500/15 after:to-transparent after:animate-mythic",
+    Uncommon: "after:absolute after:inset-0 after:bg-gradient-to-t after:from-green-500/10 after:via-transparent after:to-transparent after:animate-uncommon",
+    Rare: "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-blue-500/20 after:via-blue-300/10 after:to-transparent after:animate-rare",
+    Epic: "after:absolute after:inset-0 after:bg-gradient-to-r after:from-purple-500/20 after:via-pink-500/10 after:to-purple-500/20 after:animate-epic",
+    Legendary: "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-orange-500/30 after:via-yellow-500/20 after:to-transparent after:animate-legendary",
+    Mythic: "after:absolute after:inset-0 after:bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] after:from-red-500/30 after:via-purple-500/20 after:to-transparent after:animate-mythic",
   };
   return styles[rarity as keyof typeof styles] || styles.Common;
 }
