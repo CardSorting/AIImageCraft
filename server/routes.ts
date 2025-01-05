@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and, or, inArray } from "drizzle-orm";
+import { eq, and, or, inArray, sql } from "drizzle-orm";
 import {
   images,
   trades,
@@ -10,6 +10,9 @@ import {
   games,
   insertTradeSchema,
   tradingCards,
+  dailyChallenges,
+  challengeProgress,
+  users,
 } from "@db/schema";
 import { WarGameService } from "./services/game/war/war.service";
 import taskRoutes from "./routes/tasks";
@@ -32,6 +35,70 @@ export function registerRoutes(app: Express): Server {
       return res.status(401).send("Must be logged in to access this resource");
     }
     next();
+  });
+
+  // Daily Challenges endpoint
+  app.get("/api/challenges/daily", async (req, res) => {
+    try {
+      // Get all active challenges
+      const now = new Date();
+      const challenges = await db.query.dailyChallenges.findMany({
+        where: sql`${dailyChallenges.expiresAt} > ${now}`,
+        with: {
+          progress: {
+            where: eq(challengeProgress.userId, req.user!.id),
+          },
+        },
+      });
+
+      // Calculate total earnings for today
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const completedToday = await db.query.challengeProgress.findMany({
+        where: and(
+          eq(challengeProgress.userId, req.user!.id),
+          sql`${challengeProgress.completedAt} >= ${todayStart}`,
+          eq(challengeProgress.completed, true)
+        ),
+        with: {
+          challenge: true,
+        },
+      });
+
+      const totalEarnedToday = completedToday.reduce(
+        (sum, prog) => sum + prog.challenge.creditReward,
+        0
+      );
+
+      // Transform challenges to match frontend type
+      const transformedChallenges = challenges.map(challenge => ({
+        id: challenge.id.toString(),
+        type: challenge.type,
+        title: challenge.title,
+        description: challenge.description,
+        creditReward: challenge.creditReward,
+        requiredCount: challenge.requiredCount,
+        currentProgress: challenge.progress[0]?.progress ?? 0,
+        completed: challenge.progress[0]?.completed ?? false,
+        expiresAt: challenge.expiresAt.toISOString(),
+      }));
+
+      // Calculate max daily earnings (sum of all available challenge rewards)
+      const maxDailyEarnings = challenges.reduce(
+        (sum, challenge) => sum + challenge.creditReward,
+        0
+      );
+
+      res.json({
+        challenges: transformedChallenges,
+        totalEarnedToday,
+        maxDailyEarnings,
+      });
+    } catch (error) {
+      console.error("Error fetching daily challenges:", error);
+      res.status(500).send("Failed to fetch daily challenges");
+    }
   });
 
   // Register task management routes
@@ -402,7 +469,7 @@ export function registerRoutes(app: Express): Server {
       res.json(userGames);
     } catch (error: any) {
       console.error("Error fetching games:", error);
-      res.status(500).send(error.message);
+      res.status(500).send("Failed to fetch games");
     }
   });
 
