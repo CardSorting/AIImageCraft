@@ -101,8 +101,8 @@ export function CreateTradingCard({
       onOpenChange(false);
       // Invalidate both the trading cards list and the specific image check
       queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/trading-cards/check-image/${imageId}`] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/trading-cards/check-image/${imageId}`],
       });
       // Also invalidate credits after successful card creation
       queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
@@ -183,20 +183,27 @@ export function CreateTradingCard({
               type="submit"
               disabled={isPending || !hasEnoughCredits}
               className={`w-full ${
-                hasEnoughCredits 
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700" 
+                hasEnoughCredits
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   : "bg-gray-600 cursor-not-allowed"
               }`}
             >
               {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
               ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              {hasEnoughCredits ? (
-                "Create Trading Card"
-              ) : (
-                "Insufficient Pulse Credits"
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {hasEnoughCredits ? (
+                    <>
+                      Forge Card <span className="ml-1 opacity-90">• {requiredCredits} Pulse</span>
+                    </>
+                  ) : (
+                    "Insufficient Pulse Credits"
+                  )}
+                </>
               )}
             </Button>
           </form>
