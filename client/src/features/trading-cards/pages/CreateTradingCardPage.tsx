@@ -21,7 +21,9 @@ export default function CreateTradingCardPage() {
     // Fetch image details when component mounts
     const fetchImage = async () => {
       try {
-        const res = await fetch(`/api/images/${imageId}`);
+        const res = await fetch(`/api/images/${imageId}`, {
+          credentials: 'include', // Important: Include credentials for authentication
+        });
         if (!res.ok) throw new Error("Failed to fetch image");
         const data = await res.json();
         setImageUrl(data.url);
@@ -37,6 +39,8 @@ export default function CreateTradingCardPage() {
 
     if (imageId) {
       fetchImage();
+    } else {
+      setLocation("/cards");
     }
   }, [imageId, setLocation, toast]);
 
@@ -46,13 +50,14 @@ export default function CreateTradingCardPage() {
 
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
-    
+
     try {
       const res = await fetch("/api/trading-cards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: 'include', // Important: Include credentials for authentication
         body: JSON.stringify({
           imageId: parseInt(imageId),
           name: formData.get("name"),
@@ -67,12 +72,12 @@ export default function CreateTradingCardPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
-      
+
       toast({
         title: "Success",
         description: "Trading card created successfully",
       });
-      
+
       setLocation("/cards");
     } catch (error: any) {
       toast({
@@ -85,7 +90,7 @@ export default function CreateTradingCardPage() {
     }
   };
 
-  if (!imageId || !imageUrl) {
+  if (!imageId) {
     return null;
   }
 
@@ -94,14 +99,20 @@ export default function CreateTradingCardPage() {
       <Header />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold text-white mb-8">Create Trading Card</h1>
-        
+
         <div className="grid md:grid-cols-2 gap-8">
           <Card className="p-6 bg-black/30 border-purple-500/20">
-            <img
-              src={imageUrl}
-              alt="Card artwork"
-              className="w-full aspect-square object-cover rounded-lg"
-            />
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt="Card artwork"
+                className="w-full aspect-square object-cover rounded-lg"
+              />
+            ) : (
+              <div className="w-full aspect-square bg-purple-500/10 rounded-lg flex items-center justify-center">
+                <p className="text-purple-300/70">Loading image...</p>
+              </div>
+            )}
           </Card>
 
           <Card className="p-6 bg-black/30 border-purple-500/20">
@@ -173,7 +184,7 @@ export default function CreateTradingCardPage() {
                   disabled={isSubmitting}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
-                  Create Card
+                  {isSubmitting ? "Creating..." : "Create Card"}
                 </Button>
               </div>
             </form>
