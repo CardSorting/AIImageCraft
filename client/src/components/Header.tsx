@@ -1,10 +1,12 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { User, ImagePlus, Images, LogOut, Library } from "lucide-react";
+import { User, ImagePlus, Images, LogOut, Library, Zap } from "lucide-react";
+import { useCredits } from "@/hooks/use-credits";
 
 export default function Header() {
   const { user, logout } = useUser();
+  const { credits, isLoading } = useCredits();
 
   const handleLogout = async () => {
     try {
@@ -22,6 +24,12 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-4">
+          <div className="flex items-center px-3 py-1.5 rounded-md bg-purple-500/10 border border-purple-500/20">
+            <Zap className="w-4 h-4 text-purple-400 mr-2" />
+            <span className="text-purple-200">
+              {isLoading ? "..." : `${credits} Pulse`}
+            </span>
+          </div>
           <Link href="/create">
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <ImagePlus className="h-4 w-4 mr-2" />
