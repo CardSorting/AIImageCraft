@@ -42,19 +42,17 @@ export function registerRoutes(app: Express): Server {
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
     try {
-      // Get only the active challenge for today
-      const now = new Date();
+      // Get the active challenges for today
       const challenges = await db.query.dailyChallenges.findMany({
         where: and(
-          sql`${dailyChallenges.expiresAt} >= CURRENT_DATE`,
-          sql`${dailyChallenges.createdAt} <= CURRENT_DATE`
+          sql`DATE(${dailyChallenges.expiresAt}) >= CURRENT_DATE`,
+          sql`DATE(${dailyChallenges.createdAt}) <= CURRENT_DATE`
         ),
         with: {
           progress: {
             where: eq(challengeProgress.userId, req.user!.id),
           },
         },
-        limit: 1, // Only get one challenge
       });
 
       // Calculate total earnings for today
@@ -64,7 +62,7 @@ export function registerRoutes(app: Express): Server {
       const completedToday = await db.query.challengeProgress.findMany({
         where: and(
           eq(challengeProgress.userId, req.user!.id),
-          sql`${challengeProgress.completedAt} >= CURRENT_DATE`,
+          sql`DATE(${challengeProgress.completedAt}) = CURRENT_DATE`,
           eq(challengeProgress.completed, true)
         ),
         with: {
@@ -90,8 +88,11 @@ export function registerRoutes(app: Express): Server {
         expiresAt: challenge.expiresAt.toISOString(),
       }));
 
-      // For daily challenge, we only care about today's max earnings
-      const maxDailyEarnings = challenges.length > 0 ? challenges[0].creditReward : 0;
+      // Calculate max daily earnings from available challenges
+      const maxDailyEarnings = challenges.reduce(
+        (sum, challenge) => sum + challenge.creditReward,
+        0
+      );
 
       res.json({
         challenges: transformedChallenges,
@@ -519,6 +520,129 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add this new route after the /api/credits endpoint and before the httpServer creation
+  app.post("/api/share", async (req, res) => {
+    try {
+      const { itemType, itemId } = req.body;
+
+      if (!['image', 'card'].includes(itemType) || !itemId) {
+        return res.status(400).send("Invalid share data. Required: itemType (image or card) and itemId");
+      }
+
+      const result = await PulseCreditManager.trackAndRewardShare(
+        req.user!.id,
+        itemType as 'image' | 'card',
+        itemId
+      );
+
+      res.json({
+        success: true,
+        ...result,
+        message: result.credited
+          ? `Earned ${result.creditsEarned} credits for sharing! (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS} daily shares)`
+          : `Daily share limit reached (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS}). Try again tomorrow!`
+      });
+    } catch (error) {
+      console.error("Error processing share:", error);
+      res.status(500).send("Failed to process share");
+    }
+  });
+
+  app.get("/api/share/daily-limit", async (req, res) => {
+    try {
+      const count = await PulseCreditManager.getDailySharesCount(req.user!.id);
+      res.json({
+        count,
+        limit: PulseCreditManager.MAX_DAILY_SHARE_REWARDS,
+        remaining: Math.max(0, PulseCreditManager.MAX_DAILY_SHARE_REWARDS - count)
+      });
+    } catch (error) {
+      console.error("Error fetching share limit:", error);
+      res.status(500).send("Failed to fetch share limit");
+    }
+  });
+
+  // Referral system endpoints
+  app.post("/api/referral/generate", async (req, res) => {
+    try {
+      const existingCode = await PulseCreditManager.getReferralCode(req.user!.id);
+      if (existingCode) {
+        return res.json({ code: existingCode });
+      }
+
+      const code = await PulseCreditManager.generateReferralCode(req.user!.id);
+      res.json({ code });
+    } catch (error) {
+      console.error("Error generating referral code:", error);
+      res.status(500).send("Failed to generate referral code");
+    }
+  });
+
+  app.post("/api/referral/use", async (req, res) => {
+    try {
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).send("Referral code is required");
+      }
+
+      const result = await PulseCreditManager.useReferralCode(code, req.user!.id);
+
+      if (!result.success) {
+        return res.status(400).send(result.error);
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully used referral code! You received ${PulseCreditManager.REFERRAL_WELCOME_BONUS} Pulse credits as a welcome bonus.`,
+        creditsAwarded: PulseCreditManager.REFERRAL_WELCOME_BONUS
+      });
+    } catch (error) {
+      console.error("Error using referral code:", error);
+      res.status(500).send("Failed to use referral code");
+    }
+  });
+
+  app.get("/api/referral/code", async (req, res) => {
+    try {
+      const code = await PulseCreditManager.getReferralCode(req.user!.id);
+      res.json({ code });
+    } catch (error) {
+      console.error("Error fetching referral code:", error);
+      res.status(500).send("Failed to fetch referral code");
+    }
+  });
+
+  // Add this new endpoint after the existing referral endpoints
+  app.get("/api/referral/stats", async (req, res) => {
+    try {
+      const referralCount = await PulseCreditManager.getReferralCount(req.user!.id);
+      const currentTier = PulseCreditManager.REFERRAL_TIERS.findIndex(
+        tier => referralCount >= tier.min && referralCount <= tier.max
+      ) + 1;
+
+      const currentTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier - 1];
+      const nextTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier] || null;
+
+      // Calculate progress to next tier
+      const progressInTier = referralCount - currentTierInfo.min;
+      const tierSize = currentTierInfo.max - currentTierInfo.min + 1;
+      const progressPercentage = (progressInTier / tierSize) * 100;
+
+      res.json({
+        referralCount,
+        currentTier,
+        currentBonus: currentTierInfo.bonus,
+        nextTierBonus: nextTierInfo?.bonus,
+        progressToNextTier: progressPercentage,
+        creditsEarned: referralCount * currentTierInfo.bonus
+      });
+    } catch (error) {
+      console.error("Error fetching referral stats:", error);
+      res.status(500).send("Failed to fetch referral statistics");
+    }
+  });
+
   // XP and Level Management Routes
   app.post("/api/xp/award", async (req, res) => {
     try {
@@ -714,129 +838,6 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error claiming reward:", error);
       res.status(500).send(error.message);
-    }
-  });
-
-  // Add this new route after the /api/credits endpoint and before the httpServer creation
-  app.post("/api/share", async (req, res) => {
-    try {
-      const { itemType, itemId } = req.body;
-
-      if (!['image', 'card'].includes(itemType) || !itemId) {
-        return res.status(400).send("Invalid share data. Required: itemType (image or card) and itemId");
-      }
-
-      const result = await PulseCreditManager.trackAndRewardShare(
-        req.user!.id,
-        itemType as 'image' | 'card',
-        itemId
-      );
-
-      res.json({
-        success: true,
-        ...result,
-        message: result.credited
-          ? `Earned ${result.creditsEarned} credits for sharing! (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS} daily shares)`
-          : `Daily share limit reached (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS}). Try again tomorrow!`
-      });
-    } catch (error) {
-      console.error("Error processing share:", error);
-      res.status(500).send("Failed to process share");
-    }
-  });
-
-  app.get("/api/share/daily-limit", async (req, res) => {
-    try {
-      const count = await PulseCreditManager.getDailySharesCount(req.user!.id);
-      res.json({
-        count,
-        limit: PulseCreditManager.MAX_DAILY_SHARE_REWARDS,
-        remaining: Math.max(0, PulseCreditManager.MAX_DAILY_SHARE_REWARDS - count)
-      });
-    } catch (error) {
-      console.error("Error fetching share limit:", error);
-      res.status(500).send("Failed to fetch share limit");
-    }
-  });
-
-  // Referral system endpoints
-  app.post("/api/referral/generate", async (req, res) => {
-    try {
-      const existingCode = await PulseCreditManager.getReferralCode(req.user!.id);
-      if (existingCode) {
-        return res.json({ code: existingCode });
-      }
-
-      const code = await PulseCreditManager.generateReferralCode(req.user!.id);
-      res.json({ code });
-    } catch (error) {
-      console.error("Error generating referral code:", error);
-      res.status(500).send("Failed to generate referral code");
-    }
-  });
-
-  app.post("/api/referral/use", async (req, res) => {
-    try {
-      const { code } = req.body;
-
-      if (!code) {
-        return res.status(400).send("Referral code is required");
-      }
-
-      const result = await PulseCreditManager.useReferralCode(code, req.user!.id);
-
-      if (!result.success) {
-        return res.status(400).send(result.error);
-      }
-
-      res.json({
-        success: true,
-        message: `Successfully used referral code! You received ${PulseCreditManager.REFERRAL_WELCOME_BONUS} Pulse credits as a welcome bonus.`,
-        creditsAwarded: PulseCreditManager.REFERRAL_WELCOME_BONUS
-      });
-    } catch (error) {
-      console.error("Error using referral code:", error);
-      res.status(500).send("Failed to use referral code");
-    }
-  });
-
-  app.get("/api/referral/code", async (req, res) => {
-    try {
-      const code = await PulseCreditManager.getReferralCode(req.user!.id);
-      res.json({ code });
-    } catch (error) {
-      console.error("Error fetching referral code:", error);
-      res.status(500).send("Failed to fetch referral code");
-    }
-  });
-
-  // Add this new endpoint after the existing referral endpoints
-  app.get("/api/referral/stats", async (req, res) => {
-    try {
-      const referralCount = await PulseCreditManager.getReferralCount(req.user!.id);
-      const currentTier = PulseCreditManager.REFERRAL_TIERS.findIndex(
-        tier => referralCount >= tier.min && referralCount <= tier.max
-      ) + 1;
-
-      const currentTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier - 1];
-      const nextTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier] || null;
-
-      // Calculate progress to next tier
-      const progressInTier = referralCount - currentTierInfo.min;
-      const tierSize = currentTierInfo.max - currentTierInfo.min + 1;
-      const progressPercentage = (progressInTier / tierSize) * 100;
-
-      res.json({
-        referralCount,
-        currentTier,
-        currentBonus: currentTierInfo.bonus,
-        nextTierBonus: nextTierInfo?.bonus,
-        progressToNextTier: progressPercentage,
-        creditsEarned: referralCount * currentTierInfo.bonus
-      });
-    } catch (error) {
-      console.error("Error fetching referral stats:", error);
-      res.status(500).send("Failed to fetch referral statistics");
     }
   });
 
