@@ -7,6 +7,28 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
+  referralCode: text("referral_code").unique(),
+  totalReferralBonus: integer("total_referral_bonus").default(0),
+});
+
+export const referrals = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  referrerId: integer("referrer_id").notNull().references(() => users.id),
+  refereeId: integer("referee_id").notNull().references(() => users.id).unique(),
+  status: text("status").notNull().default('pending'),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const referralBonuses = pgTable("referral_bonuses", {
+  id: serial("id").primaryKey(),
+  referralId: integer("referral_id").notNull().references(() => referrals.id),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(),
+  status: text("status").notNull().default('pending'),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  processedAt: timestamp("processed_at"),
+  metadata: jsonb("metadata"),
 });
 
 export const images = pgTable("images", {
@@ -18,7 +40,6 @@ export const images = pgTable("images", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-// New card template table for global card pool
 export const cardTemplates = pgTable("card_templates", {
   id: serial("id").primaryKey(),
   imageId: integer("image_id").notNull().references(() => images.id),
@@ -92,7 +113,7 @@ export const gameCards = pgTable("game_cards", {
 export const userFavorites = pgTable("user_favorites", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  itemType: text("item_type").notNull(), // 'card', 'image', etc.
+  itemType: text("item_type").notNull(),
   itemId: integer("item_id").notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
@@ -107,6 +128,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   gamesAsPlayer2: many(games, { relationName: "player2" }),
   wonGames: many(games, { relationName: "winner" }),
   favorites: many(userFavorites),
+  referralsGiven: many(referrals, { relationName: "referrer" }),
+  referralsReceived: many(referrals, { relationName: "referee" }),
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -223,6 +246,27 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
     }),
 }));
 
+export const referralsRelations = relations(referrals, ({ one, many }) => ({
+  referrer: one(users, {
+    fields: [referrals.referrerId],
+    references: [users.id],
+    relationName: "referrer",
+  }),
+  referee: one(users, {
+    fields: [referrals.refereeId],
+    references: [users.id],
+    relationName: "referee",
+  }),
+  bonuses: many(referralBonuses),
+}));
+
+export const referralBonusesRelations = relations(referralBonuses, ({ one }) => ({
+  referral: one(referrals, {
+    fields: [referralBonuses.referralId],
+    references: [referrals.id],
+  }),
+}));
+
 
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
@@ -257,6 +301,12 @@ export const selectGameCardSchema = createSelectSchema(gameCards);
 export const insertUserFavoriteSchema = createInsertSchema(userFavorites);
 export const selectUserFavoriteSchema = createSelectSchema(userFavorites);
 
+export const insertReferralSchema = createInsertSchema(referrals);
+export const selectReferralSchema = createSelectSchema(referrals);
+
+export const insertReferralBonusSchema = createInsertSchema(referralBonuses);
+export const selectReferralBonusSchema = createSelectSchema(referralBonuses);
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -289,3 +339,9 @@ export type SelectGameCard = typeof gameCards.$inferSelect;
 
 export type InsertUserFavorite = typeof userFavorites.$inferInsert;
 export type SelectUserFavorite = typeof userFavorites.$inferSelect;
+
+export type InsertReferral = typeof referrals.$inferInsert;
+export type SelectReferral = typeof referrals.$inferSelect;
+
+export type InsertReferralBonus = typeof referralBonuses.$inferInsert;
+export type SelectReferralBonus = typeof referralBonuses.$inferSelect;
