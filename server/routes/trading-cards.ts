@@ -39,6 +39,15 @@ router.post("/", async (req, res) => {
       return res.status(404).send("Image not found or doesn't belong to you");
     }
 
+    // Check if a card already exists for this image
+    const existingCard = await db.query.cardTemplates.findFirst({
+      where: eq(cardTemplates.imageId, imageId),
+    });
+
+    if (existingCard) {
+      return res.status(409).send("A card has already been created from this image");
+    }
+
     // Validate elementalType
     if (!ELEMENTAL_TYPES.includes(elementalType)) {
       return res.status(400).send(`Invalid elemental type. Must be one of: ${ELEMENTAL_TYPES.join(', ')}`);
@@ -132,6 +141,21 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("Error fetching cards:", error);
     res.status(500).send("Failed to fetch cards");
+  }
+});
+
+// Add new endpoint to check if image has been used
+router.get("/check-image/:imageId", async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.imageId);
+    const existingCard = await db.query.cardTemplates.findFirst({
+      where: eq(cardTemplates.imageId, imageId),
+    });
+
+    res.json({ hasCard: !!existingCard });
+  } catch (error) {
+    console.error("Error checking image:", error);
+    res.status(500).send("Failed to check image status");
   }
 });
 

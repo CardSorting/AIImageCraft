@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Sparkles, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ImageCardProps {
@@ -76,6 +77,11 @@ export default function ImageCard({
   imageUrl, 
   tags = []
 }: ImageCardProps) {
+  const { data: cardStatus } = useQuery({
+    queryKey: [`/api/trading-cards/check-image/${imageId}`],
+    retry: false,
+  });
+
   const handleDownload = async () => {
     const response = await fetch(imageUrl);
     const blob = await response.blob();
@@ -120,15 +126,26 @@ export default function ImageCard({
             >
               <Download className="h-4 w-4" />
             </Button>
-            <Link href={`/cards/create?imageId=${imageId}`}>
+            {cardStatus?.hasCard ? (
               <Button
                 variant="secondary"
-                className="flex-1 bg-purple-500/20 hover:bg-purple-500/30 backdrop-blur-sm"
+                className="flex-1 bg-gray-500/20 hover:bg-gray-500/30 backdrop-blur-sm cursor-not-allowed"
+                disabled
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Create Card
+                Card Created
               </Button>
-            </Link>
+            ) : (
+              <Link href={`/cards/create?imageId=${imageId}`}>
+                <Button
+                  variant="secondary"
+                  className="flex-1 bg-purple-500/20 hover:bg-purple-500/30 backdrop-blur-sm"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Create Card
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
