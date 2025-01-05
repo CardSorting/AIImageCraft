@@ -43,10 +43,16 @@ export class AIOpponentService {
     return aiCards;
   }
 
-  static getAIDecision(playerCard: SelectTradingCard, aiCard: SelectTradingCard): string {
-    // Implement basic AI decision making - can be expanded for more complex strategies
-    const playerValue = this.calculateCardValue(playerCard.template);
-    const aiValue = this.calculateCardValue(aiCard.template);
+  static async getAIDecision(playerCard: SelectTradingCard, aiCard: SelectTradingCard): Promise<string> {
+    const [playerTemplate] = await db.select().from(cardTemplates).where(eq(cardTemplates.id, playerCard.templateId));
+    const [aiTemplate] = await db.select().from(cardTemplates).where(eq(cardTemplates.id, aiCard.templateId));
+
+    if (!playerTemplate || !aiTemplate) {
+      return "AI makes a move";
+    }
+
+    const playerValue = this.calculateCardValue(playerTemplate);
+    const aiValue = this.calculateCardValue(aiTemplate);
 
     if (aiValue > playerValue) {
       return "AI plays confidently with a stronger card";
