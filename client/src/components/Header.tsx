@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { User, ImagePlus, Images, LogOut, Library } from "lucide-react";
+import { User, ImagePlus, Images, LogOut, Library, Trophy } from "lucide-react";
 import { CreditBalance } from "@/features/credits/components/CreditBalance";
 
 export default function Header() {
@@ -40,6 +40,12 @@ export default function Header() {
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <Library className="h-4 w-4 mr-2" />
               Trading Cards
+            </Button>
+          </Link>
+          <Link href="/challenges">
+            <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
+              <Trophy className="h-4 w-4 mr-2" />
+              Challenges
             </Button>
           </Link>
           <Link href="/profile">
