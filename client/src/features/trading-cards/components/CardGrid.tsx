@@ -64,8 +64,8 @@ const sortOptions: SortOption[] = [
     value: "rarity-desc",
     compareFn: (a, b) => {
       const rarityOrder = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5 };
-      return (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0) - 
-             (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0);
+      return (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0) -
+        (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0);
     },
   },
   {
@@ -73,8 +73,8 @@ const sortOptions: SortOption[] = [
     value: "rarity-asc",
     compareFn: (a, b) => {
       const rarityOrder = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4, Mythic: 5 };
-      return (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0) - 
-             (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0);
+      return (rarityOrder[a.rarity as keyof typeof rarityOrder] || 0) -
+        (rarityOrder[b.rarity as keyof typeof rarityOrder] || 0);
     },
   },
   {
@@ -114,8 +114,8 @@ export function CardGrid({ cards }: CardGridProps) {
 
   // Sort cards based on selected option
   const sortedCards = [...cards].sort(
-    sortOptions.find(option => option.value === sortBy)?.compareFn ||
-    sortOptions[0].compareFn
+    sortOptions.find((option) => option.value === sortBy)?.compareFn ||
+      sortOptions[0].compareFn
   );
 
   // Fetch existing card packs
@@ -124,17 +124,58 @@ export function CardGrid({ cards }: CardGridProps) {
     enabled: isAddingToPack,
   });
 
+  const handleCardSelect = (cardId: number) => {
+    const newSelected = new Set(selectedCards);
+    if (selectedCards.has(cardId)) {
+      newSelected.delete(cardId);
+    } else {
+      // Check if we're currently viewing the pack selection dialog
+      if (isAddingToPack && cardPacks) {
+        // Get available packs that could accept this card
+        const availablePacks = cardPacks.filter((pack) => {
+          const currentCount = pack.cards?.length || 0;
+          const selectedCount = selectedCards.size;
+          const wouldExceedLimit = (currentCount + selectedCount + 1) > 10;
+          const hasDuplicate = pack.cards?.some((existingCard) => existingCard.id === cardId);
+          return !wouldExceedLimit && !hasDuplicate;
+        });
+
+        if (availablePacks.length === 0) {
+          toast({
+            variant: "destructive",
+            title: "Cannot select more cards",
+            description: "No available packs can accept this card (due to capacity limits or duplicates)",
+          });
+          return;
+        }
+      }
+
+      // If we're not in pack selection mode or there are available packs
+      if (selectedCards.size >= 10) {
+        toast({
+          variant: "destructive",
+          title: "Selection limit reached",
+          description: "You can only select up to 10 cards at a time.",
+        });
+        return;
+      }
+
+      newSelected.add(cardId);
+    }
+    setSelectedCards(newSelected);
+  };
+
   // Mutation for adding cards to pack
   const { mutate: addCardsToPack, isPending: isAddingCards } = useMutation({
     mutationFn: async ({ packId }: { packId: number }) => {
       // Get the target pack's current cards
-      const targetPack = cardPacks?.find(p => p.id === packId);
+      const targetPack = cardPacks?.find((p) => p.id === packId);
       if (!targetPack) throw new Error("Pack not found");
 
       // Check for duplicates
       const selectedCardsList = Array.from(selectedCards);
-      const duplicateCards = selectedCardsList.filter(cardId => 
-        targetPack.cards?.some(existingCard => existingCard.id === cardId)
+      const duplicateCards = selectedCardsList.filter((cardId) =>
+        targetPack.cards?.some((existingCard) => existingCard.id === cardId)
       );
 
       if (duplicateCards.length > 0) {
@@ -178,26 +219,9 @@ export function CardGrid({ cards }: CardGridProps) {
     },
   });
 
-  const handleCardSelect = (cardId: number) => {
-    const newSelected = new Set(selectedCards);
-    if (selectedCards.has(cardId)) {
-      newSelected.delete(cardId);
-    } else if (selectedCards.size < 10) {
-      newSelected.add(cardId);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Selection limit reached",
-        description: "You can only select up to 10 cards at a time.",
-      });
-      return;
-    }
-    setSelectedCards(newSelected);
-  };
-
   const handlePackSelect = (packId: string) => {
     // Pre-validate before attempting to add cards
-    const targetPack = cardPacks?.find(p => p.id === parseInt(packId));
+    const targetPack = cardPacks?.find((p) => p.id === parseInt(packId));
     if (!targetPack) {
       toast({
         variant: "destructive",
@@ -209,8 +233,8 @@ export function CardGrid({ cards }: CardGridProps) {
 
     // Check for duplicates before proceeding
     const selectedCardsList = Array.from(selectedCards);
-    const duplicateCards = selectedCardsList.filter(cardId => 
-      targetPack.cards?.some(existingCard => existingCard.id === cardId)
+    const duplicateCards = selectedCardsList.filter((cardId) =>
+      targetPack.cards?.some((existingCard) => existingCard.id === cardId)
     );
 
     if (duplicateCards.length > 0) {
@@ -245,7 +269,7 @@ export function CardGrid({ cards }: CardGridProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
               <ArrowUpDown className="h-4 w-4" />
-              Sort by: {sortOptions.find(option => option.value === sortBy)?.label}
+              Sort by: {sortOptions.find((option) => option.value === sortBy)?.label}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
@@ -271,11 +295,13 @@ export function CardGrid({ cards }: CardGridProps) {
       </div>
 
       {/* Card Grid */}
-      <div className={`grid gap-6 ${
-        isCompactView 
-          ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" 
-          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      }`}>
+      <div
+        className={`grid gap-6 ${
+          isCompactView
+            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        }`}
+      >
         {sortedCards.map((card) => (
           <CardItem
             key={card.id}
@@ -320,7 +346,8 @@ export function CardGrid({ cards }: CardGridProps) {
           <DialogHeader>
             <DialogTitle>Add Cards to Pack</DialogTitle>
             <DialogDescription className="text-purple-300/70">
-              Select a pack to add your {selectedCards.size} selected card{selectedCards.size !== 1 ? 's' : ''} to.
+              Select a pack to add your {selectedCards.size}{" "}
+              card{selectedCards.size !== 1 ? "s" : ""} to.
             </DialogDescription>
           </DialogHeader>
 
@@ -330,20 +357,17 @@ export function CardGrid({ cards }: CardGridProps) {
             </div>
           ) : cardPacks && cardPacks.length > 0 ? (
             <div className="space-y-4">
-              <Select
-                value={selectedPackId}
-                onValueChange={handlePackSelect}
-              >
+              <Select value={selectedPackId} onValueChange={handlePackSelect}>
                 <SelectTrigger className="w-full bg-purple-950/30 border-purple-500/30 text-white">
                   <SelectValue placeholder="Choose a pack" />
                 </SelectTrigger>
                 <SelectContent className="bg-black/90 border-purple-500/20">
                   {cardPacks.map((pack) => {
-                    const totalCards = (pack.cards?.length || 0);
+                    const totalCards = pack.cards?.length || 0;
                     const availableSlots = 10 - totalCards;
                     const isDisabled = availableSlots < selectedCards.size;
-                    const hasDuplicates = Array.from(selectedCards).some(cardId => 
-                      pack.cards?.some(existingCard => existingCard.id === cardId)
+                    const hasDuplicates = Array.from(selectedCards).some((cardId) =>
+                      pack.cards?.some((existingCard) => existingCard.id === cardId)
                     );
 
                     return (
