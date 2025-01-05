@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -31,10 +32,15 @@ interface CardPack {
 export function CardPacks() {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data: cardPacks, isLoading, error } = useQuery<CardPack[]>({
+  const {
+    data: cardPacks,
+    isLoading,
+    error,
+  } = useQuery<CardPack[]>({
     queryKey: ["/api/card-packs"],
-    retry: false
+    retry: false,
   });
 
   const { mutate: createPack, isPending: isCreatePending } = useMutation({
@@ -46,6 +52,7 @@ export function CardPacks() {
           name: formData.get("name"),
           description: formData.get("description"),
         }),
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -55,6 +62,7 @@ export function CardPacks() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/card-packs"] });
       toast({
         title: "Card pack created!",
         description: "Your new card pack is ready for cards.",
@@ -136,9 +144,13 @@ export function CardPacks() {
             key={pack.id}
             className="p-6 bg-black/30 border-purple-500/20 backdrop-blur-sm"
           >
-            <h3 className="text-lg font-semibold text-white mb-2">{pack.name}</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {pack.name}
+            </h3>
             {pack.description && (
-              <p className="text-purple-300/70 text-sm mb-4">{pack.description}</p>
+              <p className="text-purple-300/70 text-sm mb-4">
+                {pack.description}
+              </p>
             )}
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-purple-400" />
@@ -156,7 +168,8 @@ export function CardPacks() {
           <DialogHeader>
             <DialogTitle>Create Card Pack</DialogTitle>
             <DialogDescription className="text-purple-300/70">
-              Create a new pack to organize your trading cards. Each pack can hold up to 10 cards.
+              Create a new pack to organize your trading cards. Each pack can
+              hold up to 10 cards.
             </DialogDescription>
           </DialogHeader>
 
@@ -168,7 +181,9 @@ export function CardPacks() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white">Pack Name</label>
+              <label className="text-sm font-medium text-white">
+                Pack Name
+              </label>
               <Input
                 name="name"
                 required
@@ -178,7 +193,9 @@ export function CardPacks() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white">Description</label>
+              <label className="text-sm font-medium text-white">
+                Description
+              </label>
               <Textarea
                 name="description"
                 className="bg-purple-950/30 border-purple-500/30 text-white resize-none"
