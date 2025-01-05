@@ -1,0 +1,59 @@
+Error creating AI game: error: insert or update on table "trading_cards" violates foreign key constraint "trading_cards_user_id_users_id_fk"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async <anonymous> (/home/runner/workspace/server/services/game/ai/ai-opponent.service.ts:30:22)
+    at async Promise.all (index 0)
+    at async Function.buildDeck (/home/runner/workspace/server/services/game/ai/ai-opponent.service.ts:29:21)
+    at async <anonymous> (/home/runner/workspace/server/services/game/war/war.service.ts:22:22)
+    at async NeonSession.transaction (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:203:19)
+    at async Function.createGameWithAI (/home/runner/workspace/server/services/game/war/war.service.ts:20:12)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:393:20) {
+  length: 289,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (user_id)=(-1) is not present in table "users".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'trading_cards',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'trading_cards_user_id_users_id_fk',
+  file: 'ri_triggers.c',
+  line: '2608',
+  routine: 'ri_ReportViolation'
+}
+2:05:06 PM [express] POST /api/matchmaking 500 in 1280ms
+Error creating AI game: error: insert or update on table "trading_cards" violates foreign key constraint "trading_cards_user_id_users_id_fk"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async <anonymous> (/home/runner/workspace/server/services/game/ai/ai-opponent.service.ts:30:22)
+    at async Promise.all (index 1)
+    at async Function.buildDeck (/home/runner/workspace/server/services/game/ai/ai-opponent.service.ts:29:21)
+    at async <anonymous> (/home/runner/workspace/server/services/game/war/war.service.ts:22:22)
+    at async NeonSession.transaction (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:203:19)
+    at async Function.createGameWithAI (/home/runner/workspace/server/services/game/war/war.service.ts:20:12)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:393:20) {
+  length: 289,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (user_id)=(-1) is not present in table "users".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'trading_cards',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'trading_cards_user_id_users_id_fk',
+  file: 'ri_triggers.c',
+  line: '2608',
+  routine: 'ri_ReportViolation'
+}
