@@ -59,66 +59,87 @@ export function CardGallery() {
             className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105"
             onClick={() => setSelectedCard(card)}
           >
+            {/* Card Frame */}
             <div className={`
-              relative aspect-square rounded-xl overflow-hidden
+              relative w-full aspect-[3/4] rounded-[18px] overflow-hidden
               ${getElementalTypeStyle(card.elementalType)}
               ${getRarityOverlayStyle(card.rarity)}
-              shadow-lg hover:shadow-xl
+              shadow-xl hover:shadow-2xl
+              transition-all duration-500
+              bg-gradient-to-br from-gray-900 to-gray-800
+              border-2 border-purple-500/20
             `}>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
-              <div className="absolute top-0 left-0 right-0 z-20 p-3">
+              {/* Card Header - Name and Type */}
+              <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col">
-                    <h3 className="text-lg font-bold text-white leading-tight tracking-tight">{card.name}</h3>
+                    <h3 className="text-xl font-bold text-white leading-tight tracking-tight">{card.name}</h3>
                     <span className="text-purple-300/70 text-xs">by {card.creator?.username || 'Unknown'}</span>
                   </div>
                   <span className={`
-                    px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                    px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider
                     ${getElementalTypeBadgeStyle(card.elementalType)}
-                    shadow-sm backdrop-blur-sm
+                    shadow-lg backdrop-blur-sm border border-white/10
                   `}>
                     {card.elementalType}
                   </span>
                 </div>
               </div>
 
-              <img
-                src={card.image.url}
-                alt={card.name}
-                className="w-full h-full object-cover"
-              />
+              {/* Card Image */}
+              <div className="absolute inset-0 z-10">
+                <img
+                  src={card.image.url}
+                  alt={card.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+              </div>
 
-              <div className="absolute bottom-0 left-0 right-0 p-3 z-20">
-                <div className="grid grid-cols-2 gap-1.5">
+              {/* Card Description */}
+              <div className="absolute bottom-20 left-0 right-0 p-4 z-20">
+                <p className="text-sm text-gray-200/90 line-clamp-2 italic">
+                  {card.description}
+                </p>
+              </div>
+
+              {/* Card Stats */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-black/40 backdrop-blur-sm">
+                <div className="grid grid-cols-2 gap-2">
                   <StatDisplay
                     icon="swords"
                     label="ATK"
                     value={card.powerStats.attack}
                     color="red"
+                    className="bg-red-950/30"
                   />
                   <StatDisplay
                     icon="shield"
                     label="DEF"
                     value={card.powerStats.defense}
                     color="blue"
+                    className="bg-blue-950/30"
                   />
                   <StatDisplay
                     icon="zap"
                     label="SPD"
                     value={card.powerStats.speed}
                     color="yellow"
+                    className="bg-yellow-950/30"
                   />
                   <StatDisplay
                     icon="sparkles"
                     label="MAG"
                     value={card.powerStats.magic}
                     color="purple"
+                    className="bg-purple-950/30"
                   />
                 </div>
               </div>
 
+              {/* Rarity Badge */}
               <div className={`
-                absolute top-2 right-2 z-20 px-2 py-1
+                absolute top-4 right-4 z-30 px-3 py-1.5
                 rounded-full text-xs font-bold uppercase tracking-wider
                 ${getRarityStyle(card.rarity)}
                 shadow-lg backdrop-blur-sm border border-white/10
@@ -127,6 +148,8 @@ export function CardGallery() {
               `}>
                 {card.rarity}
               </div>
+
+              {/* Favorite Button */}
               <FavoriteButton itemId={card.id} itemType="card" />
             </div>
           </div>
