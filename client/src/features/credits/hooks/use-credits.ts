@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchCredits, generateReferralCode, getReferralCode, useReferralCode } from "../api/credits";
+import {
+  fetchCredits,
+  generateReferralCode,
+  getReferralCode,
+  getReferralStats,
+  useReferralCode
+} from "../api/credits";
 import { useToast } from "@/hooks/use-toast";
 
 export function useCredits() {
@@ -24,6 +30,11 @@ export function useReferral() {
     queryFn: getReferralCode,
   });
 
+  const { data: referralStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["/api/referral/stats"],
+    queryFn: getReferralStats,
+  });
+
   const generateMutation = useMutation({
     mutationFn: generateReferralCode,
     onSuccess: (data) => {
@@ -46,6 +57,7 @@ export function useReferral() {
     mutationFn: useReferralCode,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/referral/stats"] });
       toast({
         title: "Success!",
         description: data.message,
@@ -63,7 +75,9 @@ export function useReferral() {
 
   return {
     referralCode: referralCode?.code,
+    referralStats,
     isLoadingCode,
+    isLoadingStats,
     generateReferralCode: generateMutation.mutate,
     isGenerating: generateMutation.isPending,
     useReferralCode: useReferralMutation.mutate,

@@ -3,7 +3,7 @@
  * Centralizes all credit-related API calls
  */
 
-import { CreditBalance, ReferralCode, UseReferralResponse } from "../types";
+import { CreditBalance, ReferralCode, ReferralStats, UseReferralResponse } from "../types";
 
 export async function fetchCredits(): Promise<CreditBalance> {
   const res = await fetch("/api/credits", {
@@ -32,6 +32,18 @@ export async function generateReferralCode(): Promise<ReferralCode> {
 
 export async function getReferralCode(): Promise<ReferralCode> {
   const res = await fetch("/api/referral/code", {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+
+  return res.json();
+}
+
+export async function getReferralStats(): Promise<ReferralStats> {
+  const res = await fetch("/api/referral/stats", {
     credentials: "include",
   });
 

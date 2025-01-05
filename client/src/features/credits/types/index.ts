@@ -13,6 +13,13 @@ export interface ReferralCode {
   code: string | null;
 }
 
+export interface ReferralStats {
+  referralCount: number;
+  creditsEarned: number;
+  tier: number;
+  nextTierProgress: number;
+}
+
 export interface UseReferralResponse {
   success: boolean;
   message: string;
