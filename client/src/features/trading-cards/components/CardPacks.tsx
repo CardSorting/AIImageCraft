@@ -25,6 +25,10 @@ interface CardPack {
   name: string;
   description: string | null;
   createdAt: string;
+  creator?: {
+    id: number;
+    username: string;
+  };
   cards: Array<{
     id: number;
     name: string;
@@ -116,7 +120,7 @@ export function CardPacks() {
       }
 
       // Check for duplicates
-      const duplicates = cardIds.filter(cardId => 
+      const duplicates = cardIds.filter(cardId =>
         targetPack.cards.some(card => card.id === cardId)
       );
 
@@ -257,68 +261,115 @@ export function CardPacks() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cardPacks.map((pack) => (
-          <Collapsible key={pack.id}>
-            <Card className="p-6 bg-black/30 border-purple-500/20 backdrop-blur-sm">
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">{pack.name}</h3>
-                  <ChevronsUpDown className="h-4 w-4 text-purple-400" />
-                </div>
-              </CollapsibleTrigger>
+        {cardPacks.map((pack) => {
+          // Get a random card from the pack for preview
+          const previewCard = pack.cards.length > 0
+            ? pack.cards[Math.floor(Math.random() * pack.cards.length)]
+            : null;
 
-              {pack.description && (
-                <p className="text-purple-300/70 text-sm mt-2">{pack.description}</p>
-              )}
-
-              <div className="flex items-center gap-2 mt-4">
-                <Package className="h-4 w-4 text-purple-400" />
-                <span className="text-purple-300/70 text-sm">
-                  {pack.cards?.length || 0} / 10 cards
-                </span>
-              </div>
-
-              <CollapsibleContent className="mt-4 space-y-4">
-                {pack.cards && pack.cards.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {pack.cards.map((card) => (
-                      <div
-                        key={card.id}
-                        className="relative group overflow-hidden rounded-lg"
-                      >
+          return (
+            <Collapsible key={pack.id}>
+              <Card className="p-6 bg-black/30 border-purple-500/20 backdrop-blur-sm">
+                <CollapsibleTrigger className="w-full">
+                  <div className="space-y-4">
+                    {/* Preview Image */}
+                    {previewCard && (
+                      <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg">
                         <img
-                          src={card.image.url}
-                          alt={card.name}
-                          className="w-full h-32 object-cover"
+                          src={previewCard.image.url}
+                          alt={`Preview of ${pack.name}`}
+                          className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
                         />
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-white text-sm font-medium">
-                            {card.name}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
+                          <span className="text-sm font-medium bg-black/40 px-2 py-1 rounded-md">
+                            {previewCard.name}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-md ${
+                            previewCard.rarity === 'Legendary' ? 'bg-yellow-500/40' :
+                            previewCard.rarity === 'Epic' ? 'bg-purple-500/40' :
+                            previewCard.rarity === 'Rare' ? 'bg-blue-500/40' :
+                            'bg-gray-500/40'
+                          }`}>
+                            {previewCard.rarity}
                           </span>
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Pack Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-white">{pack.name}</h3>
+                        {pack.creator && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <span className="text-xs font-medium text-purple-300">👤</span>
+                            </div>
+                            <span className="text-sm font-medium text-purple-300/70">
+                              {pack.creator.username}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <ChevronsUpDown className="h-4 w-4 text-purple-400 mt-1" />
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-purple-300/70 text-sm italic">No cards in this pack</p>
+                </CollapsibleTrigger>
+
+                {pack.description && (
+                  <p className="text-purple-300/70 text-sm mt-4">{pack.description}</p>
                 )}
 
-                <Button
-                  onClick={() => {
-                    setSelectedPackId(pack.id);
-                    setIsAddingCards(true);
-                    setSelectedCards(new Set()); // Reset selection when opening dialog
-                  }}
-                  disabled={pack.cards?.length >= 10}
-                  className="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Cards
-                </Button>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        ))}
+                <div className="flex items-center gap-2 mt-4">
+                  <Package className="h-4 w-4 text-purple-400" />
+                  <span className="text-purple-300/70 text-sm">
+                    {pack.cards?.length || 0} / 10 cards
+                  </span>
+                </div>
+
+                <CollapsibleContent className="mt-4 space-y-4">
+                  {pack.cards && pack.cards.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {pack.cards.map((card) => (
+                        <div
+                          key={card.id}
+                          className="relative group overflow-hidden rounded-lg"
+                        >
+                          <img
+                            src={card.image.url}
+                            alt={card.name}
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-white text-sm font-medium">
+                              {card.name}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-purple-300/70 text-sm italic">No cards in this pack</p>
+                  )}
+
+                  <Button
+                    onClick={() => {
+                      setSelectedPackId(pack.id);
+                      setIsAddingCards(true);
+                      setSelectedCards(new Set()); // Reset selection when opening dialog
+                    }}
+                    disabled={pack.cards?.length >= 10}
+                    className="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Cards
+                  </Button>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          );
+        })}
       </div>
 
       {/* Create Pack Dialog */}
@@ -412,8 +463,8 @@ export function CardPacks() {
                 {tradingCards.map((card) => {
                   const targetPack = cardPacks?.find(p => p.id === selectedPackId);
                   const isInPack = targetPack?.cards.some(c => c.id === card.id);
-                  const isSelectable = targetPack && 
-                    !isInPack && 
+                  const isSelectable = targetPack &&
+                    !isInPack &&
                     (targetPack.cards.length + selectedCards.size) < 10;
 
                   return (
