@@ -2,7 +2,6 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { ReferralCode } from "@/features/credits/components/ReferralCode";
-import { DailyChallenges } from "@/features/daily-challenges/components/DailyChallenges";
 
 export default function Profile() {
   const { user } = useUser();
@@ -31,15 +30,6 @@ export default function Profile() {
                   <p className="text-white text-lg">#{user?.id}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="backdrop-blur-sm bg-black/30 border-purple-500/20">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">Daily Challenges</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DailyChallenges />
             </CardContent>
           </Card>
 
