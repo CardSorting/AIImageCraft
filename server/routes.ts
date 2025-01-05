@@ -9,6 +9,7 @@ import {
   tradeItems,
   games,
   insertTradeSchema,
+  tradingCards,
 } from "@db/schema";
 import { WarGameService } from "./services/game/war/war.service";
 import taskRoutes from "./routes/tasks";
@@ -386,6 +387,37 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add matchmaking routes for AI games
+  app.post("/api/matchmaking", async (req, res) => {
+    try {
+      const game = await WarGameService.createGameWithAI(req.user!.id);
+      res.json({ gameId: game.id });
+    } catch (error: any) {
+      console.error("Error creating AI game:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
+  app.get("/api/matchmaking/status", async (req, res) => {
+    try {
+      const activeGames = await db.query.games.findMany({
+        where: and(
+          eq(games.player1Id, req.user!.id),
+          eq(games.status, 'ACTIVE')
+        ),
+        limit: 1
+      });
+
+      if (activeGames.length > 0) {
+        res.json({ gameId: activeGames[0].id });
+      } else {
+        res.json({ gameId: null });
+      }
+    } catch (error: any) {
+      console.error("Error checking game status:", error);
+      res.status(500).send(error.message);
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
