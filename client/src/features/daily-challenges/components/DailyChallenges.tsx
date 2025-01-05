@@ -1,6 +1,8 @@
 import { Loader2, Trophy, Flame, Sparkles, Star, Gift, Crown } from "lucide-react";
 import { useDailyChallenges } from "../hooks/use-daily-challenges";
 import { ChallengeCard } from "./ChallengeCard";
+import { XPProgress } from "./XPProgress";
+import { LevelUpModal } from "./LevelUpModal";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,8 +21,6 @@ export function DailyChallenges() {
 
   const progressPercentage = (totalEarnedToday / maxDailyEarnings) * 100;
   const streakDays = 3; // TODO: Get from backend
-  const currentLevel = Math.floor(totalEarnedToday / 100) + 1;
-  const xpToNextLevel = 100 - (totalEarnedToday % 100);
 
   return (
     <motion.div
@@ -28,6 +28,8 @@ export function DailyChallenges() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8 relative"
     >
+      <LevelUpModal />
+
       {/* Floating Streak Badge */}
       <motion.div 
         initial={{ scale: 0 }}
@@ -93,47 +95,8 @@ export function DailyChallenges() {
         </motion.p>
       </div>
 
-      {/* Level Progress */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="relative p-6 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 group hover:from-purple-500/20 hover:to-blue-500/20 transition-all duration-300"
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 bg-[url('/patterns/grid.svg')] opacity-5"
-        />
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Star className="w-5 h-5 text-yellow-400 group-hover:animate-spin" />
-              <Crown className="w-3 h-3 text-yellow-500 absolute -top-1 -right-1" />
-            </div>
-            <span className="text-white font-semibold">Level {currentLevel}</span>
-          </div>
-          <span className="text-sm text-purple-200/70">{xpToNextLevel} XP to next level</span>
-        </div>
-        <div className="relative">
-          <Progress 
-            value={(100 - xpToNextLevel)} 
-            className="h-3 bg-purple-950/50"
-          />
-          <motion.div
-            initial={{ width: "0%" }}
-            animate={{ width: `${100 - xpToNextLevel}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className="absolute top-0 left-0 h-full overflow-hidden"
-          >
-            <motion.div 
-              animate={{ x: ["-100%", "100%"] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-1/2"
-            />
-          </motion.div>
-        </div>
-      </motion.div>
+      {/* XP Progress Section */}
+      <XPProgress />
 
       {/* Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

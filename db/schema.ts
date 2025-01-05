@@ -9,6 +9,30 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   referralCode: text("referral_code").unique(),
   totalReferralBonus: integer("total_referral_bonus").default(0),
+  // Add XP and level tracking
+  xpPoints: integer("xp_points").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  totalXpEarned: integer("total_xp_earned").default(0).notNull(),
+  levelUpNotification: boolean("level_up_notification").default(false),
+});
+
+// New table for level milestone rewards
+export const levelMilestones = pgTable("level_milestones", {
+  id: serial("id").primaryKey(),
+  level: integer("level").notNull(),
+  rewardType: text("reward_type").notNull(), // 'CREDITS', 'BADGE', 'TITLE'
+  rewardValue: jsonb("reward_value").notNull(),
+  description: text("description").notNull(),
+});
+
+// New table for user rewards
+export const userRewards = pgTable("user_rewards", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  milestoneId: integer("milestone_id").notNull().references(() => levelMilestones.id),
+  claimed: boolean("claimed").default(false).notNull(),
+  claimedAt: timestamp("claimed_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 export const referrals = pgTable("referrals", {
@@ -153,6 +177,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   referralsGiven: many(referrals, { relationName: "referrer" }),
   referralsReceived: many(referrals, { relationName: "referee" }),
   challengeProgress: many(challengeProgress),
+  rewards: many(userRewards), // Add relation to rewards
 }));
 
 export const imagesRelations = relations(images, ({ one, many }) => ({
@@ -305,6 +330,21 @@ export const challengeProgressRelations = relations(challengeProgress, ({ one })
   }),
 }));
 
+export const levelMilestonesRelations = relations(levelMilestones, ({ many }) => ({
+  userRewards: many(userRewards),
+}));
+
+export const userRewardsRelations = relations(userRewards, ({ one }) => ({
+  user: one(users, {
+    fields: [userRewards.userId],
+    references: [users.id],
+  }),
+  milestone: one(levelMilestones, {
+    fields: [userRewards.milestoneId],
+    references: [levelMilestones.id],
+  }),
+}));
+
 
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
@@ -351,6 +391,12 @@ export const selectDailyChallengeSchema = createSelectSchema(dailyChallenges);
 export const insertChallengeProgressSchema = createInsertSchema(challengeProgress);
 export const selectChallengeProgressSchema = createSelectSchema(challengeProgress);
 
+export const insertLevelMilestoneSchema = createInsertSchema(levelMilestones);
+export const selectLevelMilestoneSchema = createSelectSchema(levelMilestones);
+
+export const insertUserRewardSchema = createInsertSchema(userRewards);
+export const selectUserRewardSchema = createSelectSchema(userRewards);
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -395,3 +441,9 @@ export type SelectDailyChallenge = typeof dailyChallenges.$inferSelect;
 
 export type InsertChallengeProgress = typeof challengeProgress.$inferInsert;
 export type SelectChallengeProgress = typeof challengeProgress.$inferSelect;
+
+export type InsertLevelMilestone = typeof levelMilestones.$inferInsert;
+export type SelectLevelMilestone = typeof levelMilestones.$inferSelect;
+
+export type InsertUserReward = typeof userRewards.$inferInsert;
+export type SelectUserReward = typeof userRewards.$inferSelect;

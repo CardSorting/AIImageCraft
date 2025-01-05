@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and, or, inArray, sql } from "drizzle-orm";
+import { eq, and, or, inArray, sql, gt } from "drizzle-orm";
 import {
   images,
   trades,
@@ -13,6 +13,8 @@ import {
   dailyChallenges,
   challengeProgress,
   users,
+  levelMilestones,
+  userRewards
 } from "@db/schema";
 import { WarGameService } from "./services/game/war/war.service";
 import taskRoutes from "./routes/tasks";
@@ -514,6 +516,204 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching credits:", error);
       res.status(500).send("Failed to fetch credits");
+    }
+  });
+
+  // XP and Level Management Routes
+  app.post("/api/xp/award", async (req, res) => {
+    try {
+      const { amount, reason } = req.body;
+
+      // Start a transaction for XP award and level up checks
+      const result = await db.transaction(async (tx) => {
+        // Get current user state
+        const [user] = await tx
+          .select()
+          .from(users)
+          .where(eq(users.id, req.user!.id))
+          .limit(1);
+
+        const oldLevel = user.level;
+        const newXp = user.xpPoints + amount;
+        const newLevel = Math.floor(Math.sqrt(newXp / 100)) + 1;
+        const didLevelUp = newLevel > oldLevel;
+
+        // Update user XP and level
+        const [updatedUser] = await tx
+          .update(users)
+          .set({
+            xpPoints: newXp,
+            totalXpEarned: user.totalXpEarned + amount,
+            level: newLevel,
+            levelUpNotification: didLevelUp,
+          })
+          .where(eq(users.id, req.user!.id))
+          .returning();
+
+        // If leveled up, check for new milestone rewards
+        let newRewards = [];
+        if (didLevelUp) {
+          const milestones = await tx
+            .select()
+            .from(levelMilestones)
+            .where(eq(levelMilestones.level, newLevel));
+
+          // Create reward entries for new milestones
+          for (const milestone of milestones) {
+            const [reward] = await tx
+              .insert(userRewards)
+              .values({
+                userId: req.user!.id,
+                milestoneId: milestone.id,
+                claimed: false,
+              })
+              .returning();
+
+            newRewards.push({
+              ...milestone,
+              rewardId: reward.id,
+            });
+          }
+        }
+
+        return {
+          xpGained: amount,
+          currentXp: updatedUser.xpPoints,
+          currentLevel: updatedUser.level,
+          totalXpEarned: updatedUser.totalXpEarned,
+          leveledUp: didLevelUp,
+          oldLevel,
+          newLevel,
+          newRewards,
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error awarding XP:", error);
+      res.status(500).send("Failed to award XP");
+    }
+  });
+
+  app.get("/api/xp/progress", async (req, res) => {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.user!.id))
+        .limit(1);
+
+      // Calculate XP required for next level
+      const currentLevel = user.level;
+      const xpForCurrentLevel = Math.pow(currentLevel - 1, 2) * 100;
+      const xpForNextLevel = Math.pow(currentLevel, 2) * 100;
+      const xpProgress = user.xpPoints - xpForCurrentLevel;
+      const xpRequired = xpForNextLevel - xpForCurrentLevel;
+
+      res.json({
+        currentXp: user.xpPoints,
+        currentLevel: user.level,
+        totalXpEarned: user.totalXpEarned,
+        xpProgress,
+        xpRequired,
+        progressPercentage: (xpProgress / xpRequired) * 100,
+        hasLevelUpNotification: user.levelUpNotification,
+      });
+    } catch (error) {
+      console.error("Error fetching XP progress:", error);
+      res.status(500).send("Failed to fetch XP progress");
+    }
+  });
+
+  app.get("/api/rewards", async (req, res) => {
+    try {
+      const rewards = await db.query.userRewards.findMany({
+        where: and(
+          eq(userRewards.userId, req.user!.id),
+          eq(userRewards.claimed, false)
+        ),
+        with: {
+          milestone: true,
+        },
+      });
+
+      res.json(rewards);
+    } catch (error) {
+      console.error("Error fetching rewards:", error);
+      res.status(500).send("Failed to fetch rewards");
+    }
+  });
+
+  app.post("/api/rewards/:id/claim", async (req, res) => {
+    try {
+      const rewardId = parseInt(req.params.id);
+
+      const result = await db.transaction(async (tx) => {
+        // Get the reward and verify ownership
+        const [reward] = await tx
+          .select()
+          .from(userRewards)
+          .where(
+            and(
+              eq(userRewards.id, rewardId),
+              eq(userRewards.userId, req.user!.id),
+              eq(userRewards.claimed, false)
+            )
+          )
+          .limit(1);
+
+        if (!reward) {
+          throw new Error("Reward not found or already claimed");
+        }
+
+        // Get the milestone details
+        const [milestone] = await tx
+          .select()
+          .from(levelMilestones)
+          .where(eq(levelMilestones.id, reward.milestoneId))
+          .limit(1);
+
+        // Update reward as claimed
+        const [updatedReward] = await tx
+          .update(userRewards)
+          .set({
+            claimed: true,
+            claimedAt: new Date(),
+          })
+          .where(eq(userRewards.id, rewardId))
+          .returning();
+
+        // Clear level up notification if all rewards are claimed
+        const remainingRewards = await tx
+          .select()
+          .from(userRewards)
+          .where(
+            and(
+              eq(userRewards.userId, req.user!.id),
+              eq(userRewards.claimed, false)
+            )
+          );
+
+        if (remainingRewards.length === 0) {
+          await tx
+            .update(users)
+            .set({ levelUpNotification: false })
+            .where(eq(users.id, req.user!.id));
+        }
+
+        return {
+          success: true,
+          reward: {
+            ...updatedReward,
+            milestone,
+          },
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error claiming reward:", error);
+      res.status(500).send(error.message);
     }
   });
 
