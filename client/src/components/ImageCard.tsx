@@ -77,10 +77,21 @@ export default function ImageCard({
   imageUrl, 
   tags = []
 }: ImageCardProps) {
+  const queryClient = useQueryClient();
+  const queryKey = `/api/trading-cards/check-image/${imageId}`;
+
+  // Configure the query with refetch options
   const { data: cardStatus } = useQuery({
-    queryKey: [`/api/trading-cards/check-image/${imageId}`],
-    retry: false,
+    queryKey: [queryKey],
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0
   });
+
+  // Force refetch when component mounts
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: [queryKey] });
+  }, [queryClient, queryKey]);
 
   const handleDownload = async () => {
     const response = await fetch(imageUrl);
