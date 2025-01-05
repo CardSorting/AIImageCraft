@@ -16,7 +16,7 @@ function generateRandomStats() {
   };
 }
 
-// Create a trading card from an existing image
+// Create a card from an existing image
 router.post("/", async (req, res) => {
   try {
     const { imageId, name, description, elementalType } = req.body;
@@ -64,7 +64,7 @@ router.post("/", async (req, res) => {
         })
         .returning();
 
-      // Then create the trading card instance
+      // Then create the card instance
       const [card] = await tx
         .insert(tradingCards)
         .values({
@@ -93,12 +93,12 @@ router.post("/", async (req, res) => {
 
     res.json(result);
   } catch (error: any) {
-    console.error("Error creating trading card:", error);
+    console.error("Error creating card:", error);
     res.status(500).send(error.message);
   }
 });
 
-// Get user's trading cards
+// Get user's cards
 router.get("/", async (req, res) => {
   try {
     const userCards = await db.query.tradingCards.findMany({
@@ -114,7 +114,6 @@ router.get("/", async (req, res) => {
       orderBy: (cards, { desc }) => [desc(cards.createdAt)],
     });
 
-    // Transform the response to match the expected format
     const transformedCards = userCards.map(card => ({
       id: card.id,
       name: card.template.name,
@@ -131,8 +130,8 @@ router.get("/", async (req, res) => {
 
     res.json(transformedCards);
   } catch (error) {
-    console.error("Error fetching trading cards:", error);
-    res.status(500).send("Failed to fetch trading cards");
+    console.error("Error fetching cards:", error);
+    res.status(500).send("Failed to fetch cards");
   }
 });
 

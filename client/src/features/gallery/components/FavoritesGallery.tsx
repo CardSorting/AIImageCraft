@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Star } from "lucide-react";
-import TradeModal from "@/components/TradeModal";
 import { FavoriteButton } from "./FavoriteButton";
 import { Pagination } from "./Pagination";
 import { StatDisplay } from "./StatDisplay";
 import { getElementalTypeStyle, getElementalTypeBadgeStyle, getRarityStyle, getRarityOverlayStyle } from "../utils/styles";
-import type { TradingCard } from "../types";
+import type { TradingCard } from "@/features/trading-cards/types";
 
 interface FavoriteItem {
   id: number;
@@ -31,20 +30,15 @@ interface FavoriteItem {
   creator?: {
     username: string;
   };
-  owner?: {
-    username: string;
-  };
 }
 
 export function FavoritesGallery() {
-  const [selectedCard, setSelectedCard] = useState<TradingCard | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
 
   const { data: favorites, isLoading } = useQuery<FavoriteItem[]>({
     queryKey: ["/api/favorites"],
   });
-  const queryClient = useQueryClient();
 
   if (isLoading) {
     return (
@@ -83,7 +77,6 @@ export function FavoritesGallery() {
           <div
             key={item.id}
             className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105"
-            onClick={() => item.type === 'card' && setSelectedCard(item as TradingCard)}
           >
             <div className={`
               relative aspect-square rounded-xl overflow-hidden
@@ -189,18 +182,6 @@ export function FavoritesGallery() {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-        />
-      )}
-
-      {selectedCard && (
-        <TradeModal
-          open={!!selectedCard}
-          onOpenChange={(open) => !open && setSelectedCard(null)}
-          card={selectedCard}
-          onTrade={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
-          }}
         />
       )}
     </>
