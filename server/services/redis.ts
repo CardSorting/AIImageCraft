@@ -43,6 +43,8 @@ export class TaskManager {
 export class PulseCreditManager {
   private static readonly CREDIT_PREFIX = "pulse_credits:";
   private static readonly SHARE_PREFIX = "shares:";
+  private static readonly REFERRAL_PREFIX = "referral:";
+  private static readonly REFERRAL_CODE_PREFIX = "referral_code:";
   private static readonly DEFAULT_CREDITS = 10; // New users get 10 credits
 
   // Cost configuration
@@ -50,6 +52,8 @@ export class PulseCreditManager {
   static readonly CARD_CREATION_COST = 1;
   static readonly SHARE_REWARD = 1; // Credits earned per successful share
   static readonly MAX_DAILY_SHARE_REWARDS = 5; // Maximum shares that can earn credits per day
+  static readonly REFERRAL_BONUS = 5; // Credits earned for successful referral
+  static readonly REFERRAL_WELCOME_BONUS = 3; // Credits earned by new user using referral
 
   private static getCreditKey(userId: number): string {
     return `${this.CREDIT_PREFIX}${userId}`;
@@ -58,6 +62,14 @@ export class PulseCreditManager {
   private static getShareKey(userId: number): string {
     const today = new Date().toISOString().split('T')[0];
     return `${this.SHARE_PREFIX}${userId}:${today}`;
+  }
+
+  private static getReferralKey(userId: number): string {
+    return `${this.REFERRAL_PREFIX}${userId}`;
+  }
+
+  private static getReferralCodeKey(code: string): string {
+    return `${this.REFERRAL_CODE_PREFIX}${code}`;
   }
 
   static async initializeCredits(userId: number): Promise<number> {
@@ -146,6 +158,51 @@ export class PulseCreditManager {
     const shareKey = this.getShareKey(userId);
     const count = await redis.get(shareKey);
     return parseInt(count || "0");
+  }
+
+  static async generateReferralCode(userId: number): Promise<string> {
+    // Generate a unique referral code
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const codeKey = this.getReferralCodeKey(code);
+
+    // Store the referral code with the user ID
+    await redis.set(codeKey, userId);
+
+    // Store the code in user's referral key for lookup
+    await redis.set(this.getReferralKey(userId), code);
+
+    return code;
+  }
+
+  static async getReferralCode(userId: number): Promise<string | null> {
+    const code = await redis.get(this.getReferralKey(userId));
+    return code;
+  }
+
+  static async useReferralCode(code: string, newUserId: number): Promise<{
+    success: boolean;
+    referrerId?: number;
+    error?: string;
+  }> {
+    const codeKey = this.getReferralCodeKey(code);
+    const referrerId = await redis.get(codeKey);
+
+    if (!referrerId) {
+      return { success: false, error: "Invalid referral code" };
+    }
+
+    if (parseInt(referrerId) === newUserId) {
+      return { success: false, error: "Cannot use your own referral code" };
+    }
+
+    // Award bonus credits to both users
+    await this.addCredits(parseInt(referrerId), this.REFERRAL_BONUS);
+    await this.addCredits(newUserId, this.REFERRAL_WELCOME_BONUS);
+
+    return {
+      success: true,
+      referrerId: parseInt(referrerId)
+    };
   }
 }
 

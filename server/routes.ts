@@ -491,6 +491,57 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Referral system endpoints
+  app.post("/api/referral/generate", async (req, res) => {
+    try {
+      const existingCode = await PulseCreditManager.getReferralCode(req.user!.id);
+      if (existingCode) {
+        return res.json({ code: existingCode });
+      }
+
+      const code = await PulseCreditManager.generateReferralCode(req.user!.id);
+      res.json({ code });
+    } catch (error) {
+      console.error("Error generating referral code:", error);
+      res.status(500).send("Failed to generate referral code");
+    }
+  });
+
+  app.post("/api/referral/use", async (req, res) => {
+    try {
+      const { code } = req.body;
+
+      if (!code) {
+        return res.status(400).send("Referral code is required");
+      }
+
+      const result = await PulseCreditManager.useReferralCode(code, req.user!.id);
+
+      if (!result.success) {
+        return res.status(400).send(result.error);
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully used referral code! You received ${PulseCreditManager.REFERRAL_WELCOME_BONUS} Pulse credits as a welcome bonus.`,
+        creditsAwarded: PulseCreditManager.REFERRAL_WELCOME_BONUS
+      });
+    } catch (error) {
+      console.error("Error using referral code:", error);
+      res.status(500).send("Failed to use referral code");
+    }
+  });
+
+  app.get("/api/referral/code", async (req, res) => {
+    try {
+      const code = await PulseCreditManager.getReferralCode(req.user!.id);
+      res.json({ code });
+    } catch (error) {
+      console.error("Error fetching referral code:", error);
+      res.status(500).send("Failed to fetch referral code");
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
