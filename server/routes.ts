@@ -40,8 +40,17 @@ export function registerRoutes(app: Express): Server {
     next();
   });
 
-  // Register card packs routes
+  // Register card packs routes - ensure this is before other routes
   app.use("/api/card-packs", cardPackRoutes);
+
+  // Register task management routes
+  app.use("/api/tasks", taskRoutes);
+
+  // Register favorites routes
+  app.use("/api/favorites", favoritesRoutes);
+
+  // Register trading card routes
+  app.use("/api/trading-cards", tradingCardRoutes);
 
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
@@ -108,15 +117,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to fetch daily challenges");
     }
   });
-
-  // Register task management routes
-  app.use("/api/tasks", taskRoutes);
-
-  // Register favorites routes
-  app.use("/api/favorites", favoritesRoutes);
-
-  // Register trading card routes
-  app.use("/api/trading-cards", tradingCardRoutes);
 
   // Get a single image by ID
   app.get("/api/images/:id", async (req, res) => {
