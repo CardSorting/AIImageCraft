@@ -32,6 +32,8 @@ export function TradeModal({ open, onOpenChange, card, onTrade }: TradeModalProp
   if (!card) return null;
 
   async function handleTrade() {
+    if (!card?.creator?.id) return;
+    
     try {
       setIsLoading(true);
       const res = await fetch("/api/trades", {
@@ -40,7 +42,7 @@ export function TradeModal({ open, onOpenChange, card, onTrade }: TradeModalProp
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          receiverId: card.creator?.id,
+          receiverId: card.creator.id,
           message,
           offeredCards: selectedCards,
         }),
