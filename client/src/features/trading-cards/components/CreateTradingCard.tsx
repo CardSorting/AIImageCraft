@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles } from "lucide-react";
 import { ELEMENTAL_TYPES, RARITIES } from "../types";
+import { queryClient } from "@/lib/queryClient";
 
 const formSchema = z.object({
   name: z.string().min(1, "Card name is required"),
@@ -96,6 +97,11 @@ export function CreateTradingCard({
       });
       form.reset();
       onOpenChange(false);
+      // Invalidate both the trading cards list and the specific image check
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/trading-cards/check-image/${imageId}`] 
+      });
       onSuccess?.();
     },
     onError: (error: Error) => {
