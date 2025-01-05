@@ -40,15 +40,19 @@ export function registerRoutes(app: Express): Server {
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
     try {
-      // Get all active challenges
+      // Get only the active challenge for today
       const now = new Date();
       const challenges = await db.query.dailyChallenges.findMany({
-        where: sql`${dailyChallenges.expiresAt} > ${now}`,
+        where: and(
+          sql`${dailyChallenges.expiresAt} > ${now}`,
+          sql`${dailyChallenges.created_at} <= ${now}`
+        ),
         with: {
           progress: {
             where: eq(challengeProgress.userId, req.user!.id),
           },
         },
+        limit: 1, // Only get one challenge
       });
 
       // Calculate total earnings for today
@@ -84,11 +88,8 @@ export function registerRoutes(app: Express): Server {
         expiresAt: challenge.expiresAt.toISOString(),
       }));
 
-      // Calculate max daily earnings (sum of all available challenge rewards)
-      const maxDailyEarnings = challenges.reduce(
-        (sum, challenge) => sum + challenge.creditReward,
-        0
-      );
+      // For daily challenge, we only care about today's max earnings
+      const maxDailyEarnings = challenges.length > 0 ? challenges[0].creditReward : 0;
 
       res.json({
         challenges: transformedChallenges,
