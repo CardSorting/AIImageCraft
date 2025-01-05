@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CardItem } from "@/features/gallery/components/CardItem";
+import { BulkCardSelector } from "./BulkCardSelector";
 import type { TradingCard } from "@/features/trading-cards/types";
 import { Button } from "@/components/ui/button";
 import { Package, X, ArrowUpDown } from "lucide-react";
@@ -124,70 +125,9 @@ export function CardGrid({ cards }: CardGridProps) {
     enabled: isAddingToPack,
   });
 
-  const handleCardSelect = (cardId: number) => {
-    const newSelected = new Set(selectedCards);
-    if (selectedCards.has(cardId)) {
-      newSelected.delete(cardId);
-    } else {
-      // Check if we're currently viewing the pack selection dialog
-      if (isAddingToPack && cardPacks) {
-        // Get available packs that could accept this card
-        const availablePacks = cardPacks.filter((pack) => {
-          const currentCount = pack.cards?.length || 0;
-          const selectedCount = selectedCards.size;
-          const wouldExceedLimit = (currentCount + selectedCount + 1) > 10;
-          const hasDuplicate = pack.cards?.some((existingCard) => existingCard.id === cardId);
-          return !wouldExceedLimit && !hasDuplicate;
-        });
-
-        if (availablePacks.length === 0) {
-          toast({
-            variant: "destructive",
-            title: "Cannot select more cards",
-            description: "No available packs can accept this card (due to capacity limits or duplicates)",
-          });
-          return;
-        }
-      }
-
-      // If we're not in pack selection mode or there are available packs
-      if (selectedCards.size >= 10) {
-        toast({
-          variant: "destructive",
-          title: "Selection limit reached",
-          description: "You can only select up to 10 cards at a time.",
-        });
-        return;
-      }
-
-      newSelected.add(cardId);
-    }
-    setSelectedCards(newSelected);
-  };
-
   // Mutation for adding cards to pack
   const { mutate: addCardsToPack, isPending: isAddingCards } = useMutation({
     mutationFn: async ({ packId }: { packId: number }) => {
-      // Get the target pack's current cards
-      const targetPack = cardPacks?.find((p) => p.id === packId);
-      if (!targetPack) throw new Error("Pack not found");
-
-      // Check for duplicates
-      const selectedCardsList = Array.from(selectedCards);
-      const duplicateCards = selectedCardsList.filter((cardId) =>
-        targetPack.cards?.some((existingCard) => existingCard.id === cardId)
-      );
-
-      if (duplicateCards.length > 0) {
-        throw new Error("Some selected cards are already in this pack");
-      }
-
-      // Check total cards after addition won't exceed 10
-      const totalCardsAfterAddition = (targetPack.cards?.length || 0) + selectedCards.size;
-      if (totalCardsAfterAddition > 10) {
-        throw new Error(`Adding ${selectedCards.size} cards would exceed the pack limit of 10 cards`);
-      }
-
       const res = await fetch(`/api/card-packs/${packId}/cards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -220,45 +160,10 @@ export function CardGrid({ cards }: CardGridProps) {
   });
 
   const handlePackSelect = (packId: string) => {
-    // Pre-validate before attempting to add cards
-    const targetPack = cardPacks?.find((p) => p.id === parseInt(packId));
-    if (!targetPack) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Selected pack not found",
-      });
-      return;
-    }
-
-    // Check for duplicates before proceeding
-    const selectedCardsList = Array.from(selectedCards);
-    const duplicateCards = selectedCardsList.filter((cardId) =>
-      targetPack.cards?.some((existingCard) => existingCard.id === cardId)
-    );
-
-    if (duplicateCards.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Duplicate cards detected",
-        description: "Some selected cards are already in this pack",
-      });
-      return;
-    }
-
-    // Check if adding these cards would exceed the limit
-    const totalCardsAfterAddition = (targetPack.cards?.length || 0) + selectedCards.size;
-    if (totalCardsAfterAddition > 10) {
-      toast({
-        variant: "destructive",
-        title: "Pack limit exceeded",
-        description: `This pack can only accept ${10 - (targetPack.cards?.length || 0)} more cards`,
-      });
-      return;
-    }
-
     setSelectedPackId(packId);
-    addCardsToPack({ packId: parseInt(packId) });
+    if (packId) {
+      addCardsToPack({ packId: parseInt(packId) });
+    }
   };
 
   return (
@@ -308,7 +213,15 @@ export function CardGrid({ cards }: CardGridProps) {
             card={card}
             isCardsRoute
             isSelected={selectedCards.has(card.id)}
-            onSelect={() => handleCardSelect(card.id)}
+            onSelect={() => setSelectedCards((prev) => {
+              const newSet = new Set(prev);
+              if (prev.has(card.id)) {
+                newSet.delete(card.id);
+              } else {
+                newSet.add(card.id);
+              }
+              return newSet;
+            })}
           />
         ))}
       </div>
@@ -342,12 +255,12 @@ export function CardGrid({ cards }: CardGridProps) {
 
       {/* Add to Pack Dialog */}
       <Dialog open={isAddingToPack} onOpenChange={setIsAddingToPack}>
-        <DialogContent className="sm:max-w-[425px] bg-black/80 border-purple-500/20 text-white">
+        <DialogContent className="sm:max-w-[800px] bg-black/80 border-purple-500/20 text-white">
           <DialogHeader>
             <DialogTitle>Add Cards to Pack</DialogTitle>
             <DialogDescription className="text-purple-300/70">
-              Select a pack to add your {selectedCards.size}{" "}
-              card{selectedCards.size !== 1 ? "s" : ""} to.
+              Select cards to add to a pack. Cards that are already in packs will be
+              disabled.
             </DialogDescription>
           </DialogHeader>
 
@@ -356,7 +269,7 @@ export function CardGrid({ cards }: CardGridProps) {
               <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
             </div>
           ) : cardPacks && cardPacks.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <Select value={selectedPackId} onValueChange={handlePackSelect}>
                 <SelectTrigger className="w-full bg-purple-950/30 border-purple-500/30 text-white">
                   <SelectValue placeholder="Choose a pack" />
@@ -365,24 +278,19 @@ export function CardGrid({ cards }: CardGridProps) {
                   {cardPacks.map((pack) => {
                     const totalCards = pack.cards?.length || 0;
                     const availableSlots = 10 - totalCards;
-                    const isDisabled = availableSlots < selectedCards.size;
-                    const hasDuplicates = Array.from(selectedCards).some((cardId) =>
-                      pack.cards?.some((existingCard) => existingCard.id === cardId)
-                    );
 
                     return (
                       <SelectItem
                         key={pack.id}
                         value={pack.id.toString()}
-                        disabled={isDisabled || hasDuplicates}
+                        disabled={availableSlots === 0}
                         className="text-white hover:bg-purple-500/20 focus:bg-purple-500/20 focus:text-white"
                       >
                         <span className="flex items-center justify-between w-full">
                           <span>{pack.name}</span>
                           <span className="text-sm text-purple-300/70">
                             {totalCards}/10
-                            {isDisabled && " (Not enough space)"}
-                            {hasDuplicates && " (Has duplicates)"}
+                            {availableSlots === 0 && " (Full)"}
                           </span>
                         </span>
                       </SelectItem>
@@ -391,9 +299,13 @@ export function CardGrid({ cards }: CardGridProps) {
                 </SelectContent>
               </Select>
 
-              <div className="text-sm text-purple-300/70">
-                Note: Each pack can hold a maximum of 10 cards.
-              </div>
+              <BulkCardSelector
+                cards={sortedCards}
+                selectedCards={selectedCards}
+                onSelectionChange={setSelectedCards}
+                cardPacks={cardPacks}
+                isAddingToPack={isAddingToPack}
+              />
             </div>
           ) : (
             <div className="text-center py-8">
