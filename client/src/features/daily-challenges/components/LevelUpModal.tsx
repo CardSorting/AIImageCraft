@@ -23,20 +23,25 @@ interface Reward {
   claimedAt: string | null;
 }
 
+interface RewardResponse {
+  success: boolean;
+  reward: Reward;
+}
+
 export function LevelUpModal() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: rewards = [], isLoading } = useQuery<Reward[]>({
     queryKey: ["/api/rewards"],
-    onSuccess: (data) => {
-      if (data.length > 0) {
+    onSettled: (data) => {
+      if (data && data.length > 0) {
         setOpen(true);
       }
     },
   });
 
-  const { mutate: claimReward, isLoading: isClaiming } = useMutation({
+  const { mutate: claimReward } = useMutation<RewardResponse, Error, number>({
     mutationFn: async (rewardId: number) => {
       const res = await fetch(`/api/rewards/${rewardId}/claim`, {
         method: "POST",
@@ -133,19 +138,10 @@ export function LevelUpModal() {
                   <Button
                     size="sm"
                     onClick={() => claimReward(reward.id)}
-                    disabled={isClaiming}
                     className="flex-shrink-0"
                   >
-                    {isClaiming ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      >
-                        <Star className="w-4 h-4" />
-                      </motion.div>
-                    ) : (
-                      "Claim"
-                    )}
+                    <Star className="w-4 h-4 mr-1" />
+                    Claim
                   </Button>
                 </div>
               </motion.div>

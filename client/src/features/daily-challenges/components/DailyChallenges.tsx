@@ -7,11 +7,16 @@ import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 export function DailyChallenges() {
-  const { challenges, totalEarnedToday, maxDailyEarnings, isLoading } = useDailyChallenges();
+  const { challenges, totalEarnedToday, maxDailyEarnings, isLoading: challengesLoading } = useDailyChallenges();
 
-  if (isLoading) {
+  const { data: xpData, isLoading: xpLoading } = useQuery({
+    queryKey: ["/api/xp/progress"],
+  });
+
+  if (challengesLoading || xpLoading) {
     return (
       <div className="flex justify-center py-8">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
@@ -19,8 +24,10 @@ export function DailyChallenges() {
     );
   }
 
-  const progressPercentage = (totalEarnedToday / maxDailyEarnings) * 100;
-  const streakDays = 3; // TODO: Get from backend
+  const progressPercentage = (totalEarnedToday / (maxDailyEarnings || 1)) * 100;
+  const completionRate = challenges.length > 0 
+    ? Math.round((challenges.filter(c => c.completed).length / challenges.length) * 100)
+    : 0;
 
   return (
     <motion.div
@@ -50,7 +57,7 @@ export function DailyChallenges() {
               className="absolute inset-0 bg-[url('/patterns/grid.svg')] opacity-10"
             />
             <Flame className="w-8 h-8 text-orange-400 mb-1 group-hover:animate-bounce" />
-            <span className="text-2xl font-bold text-white">{streakDays}</span>
+            <span className="text-2xl font-bold text-white">1</span>
             <span className="text-xs text-orange-200/80">day streak</span>
           </Card>
         </div>
@@ -83,7 +90,7 @@ export function DailyChallenges() {
           transition={{ delay: 0.2 }}
           className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400"
         >
-          Daily Art Challenge
+          Daily Challenges
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
@@ -91,7 +98,7 @@ export function DailyChallenges() {
           transition={{ delay: 0.3 }}
           className="text-purple-200/70 max-w-md"
         >
-          Complete today's challenges to earn rewards and maintain your creative streak!
+          Complete challenges to earn XP, level up, and unlock special rewards!
         </motion.p>
       </div>
 
@@ -103,19 +110,19 @@ export function DailyChallenges() {
         <StatsCard
           icon={<Flame className="w-5 h-5 text-orange-400" />}
           title="Current Streak"
-          value={`${streakDays} days`}
+          value="1 day"
           color="from-orange-500 to-red-500"
         />
         <StatsCard
           icon={<Trophy className="w-5 h-5 text-yellow-400" />}
           title="Credits Earned"
-          value={`${totalEarnedToday}/${maxDailyEarnings}`}
+          value={`${totalEarnedToday}/${maxDailyEarnings || 0}`}
           color="from-yellow-500 to-orange-500"
         />
         <StatsCard
           icon={<Gift className="w-5 h-5 text-blue-400" />}
           title="Completion Rate"
-          value="85%"
+          value={`${completionRate}%`}
           color="from-blue-500 to-purple-500"
         />
       </div>
