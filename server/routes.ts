@@ -45,8 +45,8 @@ export function registerRoutes(app: Express): Server {
       // Get the active challenges for today
       const challenges = await db.query.dailyChallenges.findMany({
         where: and(
-          sql`DATE(${dailyChallenges.expiresAt}) >= CURRENT_DATE`,
-          sql`DATE(${dailyChallenges.createdAt}) <= CURRENT_DATE`
+          sql`DATE(${dailyChallenges.expiresAt}) = CURRENT_DATE`,
+          sql`DATE(${dailyChallenges.createdAt}) = CURRENT_DATE`
         ),
         with: {
           progress: {
