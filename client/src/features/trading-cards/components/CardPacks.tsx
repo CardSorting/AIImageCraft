@@ -301,16 +301,6 @@ export function CardPacks() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-white">{pack.name}</h3>
-                        {pack.creator && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
-                              <span className="text-xs font-medium text-purple-300">👤</span>
-                            </div>
-                            <span className="text-sm font-medium text-purple-300/70">
-                              {pack.creator.username}
-                            </span>
-                          </div>
-                        )}
                       </div>
                       <ChevronsUpDown className="h-4 w-4 text-purple-400 mt-1" />
                     </div>
@@ -321,11 +311,23 @@ export function CardPacks() {
                   <p className="text-purple-300/70 text-sm mt-4">{pack.description}</p>
                 )}
 
-                <div className="flex items-center gap-2 mt-4">
-                  <Package className="h-4 w-4 text-purple-400" />
-                  <span className="text-purple-300/70 text-sm">
-                    {pack.cards?.length || 0} / 10 cards
-                  </span>
+                <div className="flex items-center justify-between mt-4">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-purple-400" />
+                    <span className="text-purple-300/70 text-sm">
+                      {pack.cards?.length || 0} / 10 cards
+                    </span>
+                  </div>
+                  {pack.creator && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <span className="text-xs font-medium text-purple-300">👤</span>
+                      </div>
+                      <span className="text-sm font-medium text-purple-300/70">
+                        {pack.creator.username}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <CollapsibleContent className="mt-4 space-y-4">
