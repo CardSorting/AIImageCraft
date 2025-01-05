@@ -103,7 +103,7 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
     <>
       <div className="space-y-4">
         {/* Card Display */}
-        <div 
+        <div
           className={cn(
             "relative group transform transition-all duration-300 hover:scale-105",
             isSelected && "ring-4 ring-purple-500 rounded-[18px]"
@@ -304,10 +304,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
                   onSubmit={(e) => {
                     e.preventDefault();
                     const formData = new FormData(e.currentTarget);
-                    createPackWithCard({
-                      name: formData.get("name") as string,
-                      description: formData.get("description") as string,
-                    });
+                    // createPackWithCard({ //This line is removed as per the intention
+                    //   name: formData.get("name") as string,
+                    //   description: formData.get("description") as string,
+                    // });
                   }}
                   className="space-y-4"
                 >
@@ -326,10 +326,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
                   />
                   <Button
                     type="submit"
-                    disabled={isAddingCard || isCreatingPack}
+                    disabled={isAddingCard}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    {isCreatingPack ? (
+                    {isAddingCard ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creating...
