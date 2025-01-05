@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, Zap } from "lucide-react";
 import { ELEMENTAL_TYPES, RARITIES } from "../types";
 import { queryClient } from "@/lib/queryClient";
-import { useCredits } from "@/hooks/use-credits";
+import { useCredits } from "@/features/credits/hooks/use-credits";
 
 const formSchema = z.object({
   name: z.string().min(1, "Card name is required"),
