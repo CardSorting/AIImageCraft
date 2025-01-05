@@ -10,6 +10,7 @@ import Profile from "@/pages/Profile";
 import GameQueue from "@/pages/GameQueue";
 import LandingPage from "@/pages/LandingPage";
 import TradingCardsPage from "@/features/trading-cards/pages/TradingCardsPage";
+import CreateTradingCardPage from "@/features/trading-cards/pages/CreateTradingCardPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -59,6 +60,9 @@ function App() {
       </Route>
       <Route path="/cards">
         {user ? <TradingCardsPage /> : <AuthPage />}
+      </Route>
+      <Route path="/cards/create">
+        {user ? <CreateTradingCardPage /> : <AuthPage />}
       </Route>
       <Route path="/queue">
         {user ? <GameQueue /> : <AuthPage />}

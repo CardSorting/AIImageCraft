@@ -11,7 +11,6 @@ interface ImageCardProps {
   imageId: number;
   imageUrl: string;
   tags?: string[];
-  onTradingCardCreated?: () => void;
 }
 
 function FavoriteButton({ imageId }: { imageId: number }) {
@@ -121,7 +120,7 @@ export default function ImageCard({
             >
               <Download className="h-4 w-4" />
             </Button>
-            <Link href={`/cards?action=create&imageId=${imageId}`}>
+            <Link href={`/cards/create?imageId=${imageId}`}>
               <Button
                 variant="secondary"
                 className="flex-1 bg-purple-500/20 hover:bg-purple-500/30 backdrop-blur-sm"
