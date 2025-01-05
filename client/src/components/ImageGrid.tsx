@@ -7,6 +7,7 @@ import type { Image } from "@/pages/Gallery";
 
 interface ImageGridProps {
   images: Image[];
+  onTradingCardCreated?: () => void;
 }
 
 function Pagination({ currentPage, totalPages, onPageChange }: { 
@@ -55,7 +56,7 @@ function Pagination({ currentPage, totalPages, onPageChange }: {
   );
 }
 
-export default function ImageGrid({ images }: ImageGridProps) {
+export default function ImageGrid({ images, onTradingCardCreated }: ImageGridProps) {
   const [selectedImage, setSelectedImage] = useState<Image | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const IMAGES_PER_PAGE = 12;
@@ -81,6 +82,7 @@ export default function ImageGrid({ images }: ImageGridProps) {
                   imageId={image.id}
                   imageUrl={image.url}
                   tags={image.tags}
+                  onTradingCardCreated={onTradingCardCreated}
                 />
               </div>
             </div>

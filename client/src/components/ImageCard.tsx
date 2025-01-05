@@ -115,14 +115,20 @@ export default function ImageCard({
             <Button
               variant="secondary"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownload();
-              }}
+              onClick={handleDownload}
               className="bg-white/10 hover:bg-white/20 backdrop-blur-sm"
             >
               <Download className="h-4 w-4" />
             </Button>
+            <Link href={`/cards/create?imageId=${imageId}`}>
+              <Button
+                variant="secondary"
+                className="flex-1 bg-purple-500/20 hover:bg-purple-500/30 backdrop-blur-sm"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Create Card
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
