@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { images, cardTemplates, tradingCards } from "@db/schema";
 import { z } from "zod";
 import { ELEMENTAL_TYPES, RARITIES } from "../constants/cards";
+import { PulseCreditManager } from "../services/redis";
 
 const router = Router();
 
@@ -23,6 +24,18 @@ router.post("/", async (req, res) => {
 
     if (!imageId || !name || !description || !elementalType) {
       return res.status(400).send("All fields are required: imageId, name, description, elementalType");
+    }
+
+    // Check if user has enough credits
+    const hasCredits = await PulseCreditManager.hasEnoughCredits(
+      req.user!.id,
+      PulseCreditManager.CARD_CREATION_COST
+    );
+
+    if (!hasCredits) {
+      return res.status(403).send(
+        `Insufficient Pulse credits. Card creation requires ${PulseCreditManager.CARD_CREATION_COST} credit`
+      );
     }
 
     // Verify the image exists and belongs to the user
@@ -52,6 +65,12 @@ router.post("/", async (req, res) => {
     if (!ELEMENTAL_TYPES.includes(elementalType)) {
       return res.status(400).send(`Invalid elemental type. Must be one of: ${ELEMENTAL_TYPES.join(', ')}`);
     }
+
+    // Use credits before creating the card
+    await PulseCreditManager.useCredits(
+      req.user!.id,
+      PulseCreditManager.CARD_CREATION_COST
+    );
 
     // Generate random attributes
     const rarity = RARITIES[Math.floor(Math.random() * RARITIES.length)];

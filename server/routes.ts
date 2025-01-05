@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
 import { eq, and, or, inArray } from "drizzle-orm";
-import { 
+import {
   images,
   trades,
   tradeItems,
@@ -16,6 +16,7 @@ import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
 import { TaskService } from "./services/task";
+import { PulseCreditManager } from "./services/redis";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -86,6 +87,24 @@ export function registerRoutes(app: Express): Server {
       if (!prompt) {
         return res.status(400).send("Prompt is required");
       }
+
+      // Check if user has enough credits
+      const hasCredits = await PulseCreditManager.hasEnoughCredits(
+        req.user!.id,
+        PulseCreditManager.IMAGE_GENERATION_COST
+      );
+
+      if (!hasCredits) {
+        return res.status(403).send(
+          `Insufficient Pulse credits. Image generation requires ${PulseCreditManager.IMAGE_GENERATION_COST} credits`
+        );
+      }
+
+      // Use credits before generating image
+      await PulseCreditManager.useCredits(
+        req.user!.id,
+        PulseCreditManager.IMAGE_GENERATION_COST
+      );
 
       const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
       res.json(result);
@@ -416,6 +435,17 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error checking game status:", error);
       res.status(500).send(error.message);
+    }
+  });
+
+  // Get user credits endpoint
+  app.get("/api/credits", async (req, res) => {
+    try {
+      const credits = await PulseCreditManager.getCredits(req.user!.id);
+      res.json({ credits });
+    } catch (error) {
+      console.error("Error fetching credits:", error);
+      res.status(500).send("Failed to fetch credits");
     }
   });
 
