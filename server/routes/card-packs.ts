@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and } from "drizzle-orm";
-import { cardPacks, cardPackCards, tradingCards } from "@db/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { cardPacks, cardPackCards, tradingCards, globalCardPool } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
@@ -45,11 +45,15 @@ router.get("/", async (req, res) => {
       with: {
         cards: {
           with: {
-            card: {
+            globalPoolCard: {
               with: {
-                template: {
+                card: {
                   with: {
-                    image: true,
+                    template: {
+                      with: {
+                        image: true,
+                      },
+                    },
                   },
                 },
               },
@@ -65,14 +69,14 @@ router.get("/", async (req, res) => {
       name: pack.name,
       description: pack.description,
       createdAt: pack.createdAt.toISOString(),
-      cards: pack.cards.map(({ card }) => ({
-        id: card.id,
-        name: card.template.name,
+      cards: pack.cards.map(({ globalPoolCard }) => ({
+        id: globalPoolCard.card.id,
+        name: globalPoolCard.card.template.name,
         image: {
-          url: card.template.image.url,
+          url: globalPoolCard.card.template.image.url,
         },
-        elementalType: card.template.elementalType,
-        rarity: card.template.rarity,
+        elementalType: globalPoolCard.card.template.elementalType,
+        rarity: globalPoolCard.card.template.rarity,
       })),
     }));
 
@@ -114,28 +118,49 @@ router.post("/:packId/cards", async (req, res) => {
     // Verify cards exist and belong to user
     const userCards = await db.query.tradingCards.findMany({
       where: and(
-        eq(tradingCards.userId, req.user!.id)
+        eq(tradingCards.userId, req.user!.id),
+        inArray(tradingCards.id, result.data.cardIds)
       ),
     });
 
-    const userCardIds = new Set(userCards.map(card => card.id));
-    const invalidCardIds = result.data.cardIds.filter(id => !userCardIds.has(id));
-
-    if (invalidCardIds.length > 0) {
-      return res.status(400).send(`Cards not found or don't belong to you: ${invalidCardIds.join(", ")}`);
+    if (userCards.length !== result.data.cardIds.length) {
+      return res.status(400).send("Some cards not found or don't belong to you");
     }
 
-    // Add cards to pack with positions
-    const cardEntries = result.data.cardIds.map((cardId, index) => ({
-      packId,
-      cardId,
-      position: index + 1,
-    }));
+    // Begin transaction for card transfer
+    const packCards = await db.transaction(async (tx) => {
+      // Move cards to global pool
+      const globalPoolEntries = await Promise.all(
+        userCards.map(async (card) => {
+          // Insert into global pool
+          const [globalPoolCard] = await tx
+            .insert(globalCardPool)
+            .values({
+              cardId: card.id,
+              originalOwnerId: req.user!.id,
+              inPack: true,
+            })
+            .returning();
 
-    const packCards = await db
-      .insert(cardPackCards)
-      .values(cardEntries)
-      .returning();
+          // Update card ownership
+          await tx
+            .update(tradingCards)
+            .set({ userId: null })
+            .where(eq(tradingCards.id, card.id));
+
+          return globalPoolCard;
+        })
+      );
+
+      // Add cards to pack with positions
+      const cardPackEntries = globalPoolEntries.map((poolCard, index) => ({
+        packId,
+        globalPoolCardId: poolCard.id,
+        position: index + 1,
+      }));
+
+      return await tx.insert(cardPackCards).values(cardPackEntries).returning();
+    });
 
     res.json(packCards);
   } catch (error: any) {
@@ -166,12 +191,16 @@ router.get("/:packId/cards", async (req, res) => {
     const packCards = await db.query.cardPackCards.findMany({
       where: eq(cardPackCards.packId, packId),
       with: {
-        card: {
+        globalPoolCard: {
           with: {
-            template: {
+            card: {
               with: {
-                image: true,
-                creator: true,
+                template: {
+                  with: {
+                    image: true,
+                    creator: true,
+                  },
+                },
               },
             },
           },
@@ -180,18 +209,18 @@ router.get("/:packId/cards", async (req, res) => {
       orderBy: (cards, { asc }) => [asc(cards.position)],
     });
 
-    const transformedCards = packCards.map(({ card }) => ({
-      id: card.id,
-      name: card.template.name,
-      description: card.template.description,
-      elementalType: card.template.elementalType,
-      rarity: card.template.rarity,
-      powerStats: card.template.powerStats,
+    const transformedCards = packCards.map(({ globalPoolCard }) => ({
+      id: globalPoolCard.card.id,
+      name: globalPoolCard.card.template.name,
+      description: globalPoolCard.card.template.description,
+      elementalType: globalPoolCard.card.template.elementalType,
+      rarity: globalPoolCard.card.template.rarity,
+      powerStats: globalPoolCard.card.template.powerStats,
       image: {
-        url: card.template.image.url,
+        url: globalPoolCard.card.template.image.url,
       },
-      createdAt: card.createdAt,
-      creator: card.template.creator,
+      originalOwnerId: globalPoolCard.originalOwnerId,
+      creator: globalPoolCard.card.template.creator,
     }));
 
     res.json(transformedCards);

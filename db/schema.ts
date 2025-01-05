@@ -83,7 +83,28 @@ export const tradingCards = pgTable("trading_cards", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-// Add new tables for card packs after the tradingCards table
+// Add the global card pool table after tradingCards table
+export const globalCardPool = pgTable("global_card_pool", {
+  id: serial("id").primaryKey(),
+  cardId: integer("card_id").notNull().references(() => tradingCards.id),
+  originalOwnerId: integer("original_owner_id").notNull().references(() => users.id),
+  inPack: boolean("in_pack").default(false).notNull(),
+  transferredAt: timestamp("transferred_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Add relations for global card pool
+export const globalCardPoolRelations = relations(globalCardPool, ({ one }) => ({
+  card: one(tradingCards, {
+    fields: [globalCardPool.cardId],
+    references: [tradingCards.id],
+  }),
+  originalOwner: one(users, {
+    fields: [globalCardPool.originalOwnerId],
+    references: [users.id],
+  }),
+}));
+
+// Update card pack cards to reference global pool
 export const cardPacks = pgTable("card_packs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
@@ -95,10 +116,30 @@ export const cardPacks = pgTable("card_packs", {
 export const cardPackCards = pgTable("card_pack_cards", {
   id: serial("id").primaryKey(),
   packId: integer("pack_id").notNull().references(() => cardPacks.id),
-  cardId: integer("card_id").notNull().references(() => tradingCards.id),
+  globalPoolCardId: integer("global_pool_card_id").notNull().references(() => globalCardPool.id),
   position: integer("position").notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
+
+export const cardPacksRelations = relations(cardPacks, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [cardPacks.userId],
+    references: [users.id],
+  }),
+  cards: many(cardPackCards),
+}));
+
+export const cardPackCardsRelations = relations(cardPackCards, ({ one }) => ({
+  pack: one(cardPacks, {
+    fields: [cardPackCards.packId],
+    references: [cardPacks.id],
+  }),
+  globalPoolCard: one(globalCardPool, {
+    fields: [cardPackCards.globalPoolCardId],
+    references: [globalCardPool.id],
+  }),
+}));
+
 
 export const tags = pgTable("tags", {
   id: serial("id").primaryKey(),
@@ -232,27 +273,6 @@ export const tradingCardsRelations = relations(tradingCards, ({ one, many }) => 
   favoritedBy: many(userFavorites),
 }));
 
-// Add relations for card packs after the tradingCardsRelations
-export const cardPacksRelations = relations(cardPacks, ({ one, many }) => ({
-  owner: one(users, {
-    fields: [cardPacks.userId],
-    references: [users.id],
-  }),
-  cards: many(cardPackCards),
-}));
-
-export const cardPackCardsRelations = relations(cardPackCards, ({ one }) => ({
-  pack: one(cardPacks, {
-    fields: [cardPackCards.packId],
-    references: [cardPacks.id],
-  }),
-  card: one(tradingCards, {
-    fields: [cardPackCards.cardId],
-    references: [tradingCards.id],
-  }),
-}));
-
-
 export const tagsRelations = relations(tags, ({ many }) => ({
   images: many(imageTags),
 }));
@@ -384,7 +404,6 @@ export const userRewardsRelations = relations(userRewards, ({ one }) => ({
   }),
 }));
 
-
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
 
@@ -443,6 +462,9 @@ export const selectCardPackSchema = createSelectSchema(cardPacks);
 export const insertCardPackCardSchema = createInsertSchema(cardPackCards);
 export const selectCardPackCardSchema = createSelectSchema(cardPackCards);
 
+export const insertGlobalCardPoolSchema = createInsertSchema(globalCardPool);
+export const selectGlobalCardPoolSchema = createSelectSchema(globalCardPool);
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -500,3 +522,6 @@ export type SelectCardPack = typeof cardPacks.$inferSelect;
 
 export type InsertCardPackCard = typeof cardPackCards.$inferInsert;
 export type SelectCardPackCard = typeof cardPackCards.$inferSelect;
+
+export type InsertGlobalCardPool = typeof globalCardPool.$inferInsert;
+export type SelectGlobalCardPool = typeof globalCardPool.$inferSelect;
