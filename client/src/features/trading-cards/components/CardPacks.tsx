@@ -32,8 +32,9 @@ export function CardPacks() {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
-  const { data: cardPacks, isLoading } = useQuery<CardPack[]>({
+  const { data: cardPacks, isLoading, error } = useQuery<CardPack[]>({
     queryKey: ["/api/card-packs"],
+    retry: false
   });
 
   const { mutate: createPack, isPending: isCreatePending } = useMutation({
@@ -73,6 +74,22 @@ export function CardPacks() {
     return (
       <div className="flex justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-24 h-24 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
+          <Package className="w-12 h-12 text-red-400" />
+        </div>
+        <h2 className="text-2xl font-semibold text-white mb-2">
+          Error Loading Card Packs
+        </h2>
+        <p className="text-purple-300/70 mb-6 max-w-md">
+          {error instanceof Error ? error.message : "Failed to load card packs"}
+        </p>
       </div>
     );
   }
