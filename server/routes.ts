@@ -44,8 +44,8 @@ export function registerRoutes(app: Express): Server {
       const now = new Date();
       const challenges = await db.query.dailyChallenges.findMany({
         where: and(
-          sql`date(${dailyChallenges.expiresAt}) >= date(${now})`,
-          sql`date(${dailyChallenges.created_at}) <= date(${now})`
+          sql`${dailyChallenges.expiresAt} >= CURRENT_DATE`,
+          sql`${dailyChallenges.createdAt} <= CURRENT_DATE`
         ),
         with: {
           progress: {
@@ -62,7 +62,7 @@ export function registerRoutes(app: Express): Server {
       const completedToday = await db.query.challengeProgress.findMany({
         where: and(
           eq(challengeProgress.userId, req.user!.id),
-          sql`date(${challengeProgress.completedAt}) >= date(${todayStart})`,
+          sql`${challengeProgress.completedAt} >= CURRENT_DATE`,
           eq(challengeProgress.completed, true)
         ),
         with: {
