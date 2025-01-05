@@ -6,6 +6,7 @@ import { Copy, RefreshCw, Sparkles, Trophy, Users, Lock, Star, Gift } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { useReferral } from "../hooks/use-credits";
 import { ReferralQRCode } from "./ReferralQRCode";
+import { ReferralShare } from "./ReferralShare";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferralProgressMap } from "./ReferralProgressMap";
 
@@ -131,7 +132,6 @@ export function ReferralCode() {
 
   const currentTier = referralStats ? Math.floor(referralStats.referralCount / 5) + 1 : 1;
 
-  // Show reward animation when tier changes
   ReactuseEffect(() => {
     if (referralStats?.referralCount && referralStats.referralCount % 5 === 0) {
       setShowReward(true);
@@ -143,7 +143,6 @@ export function ReferralCode() {
     <div className="space-y-6">
       <RewardAnimation show={showReward} />
 
-      {/* Progress Map */}
       {referralStats && (
         <div className="bg-purple-950/30 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-purple-200 mb-4">Your Referral Journey</h3>
@@ -151,7 +150,6 @@ export function ReferralCode() {
         </div>
       )}
 
-      {/* Tier Badges */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((tier) => (
           <TierBadge
@@ -169,7 +167,6 @@ export function ReferralCode() {
         ))}
       </div>
 
-      {/* Stats Cards */}
       {referralStats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <motion.div
@@ -226,7 +223,6 @@ export function ReferralCode() {
         </div>
       )}
 
-      {/* Progress to Next Tier */}
       {referralStats && (
         <motion.div 
           className="space-y-2"
@@ -254,7 +250,6 @@ export function ReferralCode() {
         </motion.div>
       )}
 
-      {/* Referral Code Management */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           {referralCode ? (
@@ -304,10 +299,10 @@ export function ReferralCode() {
           )}
         </div>
 
-        {/* QR Code */}
+        {referralCode && <ReferralShare referralCode={referralCode} />}
+
         {referralCode && <ReferralQRCode code={referralCode} />}
 
-        {/* Use Referral Code */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           {showInput ? (
             <>
