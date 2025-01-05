@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useReferral } from "../hooks/use-credits";
 import { ReferralQRCode } from "./ReferralQRCode";
 import { motion, AnimatePresence } from "framer-motion";
+import { ReferralProgressMap } from "./ReferralProgressMap";
 
 const TierBadge = ({ tier, isActive, isLocked, bonus }: { 
   tier: number; 
@@ -141,6 +142,14 @@ export function ReferralCode() {
   return (
     <div className="space-y-6">
       <RewardAnimation show={showReward} />
+
+      {/* Progress Map */}
+      {referralStats && (
+        <div className="bg-purple-950/30 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-purple-200 mb-4">Your Referral Journey</h3>
+          <ReferralProgressMap currentCount={referralStats.referralCount} />
+        </div>
+      )}
 
       {/* Tier Badges */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
