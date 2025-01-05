@@ -45,23 +45,31 @@ export class PulseCreditManager {
   private static readonly SHARE_PREFIX = "shares:";
   private static readonly REFERRAL_PREFIX = "referral:";
   private static readonly REFERRAL_CODE_PREFIX = "referral_code:";
-  private static readonly DEFAULT_CREDITS = 10; // New users get 10 credits
+  private static readonly REFERRAL_COUNT_PREFIX = "referral_count:";
+  private static readonly DEFAULT_CREDITS = 10;
 
   // Cost configuration
   static readonly IMAGE_GENERATION_COST = 2;
   static readonly CARD_CREATION_COST = 1;
-  static readonly SHARE_REWARD = 1; // Credits earned per successful share
-  static readonly MAX_DAILY_SHARE_REWARDS = 5; // Maximum shares that can earn credits per day
-  static readonly REFERRAL_BONUS = 5; // Credits earned for successful referral
-  static readonly REFERRAL_WELCOME_BONUS = 3; // Credits earned by new user using referral
+  static readonly SHARE_REWARD = 1;
+  static readonly MAX_DAILY_SHARE_REWARDS = 5;
+
+  // Tiered Referral Rewards
+  static readonly REFERRAL_TIERS = [
+    { min: 0, max: 5, bonus: 5 },    // Tier 1: 1-5 referrals
+    { min: 6, max: 10, bonus: 7 },   // Tier 2: 6-10 referrals
+    { min: 11, max: 15, bonus: 10 }, // Tier 3: 11-15 referrals
+    { min: 16, max: Infinity, bonus: 15 } // Tier 4: 16+ referrals
+  ];
+
+  static readonly REFERRAL_WELCOME_BONUS = 3;
 
   private static getCreditKey(userId: number): string {
     return `${this.CREDIT_PREFIX}${userId}`;
   }
 
-  private static getShareKey(userId: number): string {
-    const today = new Date().toISOString().split('T')[0];
-    return `${this.SHARE_PREFIX}${userId}:${today}`;
+  private static getReferralCountKey(userId: number): string {
+    return `${this.REFERRAL_COUNT_PREFIX}${userId}`;
   }
 
   private static getReferralKey(userId: number): string {
@@ -70,6 +78,26 @@ export class PulseCreditManager {
 
   private static getReferralCodeKey(code: string): string {
     return `${this.REFERRAL_CODE_PREFIX}${code}`;
+  }
+
+  static async getReferralCount(userId: number): Promise<number> {
+    const count = await redis.get(this.getReferralCountKey(userId));
+    return parseInt(count || "0");
+  }
+
+  static async incrementReferralCount(userId: number): Promise<number> {
+    const key = this.getReferralCountKey(userId);
+    const newCount = await redis.incr(key);
+    return newCount;
+  }
+
+  static getBonusForTier(referralCount: number): number {
+    for (const tier of this.REFERRAL_TIERS) {
+      if (referralCount >= tier.min && referralCount <= tier.max) {
+        return tier.bonus;
+      }
+    }
+    return this.REFERRAL_TIERS[0].bonus; // Default to first tier if no match
   }
 
   static async initializeCredits(userId: number): Promise<number> {
@@ -99,7 +127,6 @@ export class PulseCreditManager {
   static async useCredits(userId: number, amount: number): Promise<boolean> {
     const key = this.getCreditKey(userId);
 
-    // Use Redis transaction to ensure atomicity
     const result = await redis
       .multi()
       .get(key)
@@ -122,53 +149,11 @@ export class PulseCreditManager {
     return credits >= amount;
   }
 
-  static async trackAndRewardShare(userId: number, sharedItemType: 'image' | 'card', itemId: number): Promise<{
-    credited: boolean;
-    creditsEarned: number;
-    dailySharesCount: number;
-  }> {
-    const shareKey = this.getShareKey(userId);
-
-    // Check if user has reached daily share limit
-    const dailyShares = parseInt(await redis.get(shareKey) || "0");
-    if (dailyShares >= this.MAX_DAILY_SHARE_REWARDS) {
-      return {
-        credited: false,
-        creditsEarned: 0,
-        dailySharesCount: dailyShares
-      };
-    }
-
-    // Record the share and increment daily counter
-    await redis.incr(shareKey);
-    // Set expiry for 24 hours if not already set
-    await redis.expire(shareKey, 24 * 60 * 60);
-
-    // Award credits
-    await this.addCredits(userId, this.SHARE_REWARD);
-
-    return {
-      credited: true,
-      creditsEarned: this.SHARE_REWARD,
-      dailySharesCount: dailyShares + 1
-    };
-  }
-
-  static async getDailySharesCount(userId: number): Promise<number> {
-    const shareKey = this.getShareKey(userId);
-    const count = await redis.get(shareKey);
-    return parseInt(count || "0");
-  }
-
   static async generateReferralCode(userId: number): Promise<string> {
-    // Generate a unique referral code
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const codeKey = this.getReferralCodeKey(code);
 
-    // Store the referral code with the user ID
     await redis.set(codeKey, userId);
-
-    // Store the code in user's referral key for lookup
     await redis.set(this.getReferralKey(userId), code);
 
     return code;
@@ -191,18 +176,62 @@ export class PulseCreditManager {
       return { success: false, error: "Invalid referral code" };
     }
 
-    if (parseInt(referrerId) === newUserId) {
+    const referrerIdNum = parseInt(referrerId);
+
+    if (referrerIdNum === newUserId) {
       return { success: false, error: "Cannot use your own referral code" };
     }
 
-    // Award bonus credits to both users
-    await this.addCredits(parseInt(referrerId), this.REFERRAL_BONUS);
+    // Get current referral count and calculate bonus
+    const currentCount = await this.incrementReferralCount(referrerIdNum);
+    const bonus = this.getBonusForTier(currentCount);
+
+    // Award tiered bonus to referrer and welcome bonus to new user
+    await this.addCredits(referrerIdNum, bonus);
     await this.addCredits(newUserId, this.REFERRAL_WELCOME_BONUS);
 
     return {
       success: true,
-      referrerId: parseInt(referrerId)
+      referrerId: referrerIdNum
     };
+  }
+
+  static async trackAndRewardShare(userId: number, sharedItemType: 'image' | 'card', itemId: number): Promise<{
+    credited: boolean;
+    creditsEarned: number;
+    dailySharesCount: number;
+  }> {
+    const shareKey = this.getShareKey(userId);
+
+    const dailyShares = parseInt(await redis.get(shareKey) || "0");
+    if (dailyShares >= this.MAX_DAILY_SHARE_REWARDS) {
+      return {
+        credited: false,
+        creditsEarned: 0,
+        dailySharesCount: dailyShares
+      };
+    }
+
+    await redis.incr(shareKey);
+    await redis.expire(shareKey, 24 * 60 * 60);
+    await this.addCredits(userId, this.SHARE_REWARD);
+
+    return {
+      credited: true,
+      creditsEarned: this.SHARE_REWARD,
+      dailySharesCount: dailyShares + 1
+    };
+  }
+
+  private static getShareKey(userId: number): string {
+    const today = new Date().toISOString().split('T')[0];
+    return `${this.SHARE_PREFIX}${userId}:${today}`;
+  }
+
+  static async getDailySharesCount(userId: number): Promise<number> {
+    const shareKey = this.getShareKey(userId);
+    const count = await redis.get(shareKey);
+    return parseInt(count || "0");
   }
 }
 

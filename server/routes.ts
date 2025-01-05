@@ -542,6 +542,36 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add this new endpoint after the existing referral endpoints
+  app.get("/api/referral/stats", async (req, res) => {
+    try {
+      const referralCount = await PulseCreditManager.getReferralCount(req.user!.id);
+      const currentTier = PulseCreditManager.REFERRAL_TIERS.findIndex(
+        tier => referralCount >= tier.min && referralCount <= tier.max
+      ) + 1;
+
+      const currentTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier - 1];
+      const nextTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier] || null;
+
+      // Calculate progress to next tier
+      const progressInTier = referralCount - currentTierInfo.min;
+      const tierSize = currentTierInfo.max - currentTierInfo.min + 1;
+      const progressPercentage = (progressInTier / tierSize) * 100;
+
+      res.json({
+        referralCount,
+        currentTier,
+        currentBonus: currentTierInfo.bonus,
+        nextTierBonus: nextTierInfo?.bonus,
+        progressToNextTier: progressPercentage,
+        creditsEarned: referralCount * currentTierInfo.bonus
+      });
+    } catch (error) {
+      console.error("Error fetching referral stats:", error);
+      res.status(500).send("Failed to fetch referral statistics");
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
