@@ -2,7 +2,16 @@ import { useState, useEffect as ReactuseEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Copy, RefreshCw, Sparkles, Trophy, Users, Lock, Star, Gift } from "lucide-react";
+import {
+  Copy,
+  RefreshCw,
+  Sparkles,
+  Trophy,
+  Users,
+  Lock,
+  Star,
+  Gift,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useReferral } from "../hooks/use-credits";
 import { ReferralQRCode } from "./ReferralQRCode";
@@ -10,9 +19,14 @@ import { ReferralShare } from "./ReferralShare";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferralProgressMap } from "./ReferralProgressMap";
 
-const TierBadge = ({ tier, isActive, isLocked, bonus }: { 
-  tier: number; 
-  isActive: boolean; 
+const TierBadge = ({
+  tier,
+  isActive,
+  isLocked,
+  bonus,
+}: {
+  tier: number;
+  isActive: boolean;
   isLocked: boolean;
   bonus: number;
 }) => (
@@ -20,8 +34,8 @@ const TierBadge = ({ tier, isActive, isLocked, bonus }: {
     initial={{ scale: 0.8, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
     className={`relative rounded-lg p-4 ${
-      isActive 
-        ? "bg-gradient-to-br from-purple-600 to-blue-600 text-white" 
+      isActive
+        ? "bg-gradient-to-br from-purple-600 to-blue-600 text-white"
         : isLocked
           ? "bg-gray-800/50 text-gray-400"
           : "bg-purple-950/30 text-purple-300"
@@ -41,7 +55,7 @@ const TierBadge = ({ tier, isActive, isLocked, bonus }: {
       ) : (
         <>
           <Star className="inline-block w-4 h-4 mr-1 text-yellow-300" />
-          {bonus} credits per referral
+          {bonus} Pulse per referral
         </>
       )}
     </div>
@@ -72,7 +86,9 @@ const RewardAnimation = ({ show }: { show: boolean }) => (
           >
             <Gift className="w-16 h-16 text-white" />
           </motion.div>
-          <p className="mt-4 text-xl font-bold text-white text-center">New Tier Unlocked!</p>
+          <p className="mt-4 text-xl font-bold text-white text-center">
+            New Tier Unlocked!
+          </p>
         </div>
       </motion.div>
     )}
@@ -127,10 +143,13 @@ export function ReferralCode() {
     setShowInput(false);
   };
 
-  const nextTierProgress = referralStats ? 
-    (referralStats.referralCount % 5) / 5 * 100 : 0;
+  const nextTierProgress = referralStats
+    ? ((referralStats.referralCount % 5) / 5) * 100
+    : 0;
 
-  const currentTier = referralStats ? Math.floor(referralStats.referralCount / 5) + 1 : 1;
+  const currentTier = referralStats
+    ? Math.floor(referralStats.referralCount / 5) + 1
+    : 1;
 
   ReactuseEffect(() => {
     if (referralStats?.referralCount && referralStats.referralCount % 5 === 0) {
@@ -145,7 +164,9 @@ export function ReferralCode() {
 
       {referralStats && (
         <div className="bg-purple-950/30 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-purple-200 mb-4">Your Referral Journey</h3>
+          <h3 className="text-lg font-semibold text-purple-200 mb-4">
+            Your Referral Journey
+          </h3>
           <ReferralProgressMap currentCount={referralStats.referralCount} />
         </div>
       )}
@@ -157,12 +178,7 @@ export function ReferralCode() {
             tier={tier}
             isActive={currentTier === tier}
             isLocked={currentTier < tier}
-            bonus={
-              tier === 1 ? 5 :
-              tier === 2 ? 7 :
-              tier === 3 ? 10 :
-              15
-            }
+            bonus={tier === 1 ? 5 : tier === 2 ? 7 : tier === 3 ? 10 : 15}
           />
         ))}
       </div>
@@ -192,7 +208,7 @@ export function ReferralCode() {
           >
             <Sparkles className="w-5 h-5 text-purple-400" />
             <div>
-              <p className="text-sm text-purple-300/70">Credits Earned</p>
+              <p className="text-sm text-purple-300/70">Pulse Earned</p>
               <motion.p
                 key={referralStats.creditsEarned}
                 initial={{ scale: 1.2, color: "#A855F7" }}
@@ -224,7 +240,7 @@ export function ReferralCode() {
       )}
 
       {referralStats && (
-        <motion.div 
+        <motion.div
           className="space-y-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
