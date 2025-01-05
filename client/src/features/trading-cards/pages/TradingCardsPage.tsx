@@ -1,10 +1,18 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Library, History } from "lucide-react";
 import Header from "@/components/Header";
 import { CardGallery } from "@/features/gallery/components/CardGallery";
 import { TradeHistory } from "@/features/gallery/components/TradeHistory";
+import { CreateTradingCard } from "@/features/trading-cards/components/CreateTradingCard";
 
 export default function TradingCardsPage() {
+  const [location] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const action = searchParams.get("action");
+  const imageId = searchParams.get("imageId");
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
       <Header />
@@ -31,6 +39,17 @@ export default function TradingCardsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {action === "create" && imageId && (
+        <CreateTradingCard
+          imageId={parseInt(imageId)}
+          open={true}
+          onOpenChange={() => {
+            // Remove the query parameters when closing the modal
+            window.history.replaceState({}, '', '/cards');
+          }}
+        />
+      )}
     </div>
   );
 }

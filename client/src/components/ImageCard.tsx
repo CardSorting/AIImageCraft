@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Sparkles, Star } from "lucide-react";
-import { CreateTradingCard } from "@/features/trading-cards/components/CreateTradingCard";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -75,11 +75,8 @@ function FavoriteButton({ imageId }: { imageId: number }) {
 export default function ImageCard({ 
   imageId, 
   imageUrl, 
-  tags = [], 
-  onTradingCardCreated 
+  tags = []
 }: ImageCardProps) {
-  const [isCreateCardOpen, setIsCreateCardOpen] = useState(false);
-
   const handleDownload = async () => {
     const response = await fetch(imageUrl);
     const blob = await response.blob();
@@ -94,58 +91,49 @@ export default function ImageCard({
   };
 
   return (
-    <>
-      <Card className="group relative w-full h-full overflow-hidden backdrop-blur-sm bg-black/30 border-purple-500/20">
-        <div className="absolute inset-0">
-          <img
-            src={imageUrl}
-            alt="AI generated"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex flex-wrap gap-2 mb-4">
-              {tags.map((tag, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="bg-purple-500/20 text-purple-200 hover:bg-purple-500/30"
-                >
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button
+    <Card className="group relative w-full h-full overflow-hidden backdrop-blur-sm bg-black/30 border-purple-500/20">
+      <div className="absolute inset-0">
+        <img
+          src={imageUrl}
+          alt="AI generated"
+          className="w-full h-full object-cover"
+        />
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-4 left-4 right-4">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {tags.map((tag, index) => (
+              <Badge
+                key={index}
                 variant="secondary"
-                size="icon"
-                onClick={handleDownload}
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+                className="bg-purple-500/20 text-purple-200 hover:bg-purple-500/30"
               >
-                <Download className="h-4 w-4" />
-              </Button>
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={handleDownload}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <Link href={`/cards?action=create&imageId=${imageId}`}>
               <Button
                 variant="secondary"
-                onClick={() => setIsCreateCardOpen(true)}
                 className="flex-1 bg-purple-500/20 hover:bg-purple-500/30 backdrop-blur-sm"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 Create Card
               </Button>
-            </div>
+            </Link>
           </div>
         </div>
-        <FavoriteButton imageId={imageId} />
-      </Card>
-
-      <CreateTradingCard
-        imageId={imageId}
-        imageUrl={imageUrl}
-        open={isCreateCardOpen}
-        onOpenChange={setIsCreateCardOpen}
-        onSuccess={onTradingCardCreated}
-      />
-    </>
+      </div>
+      <FavoriteButton imageId={imageId} />
+    </Card>
   );
 }
