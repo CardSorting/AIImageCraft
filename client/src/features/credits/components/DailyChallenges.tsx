@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, Trophy, CheckCircle2 } from "lucide-react";
@@ -38,18 +38,18 @@ function ChallengeCard({ challenge }: { challenge: DailyChallenge }) {
               <Sparkles className="w-4 h-4" />
               <span>{challenge.creditReward}</span>
             </div>
-            {!challenge.completed && challenge.currentProgress > 0 && (
+            {!challenge.completed && challenge.currentProgress > 0 && !challenge.isChecking && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => checkProgress(challenge.id)}
-                disabled={isChecking}
+                disabled={isChecking || challenge.completed}
                 className="text-purple-200 border-purple-500/30 hover:bg-purple-500/20"
               >
                 {isChecking ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  "Check Progress"
+                  "Verify Progress"
                 )}
               </Button>
             )}

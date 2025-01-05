@@ -21,7 +21,7 @@ export function useDailyChallenges() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/challenges/daily"] });
       queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
-      
+
       toast({
         title: "Challenge Completed!",
         description: `${data.message} (+${data.creditsAwarded} Pulse)`,
@@ -40,11 +40,26 @@ export function useDailyChallenges() {
   const checkProgressMutation = useMutation({
     mutationFn: checkChallengeProgress,
     onSuccess: (data) => {
+      // Update the challenge data in the cache
       queryClient.invalidateQueries({ queryKey: ["/api/challenges/daily"] });
-      
+
+      // If the challenge is complete and not already marked as completed,
+      // trigger the completion
       if (data.completed) {
         completeMutation.mutate(data.id);
+      } else if (data.currentProgress < data.requiredCount) {
+        toast({
+          title: "Progress Updated",
+          description: `${data.currentProgress}/${data.requiredCount} completed`,
+        });
       }
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to check progress",
+        description: error.message,
+      });
     },
   });
 
