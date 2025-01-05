@@ -42,7 +42,7 @@ export function useReferral() {
     },
   });
 
-  const useMutation = useMutation({
+  const useReferralMutation = useMutation({
     mutationFn: useReferralCode,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
@@ -66,7 +66,7 @@ export function useReferral() {
     isLoadingCode,
     generateReferralCode: generateMutation.mutate,
     isGenerating: generateMutation.isPending,
-    useReferralCode: useMutation.mutate,
-    isUsing: useMutation.isPending,
+    useReferralCode: useReferralMutation.mutate,
+    isUsing: useReferralMutation.isPending,
   };
 }
