@@ -17,6 +17,8 @@ import { images } from "../db/schema";
 import { tradingCards } from "../db/schema/trading-cards/schema";
 import { TaskService } from "./services/task";
 
+const IMAGE_GENERATION_COST = 50; // Cost in credits to generate an image
+
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
   setupAuth(app);
@@ -42,7 +44,38 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
+      // Check user's credit balance
+      const [userBalance] = await db
+        .select()
+        .from(creditBalances)
+        .where(eq(creditBalances.userId, req.user!.id))
+        .limit(1);
+
+      if (!userBalance || userBalance.balance < IMAGE_GENERATION_COST) {
+        return res.status(400).send(`Insufficient credits. Image generation costs ${IMAGE_GENERATION_COST} credits.`);
+      }
+
+      // Create the image generation task
       const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
+
+      // Deduct credits and record transaction
+      await db.transaction(async (tx) => {
+        // Deduct credits from balance
+        await tx
+          .update(creditBalances)
+          .set({ balance: userBalance.balance - IMAGE_GENERATION_COST })
+          .where(eq(creditBalances.userId, req.user!.id));
+
+        // Record the transaction
+        await tx.insert(creditTransactions).values({
+          userId: req.user!.id,
+          amount: -IMAGE_GENERATION_COST,
+          type: "IMAGE_GENERATION",
+          description: "Image generation",
+          createdAt: new Date(),
+        });
+      });
+
       res.json(result);
     } catch (error: any) {
       console.error("Error generating image:", error);
