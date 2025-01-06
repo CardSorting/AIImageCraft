@@ -16,9 +16,9 @@ export function MarketplaceFilters({ filters, onFilterChange }: MarketplaceFilte
     const newFilters: FiltersType = {
       minPrice: formData.get('minPrice') ? Number(formData.get('minPrice')) : undefined,
       maxPrice: formData.get('maxPrice') ? Number(formData.get('maxPrice')) : undefined,
-      rarity: formData.get('rarity')?.toString(),
-      element: formData.get('element')?.toString(),
-      sortBy: formData.get('sortBy')?.toString() as FiltersType['sortBy'],
+      rarity: formData.get('rarity')?.toString() || undefined,
+      element: formData.get('element')?.toString() || undefined,
+      sortBy: formData.get('sortBy')?.toString() as FiltersType['sortBy'] || 'date_desc',
     };
     onFilterChange(newFilters);
   };
@@ -51,12 +51,12 @@ export function MarketplaceFilters({ filters, onFilterChange }: MarketplaceFilte
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium">Rarity</label>
-          <Select name="rarity" defaultValue={filters.rarity}>
+          <Select name="rarity" defaultValue={filters.rarity || "all"}>
             <SelectTrigger>
               <SelectValue placeholder="Select Rarity" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Any</SelectItem>
+              <SelectItem value="all">Any Rarity</SelectItem>
               <SelectItem value="COMMON">Common</SelectItem>
               <SelectItem value="RARE">Rare</SelectItem>
               <SelectItem value="EPIC">Epic</SelectItem>
@@ -67,12 +67,12 @@ export function MarketplaceFilters({ filters, onFilterChange }: MarketplaceFilte
 
         <div>
           <label className="text-sm font-medium">Element</label>
-          <Select name="element" defaultValue={filters.element}>
+          <Select name="element" defaultValue={filters.element || "all"}>
             <SelectTrigger>
               <SelectValue placeholder="Select Element" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Any</SelectItem>
+              <SelectItem value="all">Any Element</SelectItem>
               <SelectItem value="FIRE">Fire</SelectItem>
               <SelectItem value="WATER">Water</SelectItem>
               <SelectItem value="EARTH">Earth</SelectItem>
@@ -84,7 +84,7 @@ export function MarketplaceFilters({ filters, onFilterChange }: MarketplaceFilte
 
       <div>
         <label className="text-sm font-medium">Sort By</label>
-        <Select name="sortBy" defaultValue={filters.sortBy}>
+        <Select name="sortBy" defaultValue={filters.sortBy || "date_desc"}>
           <SelectTrigger>
             <SelectValue placeholder="Sort By" />
           </SelectTrigger>
