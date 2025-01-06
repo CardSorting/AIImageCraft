@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
-import { packListings, marketplaceTransactions, cardPacks, users, globalCardPool, cardPackCards, tradingCards } from "@db/schema";
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { packListings, marketplaceTransactions, cardPacks, globalCardPool, cardPackCards, tradingCards } from "@db/schema";
 import { z } from "zod";
+import { PulseCreditManager } from "../services/redis";
 
 const router = Router();
 
@@ -193,35 +194,31 @@ router.post("/listings/:id/purchase", async (req, res) => {
         throw new Error("You cannot purchase your own listing");
       }
 
-      // Get buyer's current balance
-      const buyer = await tx.query.users.findFirst({
-        where: eq(users.id, req.user!.id)
-      });
+      // Check if buyer has enough credits
+      const hasCredits = await PulseCreditManager.hasEnoughCredits(
+        req.user!.id,
+        listing.price
+      );
 
-      if (!buyer) {
-        throw new Error("Buyer not found");
+      if (!hasCredits) {
+        throw new Error(`Insufficient credits. You need ${listing.price} credits to purchase this pack.`);
       }
 
-      const buyerCredits = buyer.totalReferralBonus ?? 0;
-      if (buyerCredits < listing.price) {
-        throw new Error("Insufficient credits");
+      // Process credit transfer
+      const deductResult = await PulseCreditManager.useCredits(
+        req.user!.id,
+        listing.price
+      );
+
+      if (!deductResult) {
+        throw new Error("Failed to process credit transfer");
       }
 
-      // Update buyer's balance
-      await tx
-        .update(users)
-        .set({
-          totalReferralBonus: sql`${users.totalReferralBonus} - ${listing.price}`,
-        })
-        .where(eq(users.id, req.user!.id));
-
-      // Update seller's balance
-      await tx
-        .update(users)
-        .set({
-          totalReferralBonus: sql`${users.totalReferralBonus} + ${listing.price}`,
-        })
-        .where(eq(users.id, listing.sellerId));
+      // Add credits to seller
+      await PulseCreditManager.addCredits(
+        listing.sellerId,
+        listing.price
+      );
 
       // Update pack ownership
       await tx
