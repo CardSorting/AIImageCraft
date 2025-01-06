@@ -40,16 +40,7 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const userPacks = await db.query.cardPacks.findMany({
-      where: and(
-        eq(cardPacks.userId, req.user!.id),
-        or(
-          // Pack has no active listing
-          isNull(packListings.id),
-          // Pack's listing is not active (completed, cancelled, etc.)
-          eq(packListings.status, 'SOLD'),
-          eq(packListings.status, 'CANCELLED')
-        )
-      ),
+      where: eq(cardPacks.userId, req.user!.id),
       with: {
         cards: {
           with: {
@@ -77,7 +68,7 @@ router.get("/", async (req, res) => {
     // Transform the data to match the expected client interface
     // Only include packs that don't have active listings
     const transformedPacks = userPacks
-      .filter(pack => pack.listings.length === 0)
+      .filter(pack => !pack.listings?.length)
       .map(pack => ({
         id: pack.id,
         name: pack.name,

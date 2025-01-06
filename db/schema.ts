@@ -79,7 +79,7 @@ export const cardTemplates = pgTable("card_templates", {
 export const tradingCards = pgTable("trading_cards", {
   id: serial("id").primaryKey(),
   templateId: integer("template_id").notNull().references(() => cardTemplates.id),
-  userId: integer("user_id").references(() => users.id), 
+  userId: integer("user_id").references(() => users.id),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -127,6 +127,7 @@ export const cardPacksRelations = relations(cardPacks, ({ one, many }) => ({
     references: [users.id],
   }),
   cards: many(cardPackCards),
+  listings: many(packListings),
 }));
 
 export const cardPackCardsRelations = relations(cardPackCards, ({ one }) => ({
