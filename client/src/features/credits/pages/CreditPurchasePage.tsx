@@ -50,6 +50,15 @@ export function CreditPurchasePage() {
     }
   };
 
+  const handlePaymentSuccess = () => {
+    setClientSecret(null);
+    setSelectedPackage(null);
+    toast({
+      title: "Purchase Complete",
+      description: "Your credits have been added to your account!",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -107,11 +116,16 @@ export function CreditPurchasePage() {
                     disabled={isPurchasing || clientSecret !== null}
                   >
                     {isPurchasing && selectedPackage === pkg.id ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
                     ) : (
-                      <Sparkles className="w-4 h-4 mr-2" />
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Purchase
+                      </>
                     )}
-                    Purchase
                   </Button>
                 </CardContent>
               </Card>
@@ -144,12 +158,7 @@ export function CreditPurchasePage() {
                     },
                   }}
                 >
-                  <PaymentForm 
-                    onSuccess={() => {
-                      setClientSecret(null);
-                      setSelectedPackage(null);
-                    }} 
-                  />
+                  <PaymentForm onSuccess={handlePaymentSuccess} />
                 </Elements>
               </CardContent>
             </Card>

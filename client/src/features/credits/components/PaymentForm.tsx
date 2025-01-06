@@ -17,11 +17,13 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
 
     if (!stripe || !elements) {
       return;
@@ -64,15 +66,13 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
 
         // Invalidate credits query to refresh balance
         queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
-
-        toast({
-          title: "Purchase successful!",
-          description: "Credits have been added to your account.",
-        });
-
         onSuccess();
+      } else {
+        throw new Error("Payment not completed. Please try again.");
       }
     } catch (error) {
+      console.error("Payment error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "An error occurred");
       toast({
         variant: "destructive",
         title: "Payment failed",
@@ -86,6 +86,11 @@ export default function PaymentForm({ onSuccess }: PaymentFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
+      {errorMessage && (
+        <div className="text-sm text-red-500 mt-2">
+          {errorMessage}
+        </div>
+      )}
       <Button
         type="submit"
         disabled={!stripe || isSubmitting}
