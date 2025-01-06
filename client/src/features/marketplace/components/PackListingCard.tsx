@@ -74,6 +74,15 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
   };
 
   const handlePurchase = () => {
+    // Check if the user is trying to purchase their own listing
+    if (listing.seller && listing.seller.id === currentUserId) {
+      toast({
+        title: "Error",
+        description: "You cannot purchase your own listing",
+        variant: "destructive",
+      });
+      return;
+    }
     purchaseMutation.mutate({ listingId: listing.id });
   };
 
@@ -174,7 +183,7 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
           ) : (
             <Button
               onClick={handlePurchase}
-              disabled={purchaseMutation.isPending}
+              disabled={purchaseMutation.isPending || (listing.seller && listing.seller.id === currentUserId)}
             >
               {purchaseMutation.isPending ? (
                 <>
