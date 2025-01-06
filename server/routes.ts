@@ -2,25 +2,19 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { creditTransactions, creditBalances } from "../db/schema/credits/schema";
-import { users } from "../db/schema/users/schema";
+import { images } from "../db/schema";
+import { TaskService } from "./services/task";
+import { PulseCreditManager } from "./services/pulse-credit-manager";
 import creditRoutes from "./routes/credits";
 import marketplaceRoutes from "./routes/marketplace";
 import cardPackRoutes from "./routes/card-packs";
 import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
-import { dailyChallenges, challengeProgress } from "../db/schema";
-import { PulseCreditManager } from "./services/pulse-credit-manager";
-import { images } from "../db/schema";
-import { tradingCards } from "../db/schema/trading-cards/schema";
-import { TaskService } from "./services/task";
-
-const IMAGE_GENERATION_COST = 50; // Cost in credits to generate an image
 
 export function registerRoutes(app: Express): Server {
-  // Set up authentication routes first
   setupAuth(app);
 
   // Middleware to check authentication for all /api routes except auth routes
@@ -44,38 +38,20 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
-      // Check user's credit balance
-      const [userBalance] = await db
-        .select()
-        .from(creditBalances)
-        .where(eq(creditBalances.userId, req.user!.id))
-        .limit(1);
+      // Use Redis-based atomic transaction for credit deduction
+      const deductionResult = await PulseCreditManager.deductCredits(
+        req.user!.id,
+        PulseCreditManager.IMAGE_GENERATION_COST,
+        "USAGE",
+        "Image generation"
+      );
 
-      if (!userBalance || userBalance.balance < IMAGE_GENERATION_COST) {
-        return res.status(400).send(`Insufficient credits. Image generation costs ${IMAGE_GENERATION_COST} credits.`);
+      if (!deductionResult.success) {
+        return res.status(400).send(deductionResult.error || `Insufficient credits. Image generation costs ${PulseCreditManager.IMAGE_GENERATION_COST} credits.`);
       }
 
       // Create the image generation task
       const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
-
-      // Deduct credits and record transaction
-      await db.transaction(async (tx) => {
-        // Deduct credits from balance
-        await tx
-          .update(creditBalances)
-          .set({ balance: userBalance.balance - IMAGE_GENERATION_COST })
-          .where(eq(creditBalances.userId, req.user!.id));
-
-        // Record the transaction
-        await tx.insert(creditTransactions).values({
-          userId: req.user!.id,
-          amount: -IMAGE_GENERATION_COST,
-          type: "IMAGE_GENERATION",
-          description: "Image generation",
-          createdAt: new Date(),
-        });
-      });
-
       res.json(result);
     } catch (error: any) {
       console.error("Error generating image:", error);

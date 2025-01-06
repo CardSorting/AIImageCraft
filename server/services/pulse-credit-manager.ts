@@ -1,12 +1,129 @@
-import { db } from "../../db";
+import { db } from "@db";
 import { eq, and, sql } from "drizzle-orm";
-import { creditBalances, creditTransactions } from "../../db/schema/credits/schema";
+import { creditBalances, creditTransactions } from "@db/schema/credits/schema";
+import { redisService } from "./redis";
 
 export class PulseCreditManager {
-  static readonly IMAGE_GENERATION_COST = 10;
+  static readonly IMAGE_GENERATION_COST = 50;
   static readonly MAX_DAILY_SHARE_REWARDS = 5;
   static readonly SHARE_REWARD_AMOUNT = 2;
-  static readonly REFERRAL_WELCOME_BONUS = 50;
+
+  private static readonly TRANSACTION_LOCK_PREFIX = "credit_transaction:";
+  private static readonly LOCK_TIMEOUT = 10; // 10 seconds
+
+  private static async acquireLock(userId: number): Promise<boolean> {
+    const lockKey = `${this.TRANSACTION_LOCK_PREFIX}${userId}`;
+    return await redisService.set(lockKey, "1", this.LOCK_TIMEOUT) === "OK";
+  }
+
+  private static async releaseLock(userId: number): Promise<void> {
+    const lockKey = `${this.TRANSACTION_LOCK_PREFIX}${userId}`;
+    await redisService.del(lockKey);
+  }
+
+  static async deductCredits(
+    userId: number,
+    amount: number,
+    type: string,
+    description: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Acquire lock for atomic transaction
+      const lockAcquired = await this.acquireLock(userId);
+      if (!lockAcquired) {
+        return { success: false, error: "Transaction in progress, please try again" };
+      }
+
+      try {
+        // Get current balance from PostgreSQL
+        const [balance] = await db
+          .select()
+          .from(creditBalances)
+          .where(eq(creditBalances.userId, userId))
+          .limit(1);
+
+        if (!balance || balance.balance < amount) {
+          return { success: false, error: "Insufficient credits" };
+        }
+
+        // Update balance and record transaction in PostgreSQL
+        await db.transaction(async (tx) => {
+          // Deduct credits
+          await tx
+            .update(creditBalances)
+            .set({ balance: balance.balance - amount })
+            .where(eq(creditBalances.userId, userId));
+
+          // Record transaction
+          await tx.insert(creditTransactions).values({
+            userId,
+            amount: -amount,
+            type,
+            description,
+          });
+        });
+
+        return { success: true };
+      } finally {
+        // Always release the lock
+        await this.releaseLock(userId);
+      }
+    } catch (error) {
+      console.error("Error in deductCredits:", error);
+      return { success: false, error: "Failed to process credit transaction" };
+    }
+  }
+
+  static async addCredits(
+    userId: number,
+    amount: number,
+    type: string,
+    description: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const lockAcquired = await this.acquireLock(userId);
+      if (!lockAcquired) {
+        return { success: false, error: "Transaction in progress, please try again" };
+      }
+
+      try {
+        // Get or create balance record
+        let [balance] = await db
+          .select()
+          .from(creditBalances)
+          .where(eq(creditBalances.userId, userId))
+          .limit(1);
+
+        await db.transaction(async (tx) => {
+          if (balance) {
+            await tx
+              .update(creditBalances)
+              .set({ balance: balance.balance + amount })
+              .where(eq(creditBalances.userId, userId));
+          } else {
+            await tx.insert(creditBalances).values({
+              userId,
+              balance: amount,
+            });
+          }
+
+          await tx.insert(creditTransactions).values({
+            userId,
+            amount,
+            type,
+            description,
+          });
+        });
+
+        return { success: true };
+      } finally {
+        await this.releaseLock(userId);
+      }
+    } catch (error) {
+      console.error("Error in addCredits:", error);
+      return { success: false, error: "Failed to process credit transaction" };
+    }
+  }
 
   static async hasEnoughCredits(userId: number, amount: number): Promise<boolean> {
     const [balance] = await db
@@ -16,67 +133,6 @@ export class PulseCreditManager {
       .limit(1);
 
     return (balance?.balance ?? 0) >= amount;
-  }
-
-  static async useCredits(userId: number, amount: number, description: string = "Credit usage"): Promise<void> {
-    await db.transaction(async (tx) => {
-      const [balance] = await tx
-        .select()
-        .from(creditBalances)
-        .where(eq(creditBalances.userId, userId))
-        .limit(1);
-
-      if (!balance) {
-        throw new Error("No credit balance found");
-      }
-
-      if (balance.balance < amount) {
-        throw new Error("Insufficient credits");
-      }
-
-      // Update balance
-      await tx
-        .update(creditBalances)
-        .set({ balance: balance.balance - amount })
-        .where(eq(creditBalances.userId, userId));
-
-      // Record transaction
-      await tx.insert(creditTransactions).values({
-        userId,
-        amount: -amount,
-        type: "USAGE",
-        description,
-      });
-    });
-  }
-
-  static async addCredits(userId: number, amount: number, description: string = "Credit addition"): Promise<void> {
-    await db.transaction(async (tx) => {
-      const [balance] = await tx
-        .select()
-        .from(creditBalances)
-        .where(eq(creditBalances.userId, userId))
-        .limit(1);
-
-      if (balance) {
-        await tx
-          .update(creditBalances)
-          .set({ balance: balance.balance + amount })
-          .where(eq(creditBalances.userId, userId));
-      } else {
-        await tx.insert(creditBalances).values({
-          userId,
-          balance: amount,
-        });
-      }
-
-      await tx.insert(creditTransactions).values({
-        userId,
-        amount,
-        type: "SYSTEM",
-        description,
-      });
-    });
   }
 
   static async trackAndRewardShare(userId: number, itemType: 'image' | 'card', itemId: string | number) {
@@ -102,6 +158,7 @@ export class PulseCreditManager {
       await this.addCredits(
         userId,
         PulseCreditManager.SHARE_REWARD_AMOUNT,
+        "SYSTEM",
         `Share reward for ${itemType} ${itemId}`
       );
     }
@@ -127,5 +184,14 @@ export class PulseCreditManager {
       );
 
     return Number(result[0]?.count ?? 0);
+  }
+  static async getBalance(userId: number): Promise<number> {
+    const [balance] = await db
+      .select()
+      .from(creditBalances)
+      .where(eq(creditBalances.userId, userId))
+      .limit(1);
+
+    return balance?.balance ?? 0;
   }
 }
