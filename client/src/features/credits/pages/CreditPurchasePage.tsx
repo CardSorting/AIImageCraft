@@ -9,7 +9,11 @@ import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import PaymentForm from "../components/PaymentForm";
 
-// Initialize Stripe
+if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+  throw new Error("Missing Stripe publishable key");
+}
+
+// Initialize Stripe with publishable key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 export function CreditPurchasePage() {
@@ -61,7 +65,7 @@ export function CreditPurchasePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Current Balance</h2>
-                  <p className="text-muted-foreground">Your available Pulse </p>
+                  <p className="text-muted-foreground">Your available Pulse credits</p>
                 </div>
                 <div className="flex items-center gap-2 text-3xl font-bold">
                   <Zap className="w-8 h-8 text-purple-500" />
@@ -73,7 +77,7 @@ export function CreditPurchasePage() {
 
           {/* Credit Packages */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {packages && packages.map((pkg) => (
+            {packages.map((pkg) => (
               <Card key={pkg.id} className="relative overflow-hidden">
                 {/* Decorative gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent" />
@@ -117,7 +121,12 @@ export function CreditPurchasePage() {
               </CardHeader>
               <CardContent>
                 <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <PaymentForm onSuccess={() => setClientSecret(null)} />
+                  <PaymentForm 
+                    onSuccess={() => {
+                      setClientSecret(null);
+                      setSelectedPackage(null);
+                    }} 
+                  />
                 </Elements>
               </CardContent>
             </Card>
