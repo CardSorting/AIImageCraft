@@ -8,6 +8,7 @@ import { Loader2, Package, Store, CircleDollarSign, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
+import Header from "@/components/Header";
 
 export function MarketplacePage() {
   const [filters, setFilters] = useState<FiltersType>({
@@ -21,6 +22,7 @@ export function MarketplacePage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       {/* Header Section */}
       <div className="bg-card border-b">
         <div className="container mx-auto py-8">
