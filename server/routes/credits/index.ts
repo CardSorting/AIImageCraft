@@ -1,112 +1,64 @@
 import { Router } from "express";
-import { z } from "zod";
-import { creditService } from "../../services/credits/credit-service";
-import { InsufficientCreditsError, InvalidPackageError, PaymentError } from "../../services/credits/types";
+import { CreditService } from "../../services/credits/credit-service";
 
 const router = Router();
 
-// Get user credits endpoint
-router.get("/", async (req, res) => {
+// Get user balance
+router.get("/balance", async (req, res) => {
   try {
-    const credits = await creditService.getCredits(req.user!.id);
-    res.json({ credits });
+    const balance = await CreditService.getBalance(req.user!.id);
+    res.json({ balance });
   } catch (error) {
-    console.error("Error fetching credits:", error);
-    res.status(500).send("Failed to fetch credits");
+    console.error("Error fetching balance:", error);
+    res.status(500).send("Failed to fetch balance");
   }
 });
 
-// Get available credit packages
-router.get("/packages", async (_req, res) => {
+// Add credits (simplified version)
+router.post("/add", async (req, res) => {
   try {
-    res.json({ packages: creditService.getCreditPackages() });
+    const amount = parseInt(req.body.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).send("Invalid amount");
+    }
+
+    const newBalance = await CreditService.addCredits(req.user!.id, amount);
+    res.json({ balance: newBalance });
   } catch (error) {
-    console.error("Error fetching credit packages:", error);
-    res.status(500).send("Failed to fetch credit packages");
+    console.error("Error adding credits:", error);
+    res.status(500).send("Failed to add credits");
   }
 });
 
-// Initialize credit purchase
-router.post("/purchase", async (req, res) => {
+// Use credits
+router.post("/use", async (req, res) => {
   try {
-    const schema = z.object({
-      packageId: z.string()
-    });
-
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).send(result.error.issues[0].message);
+    const amount = parseInt(req.body.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).send("Invalid amount");
     }
 
-    const { clientSecret, amount } = await creditService.createPurchaseIntent(
-      req.user!.id,
-      result.data.packageId
-    );
+    const success = await CreditService.useCredits(req.user!.id, amount);
+    if (!success) {
+      return res.status(400).send("Insufficient credits");
+    }
 
-    res.json({
-      clientSecret,
-      amount
-    });
+    const newBalance = await CreditService.getBalance(req.user!.id);
+    res.json({ success: true, balance: newBalance });
   } catch (error) {
-    if (error instanceof InvalidPackageError) {
-      return res.status(400).send(error.message);
-    }
-    if (error instanceof PaymentError) {
-      return res.status(422).send(error.message);
-    }
-    console.error("Error initializing purchase:", error);
-    res.status(500).send("Failed to initialize credit purchase");
-  }
-});
-
-// Complete credit purchase
-router.post("/purchase/complete", async (req, res) => {
-  try {
-    const schema = z.object({
-      paymentIntentId: z.string()
-    });
-
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).send(result.error.issues[0].message);
-    }
-
-    await creditService.completePurchase(result.data.paymentIntentId);
-    const newBalance = await creditService.getCredits(req.user!.id);
-
-    res.json({
-      success: true,
-      credits: newBalance,
-      message: "Purchase completed successfully"
-    });
-  } catch (error) {
-    if (error instanceof PaymentError) {
-      return res.status(422).send(error.message);
-    }
-    console.error("Error completing purchase:", error);
-    res.status(500).send("Failed to complete credit purchase");
-  }
-});
-
-// Get purchase history
-router.get("/history/purchases", async (req, res) => {
-  try {
-    const history = await creditService.getPurchaseHistory(req.user!.id);
-    res.json(history);
-  } catch (error) {
-    console.error("Error fetching purchase history:", error);
-    res.status(500).send("Failed to fetch purchase history");
+    console.error("Error using credits:", error);
+    res.status(500).send("Failed to use credits");
   }
 });
 
 // Get transaction history
-router.get("/history/transactions", async (req, res) => {
+router.get("/history", async (req, res) => {
   try {
-    const history = await creditService.getTransactionHistory(req.user!.id);
+    const history = await CreditService.getTransactionHistory(req.user!.id);
     res.json(history);
   } catch (error) {
-    console.error("Error fetching transaction history:", error);
-    res.status(500).send("Failed to fetch transaction history");
+    console.error("Error fetching history:", error);
+    res.status(500).send("Failed to fetch history");
   }
 });
 
