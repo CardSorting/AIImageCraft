@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { creditTransactions, creditBalances } from "../db/schema/credits/schema";
 import { images, imageTags, tags } from "@db/schema";
 import { TaskService } from "./services/task";
@@ -166,22 +166,9 @@ export function registerRoutes(app: Express): Server {
     try {
       const imageId = parseInt(req.params.id);
 
-      // Fetch the image with its tags
+      // First fetch the image
       const [image] = await db
-        .select({
-          id: images.id,
-          url: images.url,
-          prompt: images.prompt,
-          createdAt: images.createdAt,
-          variationIndex: images.variationIndex,
-          tags: db
-            .select({
-              name: tags.name
-            })
-            .from(imageTags)
-            .innerJoin(tags, eq(tags.id, imageTags.tagId))
-            .where(eq(imageTags.imageId, images.id))
-        })
+        .select()
         .from(images)
         .where(
           and(
@@ -195,37 +182,64 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Image not found");
       }
 
-      res.json(image);
+      // Then fetch associated tags
+      const imageTags = await db
+        .select({
+          name: tags.name
+        })
+        .from(tags)
+        .innerJoin(imageTags, eq(imageTags.tagId, tags.id))
+        .where(eq(imageTags.imageId, imageId));
+
+      // Combine the results
+      const result = {
+        ...image,
+        tags: imageTags.map(tag => tag.name)
+      };
+
+      res.json(result);
     } catch (error: any) {
       console.error("Error fetching image:", error);
       res.status(500).send("Failed to fetch image");
     }
   });
 
-
-  // Get user's images with their tags
+  // Get user's images
   app.get("/api/images", async (req, res) => {
     try {
+      // First fetch all user's images
       const userImages = await db
-        .select({
-          id: images.id,
-          url: images.url,
-          prompt: images.prompt,
-          createdAt: images.createdAt,
-          variationIndex: images.variationIndex,
-          tags: db
-            .select({
-              name: tags.name
-            })
-            .from(imageTags)
-            .innerJoin(tags, eq(tags.id, imageTags.tagId))
-            .where(eq(imageTags.imageId, images.id))
-        })
+        .select()
         .from(images)
         .where(eq(images.userId, req.user!.id))
-        .orderBy(images.createdAt);
+        .orderBy(desc(images.createdAt));
 
-      res.json(userImages);
+      // Fetch tags for all images in a single query
+      const allTags = await db
+        .select({
+          imageId: imageTags.imageId,
+          name: tags.name
+        })
+        .from(tags)
+        .innerJoin(imageTags, eq(imageTags.tagId, tags.id))
+        .where(inArray(imageTags.imageId, userImages.map(img => img.id)));
+
+      // Group tags by image
+      const tagsByImage = allTags.reduce((acc, tag) => {
+        if (!acc[tag.imageId]) {
+          acc[tag.imageId] = [];
+        }
+        acc[tag.imageId].push(tag.name);
+        return acc;
+      }, {} as Record<number, string[]>);
+
+      // Combine images with their tags
+      const result = userImages.map(image => ({
+        ...image,
+        tags: tagsByImage[image.id] || []
+      }));
+
+      res.json(result);
     } catch (error) {
       console.error("Error fetching images:", error);
       res.status(500).send("Failed to fetch images");
