@@ -15,6 +15,7 @@ import { dailyChallenges, challengeProgress } from "../db/schema";
 import { PulseCreditManager } from "./services/pulse-credit-manager";
 import { images } from "../db/schema";
 import { tradingCards } from "../db/schema/trading-cards/schema";
+import { TaskService } from "./services/task";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -30,6 +31,28 @@ export function registerRoutes(app: Express): Server {
       return res.status(401).send("Must be logged in to access this resource");
     }
     next();
+  });
+
+  // Add the specific /generate route for image generation
+  app.post("/api/generate", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+
+      if (!prompt) {
+        return res.status(400).send("Prompt is required");
+      }
+
+      const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating image:", error);
+      if (error.message.includes("GOAPI_API_KEY")) {
+        return res.status(500).send("API configuration error");
+      } else if (error.message.includes("GoAPI error")) {
+        return res.status(500).send(error.message);
+      }
+      res.status(500).send("Failed to generate image");
+    }
   });
 
   // Register routes
