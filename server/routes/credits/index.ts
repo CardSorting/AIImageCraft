@@ -32,16 +32,16 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Initiate credit purchase
+// Initiate credit purchase and create Stripe payment intent
 router.post("/purchase", async (req, res) => {
   try {
     const { packageId } = req.body;
 
     // Get package details (hardcoded for now, could be moved to database later)
     const packages = {
-      basic: { credits: 100, price: 499 },
-      plus: { credits: 500, price: 1999 },
-      pro: { credits: 1200, price: 3999 },
+      basic: { credits: 100, price: 499 }, // $4.99
+      plus: { credits: 500, price: 1999 }, // $19.99
+      pro: { credits: 1200, price: 3999 }, // $39.99
     };
 
     const selectedPackage = packages[packageId as keyof typeof packages];
@@ -53,6 +53,9 @@ router.post("/purchase", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: selectedPackage.price,
       currency: "usd",
+      automatic_payment_methods: {
+        enabled: true,
+      },
       metadata: {
         userId: req.user!.id.toString(),
         packageId,
@@ -62,6 +65,7 @@ router.post("/purchase", async (req, res) => {
 
     res.json({
       clientSecret: paymentIntent.client_secret,
+      packageDetails: selectedPackage,
     });
   } catch (error) {
     console.error("Error creating payment intent:", error);
@@ -69,7 +73,7 @@ router.post("/purchase", async (req, res) => {
   }
 });
 
-// Complete credit purchase
+// Complete credit purchase after successful payment
 router.post("/purchase/complete", async (req, res) => {
   try {
     const { paymentIntentId } = req.body;
@@ -109,9 +113,9 @@ router.post("/purchase/complete", async (req, res) => {
       await tx.insert(creditTransactions).values({
         userId: req.user!.id,
         amount: credits,
-        type: "purchase",
+        type: "PURCHASE",
         description: `Purchased ${credits} credits`,
-        paymentIntentId,
+        metadata: { paymentIntentId },
       });
 
       const [newBalance] = await tx

@@ -5,10 +5,17 @@ import { Loader2, Sparkles, Package, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import PaymentForm from "../components/PaymentForm";
+
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 export function CreditPurchasePage() {
-  const { credits, packages, isLoading, purchaseCredits, completePurchase } = useCredits();
+  const { credits, packages, isLoading, purchaseCredits } = useCredits();
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const { toast } = useToast();
 
@@ -18,24 +25,16 @@ export function CreditPurchasePage() {
       setSelectedPackage(packageId);
 
       const { clientSecret } = await purchaseCredits({ packageId });
-
-      // TODO: Handle Stripe payment flow
-      // For now, we'll just complete the purchase directly
-      await completePurchase({ paymentIntentId: clientSecret });
-
-      toast({
-        title: "Purchase successful!",
-        description: "Credits have been added to your account.",
-      });
+      setClientSecret(clientSecret);
     } catch (error) {
       toast({
         title: "Purchase failed",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+      setSelectedPackage(null);
     } finally {
       setIsPurchasing(false);
-      setSelectedPackage(null);
     }
   };
 
@@ -62,11 +61,11 @@ export function CreditPurchasePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Current Balance</h2>
-                  <p className="text-muted-foreground">Your available credits</p>
+                  <p className="text-muted-foreground">Your available Pulse </p>
                 </div>
                 <div className="flex items-center gap-2 text-3xl font-bold">
                   <Zap className="w-8 h-8 text-purple-500" />
-                  <span>{credits} Credits</span>
+                  <span>{credits} Pulse</span>
                 </div>
               </div>
             </CardContent>
@@ -82,7 +81,7 @@ export function CreditPurchasePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="w-5 h-5" />
-                    {pkg.credits} Credits
+                    {pkg.credits} Pulse
                   </CardTitle>
                   <CardDescription>
                     ${(pkg.price / 100).toFixed(2)} USD
@@ -93,7 +92,7 @@ export function CreditPurchasePage() {
                   <Button 
                     className="w-full"
                     onClick={() => handlePurchase(pkg.id)}
-                    disabled={isPurchasing}
+                    disabled={isPurchasing || clientSecret !== null}
                   >
                     {isPurchasing && selectedPackage === pkg.id ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -106,6 +105,23 @@ export function CreditPurchasePage() {
               </Card>
             ))}
           </div>
+
+          {/* Payment Form */}
+          {clientSecret && (
+            <Card className="mt-8">
+              <CardHeader>
+                <CardTitle>Complete Purchase</CardTitle>
+                <CardDescription>
+                  Enter your payment details to complete the purchase
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <PaymentForm onSuccess={() => setClientSecret(null)} />
+                </Elements>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>
