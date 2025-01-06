@@ -25,6 +25,52 @@ export interface PackListing {
     } | null;
     totalCards: number;
   };
+  views?: number;
+  lastViewed?: string;
+}
+
+export interface ListingAnalytics {
+  overview: {
+    totalViews: number;
+    averagePrice: number;
+    viewsToSalesRatio: number;
+    averageTimeToSell: number; // in hours
+  };
+  viewTrends: {
+    date: string;
+    views: number;
+    sales: number;
+  }[];
+  priceAnalysis: {
+    yourAverage: number;
+    marketAverage: number;
+    recommendedRange: {
+      min: number;
+      max: number;
+    };
+  };
+  categoryBreakdown: {
+    rarity: {
+      name: string;
+      count: number;
+      averagePrice: number;
+    }[];
+    element: {
+      name: string;
+      count: number;
+      averagePrice: number;
+    }[];
+  };
+  performanceMetrics: {
+    bestPerforming: PackListing[];
+    needsAttention: PackListing[];
+    priceOpportunities: {
+      listingId: number;
+      currentPrice: number;
+      suggestedPrice: number;
+      reason: string;
+    }[];
+  };
 }
 
 export interface CreatePackListing {

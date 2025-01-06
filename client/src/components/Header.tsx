@@ -19,7 +19,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-purple-500/20 backdrop-blur-sm bg-black/30">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-          AI Trading Cards
+          PlayMore TCG
         </Link>
 
         <nav className="flex items-center gap-4">
