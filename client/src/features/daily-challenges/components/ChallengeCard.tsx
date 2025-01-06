@@ -110,7 +110,7 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
                     className={cn(
                       "h-2",
                       challenge.completed ? "bg-green-950/50" : "bg-purple-950/50"
-                    )} 
+                    )}
                   />
                   {progress > 0 && (
                     <motion.div
