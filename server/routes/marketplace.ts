@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
-import { packListings, marketplaceTransactions, cardPacks, users } from "@db/schema";
+import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { packListings, marketplaceTransactions, cardPacks, users, globalCardPool, cardPackCards, tradingCards } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
@@ -10,9 +10,19 @@ const router = Router();
 router.get("/listings", async (req, res) => {
   try {
     const { minPrice, maxPrice, rarity, element, sortBy } = req.query;
-    
-    const query = db.query.packListings.findMany({
-      where: eq(packListings.status, 'ACTIVE'),
+
+    let conditions = eq(packListings.status, 'ACTIVE');
+
+    // Add price filter conditions if provided
+    if (minPrice) {
+      conditions = and(conditions, gte(packListings.price, parseInt(minPrice as string)));
+    }
+    if (maxPrice) {
+      conditions = and(conditions, lte(packListings.price, parseInt(maxPrice as string)));
+    }
+
+    const listings = await db.query.packListings.findMany({
+      where: conditions,
       with: {
         pack: {
           with: {
@@ -49,16 +59,6 @@ router.get("/listings", async (req, res) => {
                desc(packListings.createdAt),
     });
 
-    // Add price filter conditions if provided
-    if (minPrice) {
-      query.where = and(query.where, gte(packListings.price, parseInt(minPrice as string)));
-    }
-    if (maxPrice) {
-      query.where = and(query.where, lte(packListings.price, parseInt(maxPrice as string)));
-    }
-
-    const listings = await query;
-
     // Apply rarity and element filters on the application level since they're card properties
     let filteredListings = listings;
     if (rarity || element) {
@@ -75,9 +75,9 @@ router.get("/listings", async (req, res) => {
     }
 
     res.json(filteredListings);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching pack listings:", error);
-    res.status(500).send(error.message);
+    res.status(500).send("Failed to fetch pack listings");
   }
 });
 
@@ -94,47 +94,56 @@ router.post("/listings", async (req, res) => {
       return res.status(400).send(result.error.issues[0].message);
     }
 
-    // Verify pack ownership
-    const [pack] = await db
-      .select()
-      .from(cardPacks)
-      .where(and(
-        eq(cardPacks.id, result.data.packId),
-        eq(cardPacks.userId, req.user!.id)
-      ))
-      .limit(1);
+    // Start transaction for creating listing
+    const listing = await db.transaction(async (tx) => {
+      // Verify pack ownership and get cards
+      const pack = await tx.query.cardPacks.findFirst({
+        where: and(
+          eq(cardPacks.id, result.data.packId),
+          eq(cardPacks.userId, req.user!.id)
+        ),
+        with: {
+          cards: true
+        }
+      });
 
-    if (!pack) {
-      return res.status(404).send("Pack not found or doesn't belong to you");
-    }
+      if (!pack) {
+        throw new Error("Pack not found or doesn't belong to you");
+      }
 
-    // Check if pack is already listed
-    const [existingListing] = await db
-      .select()
-      .from(packListings)
-      .where(and(
-        eq(packListings.packId, result.data.packId),
-        eq(packListings.status, 'ACTIVE')
-      ))
-      .limit(1);
+      // Check if pack is already listed
+      const existingListing = await tx.query.packListings.findFirst({
+        where: and(
+          eq(packListings.packId, result.data.packId),
+          eq(packListings.status, 'ACTIVE')
+        )
+      });
 
-    if (existingListing) {
-      return res.status(400).send("Pack is already listed in the marketplace");
-    }
+      if (existingListing) {
+        throw new Error("Pack is already listed in the marketplace");
+      }
 
-    const [listing] = await db
-      .insert(packListings)
-      .values({
-        packId: result.data.packId,
-        sellerId: req.user!.id,
-        price: result.data.price,
-      })
-      .returning();
+      // Create the listing
+      const [newListing] = await tx
+        .insert(packListings)
+        .values({
+          packId: result.data.packId,
+          sellerId: req.user!.id,
+          price: result.data.price,
+        })
+        .returning();
+
+      return newListing;
+    });
 
     res.json(listing);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating pack listing:", error);
-    res.status(500).send(error.message);
+    if (error instanceof Error) {
+      res.status(500).send(error.message);
+    } else {
+      res.status(500).send("Failed to create pack listing");
+    }
   }
 });
 
@@ -146,14 +155,12 @@ router.post("/listings/:id/purchase", async (req, res) => {
     // Start transaction
     const result = await db.transaction(async (tx) => {
       // Get listing with latest status
-      const [listing] = await tx
-        .select()
-        .from(packListings)
-        .where(and(
+      const listing = await tx.query.packListings.findFirst({
+        where: and(
           eq(packListings.id, listingId),
           eq(packListings.status, 'ACTIVE')
-        ))
-        .limit(1);
+        )
+      });
 
       if (!listing) {
         throw new Error("Listing not found or is no longer active");
@@ -164,17 +171,16 @@ router.post("/listings/:id/purchase", async (req, res) => {
       }
 
       // Get buyer's current balance
-      const [buyer] = await tx
-        .select()
-        .from(users)
-        .where(eq(users.id, req.user!.id))
-        .limit(1);
+      const buyer = await tx.query.users.findFirst({
+        where: eq(users.id, req.user!.id)
+      });
 
       if (!buyer) {
         throw new Error("Buyer not found");
       }
 
-      if (buyer.totalReferralBonus < listing.price) {
+      const buyerCredits = buyer.totalReferralBonus ?? 0;
+      if (buyerCredits < listing.price) {
         throw new Error("Insufficient credits");
       }
 
@@ -182,7 +188,7 @@ router.post("/listings/:id/purchase", async (req, res) => {
       await tx
         .update(users)
         .set({
-          totalReferralBonus: buyer.totalReferralBonus - listing.price,
+          totalReferralBonus: sql`${users.totalReferralBonus} - ${listing.price}`,
         })
         .where(eq(users.id, req.user!.id));
 
@@ -201,6 +207,25 @@ router.post("/listings/:id/purchase", async (req, res) => {
           userId: req.user!.id,
         })
         .where(eq(cardPacks.id, listing.packId));
+
+      // Update card ownership in global pool
+      const packCards = await tx.query.cardPackCards.findMany({
+        where: eq(cardPackCards.packId, listing.packId),
+        with: {
+          globalPoolCard: true
+        }
+      });
+
+      for (const packCard of packCards) {
+        const card = packCard.globalPoolCard;
+        // Update the original card ownership
+        await tx
+          .update(tradingCards)
+          .set({
+            userId: req.user!.id
+          })
+          .where(eq(tradingCards.id, card.cardId));
+      }
 
       // Mark listing as sold
       await tx
@@ -225,9 +250,13 @@ router.post("/listings/:id/purchase", async (req, res) => {
     });
 
     res.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error purchasing pack listing:", error);
-    res.status(500).send(error.message);
+    if (error instanceof Error) {
+      res.status(500).send(error.message);
+    } else {
+      res.status(500).send("Failed to purchase pack listing");
+    }
   }
 });
 
@@ -236,15 +265,13 @@ router.post("/listings/:id/cancel", async (req, res) => {
   try {
     const listingId = parseInt(req.params.id);
 
-    const [listing] = await db
-      .select()
-      .from(packListings)
-      .where(and(
+    const listing = await db.query.packListings.findFirst({
+      where: and(
         eq(packListings.id, listingId),
         eq(packListings.sellerId, req.user!.id),
         eq(packListings.status, 'ACTIVE')
-      ))
-      .limit(1);
+      )
+    });
 
     if (!listing) {
       return res.status(404).send("Listing not found or cannot be cancelled");
@@ -260,9 +287,13 @@ router.post("/listings/:id/cancel", async (req, res) => {
       .returning();
 
     res.json(updatedListing);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error cancelling pack listing:", error);
-    res.status(500).send(error.message);
+    if (error instanceof Error) {
+      res.status(500).send(error.message);
+    } else {
+      res.status(500).send("Failed to cancel pack listing");
+    }
   }
 });
 
@@ -298,9 +329,13 @@ router.get("/listings/user", async (req, res) => {
     });
 
     res.json(listings);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching user listings:", error);
-    res.status(500).send(error.message);
+    if (error instanceof Error) {
+      res.status(500).send(error.message);
+    } else {
+      res.status(500).send("Failed to fetch user listings");
+    }
   }
 });
 
