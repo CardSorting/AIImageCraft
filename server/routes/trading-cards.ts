@@ -23,11 +23,15 @@ router.get("/", async (req, res) => {
     const limit = 8;
     const offset = (page - 1) * limit;
 
-    // Get total count
-    const [{ value: total }] = await db
-      .select({ value: count() })
+    // First get total count of user's cards
+    const [countResult] = await db
+      .select({
+        count: count(tradingCards.id),
+      })
       .from(tradingCards)
       .where(eq(tradingCards.userId, req.user!.id));
+
+    const total = Number(countResult?.count || 0);
 
     // Get paginated cards with details
     const userCardsWithDetails = await db
@@ -38,14 +42,24 @@ router.get("/", async (req, res) => {
         creator: users,
       })
       .from(tradingCards)
-      .innerJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
-      .innerJoin(images, eq(cardTemplates.imageId, images.id))
-      .innerJoin(users, eq(cardTemplates.creatorId, users.id))
+      .innerJoin(
+        cardTemplates,
+        eq(tradingCards.templateId, cardTemplates.id)
+      )
+      .innerJoin(
+        images,
+        eq(cardTemplates.imageId, images.id)
+      )
+      .innerJoin(
+        users,
+        eq(cardTemplates.creatorId, users.id)
+      )
       .where(eq(tradingCards.userId, req.user!.id))
       .orderBy(desc(tradingCards.createdAt))
       .limit(limit)
       .offset(offset);
 
+    // Transform the results
     const transformedCards = userCardsWithDetails.map(({ card, template, image, creator }) => ({
       id: card.id,
       name: template.name,
@@ -56,7 +70,7 @@ router.get("/", async (req, res) => {
       image: {
         url: image.url,
       },
-      createdAt: card.createdAt,
+      createdAt: card.createdAt.toISOString(),
       creator: {
         id: creator.id,
         username: creator.username,
@@ -184,7 +198,7 @@ router.post("/", async (req, res) => {
         image: {
           url: image.url,
         },
-        createdAt: card.createdAt,
+        createdAt: card.createdAt.toISOString(),
         creator: {
           id: req.user!.id,
           username: req.user!.username,
