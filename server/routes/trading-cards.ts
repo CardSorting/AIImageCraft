@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { images, cardTemplates, tradingCards, users } from "@db/schema";
 import { z } from "zod";
 import { ELEMENTAL_TYPES, RARITIES } from "../constants/cards";
@@ -15,6 +15,68 @@ function generateRandomStats() {
     magic: Math.floor(Math.random() * 100) + 1,
   };
 }
+
+// Get user's cards with pagination
+router.get("/", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = 8;
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(tradingCards)
+      .where(eq(tradingCards.userId, req.user!.id));
+
+    // Get paginated cards with details
+    const userCardsWithDetails = await db
+      .select({
+        card: tradingCards,
+        template: cardTemplates,
+        image: images,
+        creator: users,
+      })
+      .from(tradingCards)
+      .innerJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
+      .innerJoin(images, eq(cardTemplates.imageId, images.id))
+      .innerJoin(users, eq(cardTemplates.creatorId, users.id))
+      .where(eq(tradingCards.userId, req.user!.id))
+      .orderBy(desc(tradingCards.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const transformedCards = userCardsWithDetails.map(({ card, template, image, creator }) => ({
+      id: card.id,
+      name: template.name,
+      description: template.description,
+      elementalType: template.elementalType,
+      rarity: template.rarity,
+      powerStats: template.powerStats,
+      image: {
+        url: image.url,
+      },
+      createdAt: card.createdAt,
+      creator: {
+        id: creator.id,
+        username: creator.username,
+      },
+    }));
+
+    res.json({
+      cards: transformedCards,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching cards:", error);
+    res.status(500).send("Failed to fetch cards");
+  }
+});
 
 // Create a card from an existing image
 router.post("/", async (req, res) => {
@@ -106,47 +168,6 @@ router.post("/", async (req, res) => {
   } catch (error: any) {
     console.error("Error creating card:", error);
     res.status(500).send(error.message);
-  }
-});
-
-// Get user's cards
-router.get("/", async (req, res) => {
-  try {
-    const userCardsWithDetails = await db
-      .select({
-        card: tradingCards,
-        template: cardTemplates,
-        image: images,
-        creator: users,
-      })
-      .from(tradingCards)
-      .innerJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
-      .innerJoin(images, eq(cardTemplates.imageId, images.id))
-      .innerJoin(users, eq(cardTemplates.creatorId, users.id))
-      .where(eq(tradingCards.userId, req.user!.id))
-      .orderBy(tradingCards.createdAt);
-
-    const transformedCards = userCardsWithDetails.map(({ card, template, image, creator }) => ({
-      id: card.id,
-      name: template.name,
-      description: template.description,
-      elementalType: template.elementalType,
-      rarity: template.rarity,
-      powerStats: template.powerStats,
-      image: {
-        url: image.url,
-      },
-      createdAt: card.createdAt,
-      creator: {
-        id: creator.id,
-        username: creator.username,
-      },
-    }));
-
-    res.json(transformedCards);
-  } catch (error) {
-    console.error("Error fetching cards:", error);
-    res.status(500).send("Failed to fetch cards");
   }
 });
 
