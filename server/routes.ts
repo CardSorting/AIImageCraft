@@ -2,9 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { creditTransactions, creditBalances } from "../db/schema/credits/schema";
-import { images } from "../db/schema";
+import { images, imageTags, tags } from "@db/schema";
 import { TaskService } from "./services/task";
 import { PulseCreditManager } from "./services/pulse-credit-manager";
 import creditRoutes from "./routes/credits";
@@ -166,31 +166,36 @@ export function registerRoutes(app: Express): Server {
     try {
       const imageId = parseInt(req.params.id);
 
-      const [image] = await db.query.images.findMany({
-        where: and(
-          eq(images.id, imageId),
-          eq(images.userId, req.user!.id)
-        ),
-        with: {
-          tags: {
-            with: {
-              tag: true,
-            },
-          },
-        },
-      });
+      // Fetch the image with its tags
+      const [image] = await db
+        .select({
+          id: images.id,
+          url: images.url,
+          prompt: images.prompt,
+          createdAt: images.createdAt,
+          variationIndex: images.variationIndex,
+          tags: db
+            .select({
+              name: tags.name
+            })
+            .from(imageTags)
+            .innerJoin(tags, eq(tags.id, imageTags.tagId))
+            .where(eq(imageTags.imageId, images.id))
+        })
+        .from(images)
+        .where(
+          and(
+            eq(images.id, imageId),
+            eq(images.userId, req.user!.id)
+          )
+        )
+        .limit(1);
 
       if (!image) {
         return res.status(404).send("Image not found");
       }
 
-      // Transform the data to include tag names directly
-      const transformedImage = {
-        ...image,
-        tags: image.tags.map(t => t.tag.name),
-      };
-
-      res.json(transformedImage);
+      res.json(image);
     } catch (error: any) {
       console.error("Error fetching image:", error);
       res.status(500).send("Failed to fetch image");
@@ -202,18 +207,25 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/images", async (req, res) => {
     try {
       const userImages = await db
-        .select()
+        .select({
+          id: images.id,
+          url: images.url,
+          prompt: images.prompt,
+          createdAt: images.createdAt,
+          variationIndex: images.variationIndex,
+          tags: db
+            .select({
+              name: tags.name
+            })
+            .from(imageTags)
+            .innerJoin(tags, eq(tags.id, imageTags.tagId))
+            .where(eq(imageTags.imageId, images.id))
+        })
         .from(images)
         .where(eq(images.userId, req.user!.id))
         .orderBy(images.createdAt);
 
-      // Transform the data to match the frontend expectations
-      const transformedImages = userImages.map(image => ({
-        ...image,
-        tags: [], // If you need tags, you'll need to fetch them separately
-      }));
-
-      res.json(transformedImages);
+      res.json(userImages);
     } catch (error) {
       console.error("Error fetching images:", error);
       res.status(500).send("Failed to fetch images");
