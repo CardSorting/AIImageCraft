@@ -35,18 +35,29 @@ router.get("/", async (req, res) => {
 // Initiate credit purchase and create Stripe payment intent
 router.post("/purchase", async (req, res) => {
   try {
-    const { packageId } = req.body;
+    const { packageId, amount, price } = req.body;
 
-    // Get package details (hardcoded for now, could be moved to database later)
-    const packages = {
-      basic: { credits: 100, price: 499 }, // $4.99
-      plus: { credits: 500, price: 1999 }, // $19.99
-      pro: { credits: 1200, price: 3999 }, // $39.99
-    };
+    let selectedPackage;
 
-    const selectedPackage = packages[packageId as keyof typeof packages];
+    if (packageId === 'custom' && amount && price) {
+      // Handle custom amount
+      selectedPackage = {
+        credits: amount,
+        price: price, // Price in cents
+      };
+    } else {
+      // Fallback to predefined packages
+      const packages = {
+        basic: { credits: 100, price: 499 },
+        plus: { credits: 500, price: 1999 },
+        pro: { credits: 1200, price: 3999 },
+      };
+
+      selectedPackage = packages[packageId as keyof typeof packages];
+    }
+
     if (!selectedPackage) {
-      return res.status(400).send("Invalid package selected");
+      return res.status(400).send("Invalid package or amount selected");
     }
 
     // Create Stripe payment intent

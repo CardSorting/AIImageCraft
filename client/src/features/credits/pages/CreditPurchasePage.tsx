@@ -26,17 +26,24 @@ try {
 
 export function CreditPurchasePage() {
   const { credits, packages, isLoading, purchaseCredits } = useCredits();
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [selectedAmount, setSelectedAmount] = useState<number>(100);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const { toast } = useToast();
 
-  const handlePurchase = async (packageId: string) => {
+  const handlePurchase = async () => {
     try {
       setIsPurchasing(true);
-      setSelectedPackage(packageId);
 
-      const { clientSecret } = await purchaseCredits({ packageId });
+      // Calculate price based on credit amount (1 credit = $0.05)
+      const priceInCents = Math.round(selectedAmount * 5);
+
+      const { clientSecret } = await purchaseCredits({ 
+        packageId: 'custom',
+        amount: selectedAmount,
+        price: priceInCents 
+      });
+
       setClientSecret(clientSecret);
     } catch (error) {
       toast({
@@ -44,7 +51,6 @@ export function CreditPurchasePage() {
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
-      setSelectedPackage(null);
     } finally {
       setIsPurchasing(false);
     }
@@ -52,11 +58,15 @@ export function CreditPurchasePage() {
 
   const handlePaymentSuccess = () => {
     setClientSecret(null);
-    setSelectedPackage(null);
+    setSelectedAmount(100);
     toast({
       title: "Purchase Complete",
       description: "Your credits have been added to your account!",
     });
+  };
+
+  const handleQuickSelect = (amount: number) => {
+    setSelectedAmount(amount);
   };
 
   if (isLoading) {
@@ -92,49 +102,71 @@ export function CreditPurchasePage() {
             </CardContent>
           </Card>
 
-          {/* Credit Packages */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {packages.map((pkg) => (
-              <Card key={pkg.id} className="relative overflow-hidden">
-                {/* Decorative gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent" />
-
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="w-5 h-5" />
-                    {pkg.credits} Pulse
-                  </CardTitle>
-                  <CardDescription>
-                    ${(pkg.price / 100).toFixed(2)} USD
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <Button 
-                    className="w-full"
-                    onClick={() => handlePurchase(pkg.id)}
-                    disabled={isPurchasing || clientSecret !== null}
+          {/* Credit Purchase */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Purchase Credits</CardTitle>
+              <CardDescription>
+                Select the amount of credits you want to purchase
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Quick select buttons */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {[100, 500, 1200].map((amount) => (
+                  <Button
+                    key={amount}
+                    variant={selectedAmount === amount ? "default" : "outline"}
+                    onClick={() => handleQuickSelect(amount)}
+                    className="h-20"
                   >
-                    {isPurchasing && selectedPackage === pkg.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Purchase
-                      </>
-                    )}
+                    <div className="text-center">
+                      <div className="text-lg font-bold">{amount}</div>
+                      <div className="text-sm">${(amount * 0.05).toFixed(2)}</div>
+                    </div>
                   </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+
+              {/* Custom amount input */}
+              <div className="flex items-center gap-4 mb-6">
+                <input
+                  type="number"
+                  value={selectedAmount}
+                  onChange={(e) => setSelectedAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  min="1"
+                  step="1"
+                />
+                <div className="text-sm text-muted-foreground w-24">
+                  ${(selectedAmount * 0.05).toFixed(2)}
+                </div>
+              </div>
+
+              {/* Purchase button */}
+              <Button
+                className="w-full"
+                onClick={handlePurchase}
+                disabled={isPurchasing || clientSecret !== null || selectedAmount < 1}
+              >
+                {isPurchasing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Purchase {selectedAmount} Credits
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Payment Form */}
           {clientSecret && (
-            <Card className="mt-8">
+            <Card>
               <CardHeader>
                 <CardTitle>Complete Purchase</CardTitle>
                 <CardDescription>

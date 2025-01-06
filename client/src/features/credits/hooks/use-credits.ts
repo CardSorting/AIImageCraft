@@ -8,16 +8,18 @@ export interface CreditPackage {
   price: number;
 }
 
-// Credit packages configuration
-const creditPackages: CreditPackage[] = [
-  { id: 'basic', credits: 100, price: 499 }, // $4.99
-  { id: 'plus', credits: 500, price: 1999 }, // $19.99
-  { id: 'pro', credits: 1200, price: 3999 }, // $39.99
-];
-
 interface PurchaseCreditsResponse {
   clientSecret: string;
-  packageDetails: CreditPackage;
+  packageDetails: {
+    credits: number;
+    price: number;
+  };
+}
+
+interface PurchaseCreditsParams {
+  packageId: string;
+  amount?: number;
+  price?: number;
 }
 
 export function useCredits() {
@@ -30,11 +32,11 @@ export function useCredits() {
   });
 
   const purchaseMutation = useMutation({
-    mutationFn: async ({ packageId }: { packageId: string }): Promise<PurchaseCreditsResponse> => {
+    mutationFn: async ({ packageId, amount, price }: PurchaseCreditsParams): Promise<PurchaseCreditsResponse> => {
       const response = await fetch('/api/credits/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId }),
+        body: JSON.stringify({ packageId, amount, price }),
         credentials: 'include',
       });
 
@@ -55,7 +57,6 @@ export function useCredits() {
 
   return {
     credits: data?.credits ?? 0,
-    packages: creditPackages,
     isLoading,
     error,
     purchaseCredits: purchaseMutation.mutateAsync,
@@ -125,4 +126,18 @@ export function useReferral() {
     useReferralCode: useReferralMutation.mutate,
     isUsing: useReferralMutation.isPending,
   };
+}
+
+// Placeholder functions -  replace with actual implementations
+function getReferralCode() {
+  throw new Error("Function not implemented.");
+}
+function getReferralStats() {
+  throw new Error("Function not implemented.");
+}
+function generateReferralCode() {
+  throw new Error("Function not implemented.");
+}
+function useReferralCode() {
+  throw new Error("Function not implemented.");
 }
