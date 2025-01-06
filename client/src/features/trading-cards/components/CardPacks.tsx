@@ -363,7 +363,7 @@ export function CardPacks() {
                       Add Cards
                     </Button>
 
-                    {pack.cards?.length > 0 && (
+                    {pack.cards?.length === 10 ? (
                       <Button
                         onClick={() => {
                           setListingPackId(pack.id);
@@ -373,6 +373,15 @@ export function CardPacks() {
                       >
                         <Package className="mr-2 h-4 w-4" />
                         List Pack
+                      </Button>
+                    ) : (
+                      <Button
+                        disabled
+                        className="flex-1 bg-purple-600/20 text-purple-300/50 cursor-not-allowed"
+                        title={`Pack must have 10 cards to list (currently has ${pack.cards?.length || 0})`}
+                      >
+                        <Package className="mr-2 h-4 w-4" />
+                        Need {10 - (pack.cards?.length || 0)} More Cards
                       </Button>
                     )}
                   </div>

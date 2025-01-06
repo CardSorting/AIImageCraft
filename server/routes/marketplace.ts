@@ -111,6 +111,11 @@ router.post("/listings", async (req, res) => {
         throw new Error("Pack not found or doesn't belong to you");
       }
 
+      // Validate pack completeness (must have 10 cards)
+      if (pack.cards.length < 10) {
+        throw new Error(`Pack must be complete (10 cards) before listing. Current cards: ${pack.cards.length}/10`);
+      }
+
       // Check if pack is already listed
       const existingListing = await tx.query.packListings.findFirst({
         where: and(
@@ -121,6 +126,24 @@ router.post("/listings", async (req, res) => {
 
       if (existingListing) {
         throw new Error("Pack is already listed in the marketplace");
+      }
+
+      // Validate all cards in the pack
+      for (const card of pack.cards) {
+        const cardData = await tx.query.globalCardPool.findFirst({
+          where: eq(globalCardPool.id, card.globalPoolCardId),
+          with: {
+            card: {
+              with: {
+                template: true
+              }
+            }
+          }
+        });
+
+        if (!cardData || !cardData.card || !cardData.card.template) {
+          throw new Error("Invalid card data found in pack");
+        }
       }
 
       // Create the listing
