@@ -1,7 +1,86 @@
 import Redis from "ioredis";
 
 // Initialize Redis client with provided connection URL
-const redis = new Redis("redis://default:tnoaLzrPiNHklrmQHihbvrrbxgNuzGpX@autorack.proxy.rlwy.net:51342");
+const redis = new Redis({
+  host: process.env.REDIS_HOST || "autorack.proxy.rlwy.net",
+  port: parseInt(process.env.REDIS_PORT || "51342"),
+  password: process.env.REDIS_PASSWORD || "tnoaLzrPiNHklrmQHihbvrrbxgNuzGpX",
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  reconnectOnError: (err) => {
+    const targetError = "READONLY";
+    if (err.message.includes(targetError)) {
+      return true;
+    }
+    return false;
+  },
+});
+
+redis.on('error', (err) => {
+  console.error('Redis connection error:', err);
+});
+
+redis.on('connect', () => {
+  console.log('Redis client connected');
+});
+
+redis.on('ready', () => {
+  console.log('Redis client ready');
+});
+
+export class RedisService {
+  private static instance: RedisService;
+  private client: Redis;
+
+  private constructor() {
+    this.client = redis;
+  }
+
+  public static getInstance(): RedisService {
+    if (!RedisService.instance) {
+      RedisService.instance = new RedisService();
+    }
+    return RedisService.instance;
+  }
+
+  public getClient(): Redis {
+    return this.client;
+  }
+
+  public async set(key: string, value: string, expireSeconds?: number): Promise<"OK"> {
+    if (expireSeconds) {
+      return await this.client.setex(key, expireSeconds, value);
+    }
+    return await this.client.set(key, value);
+  }
+
+  public async get(key: string): Promise<string | null> {
+    return await this.client.get(key);
+  }
+
+  public async del(key: string): Promise<number> {
+    return await this.client.del(key);
+  }
+
+  public async increment(key: string): Promise<number> {
+    return await this.client.incr(key);
+  }
+
+  public async decrement(key: string): Promise<number> {
+    return await this.client.decr(key);
+  }
+
+  public async exists(key: string): Promise<number> {
+    return await this.client.exists(key);
+  }
+}
+
+// Export singleton instance
+export const redisService = RedisService.getInstance();
 
 export class TaskManager {
   private static readonly TASK_PREFIX = "task:";
@@ -9,29 +88,18 @@ export class TaskManager {
 
   static async createTask(taskId: string, initialData: any) {
     const key = this.getTaskKey(taskId);
-    await redis.setex(
-      key,
-      this.TASK_TIMEOUT,
-      JSON.stringify({
-        status: "pending",
-        ...initialData,
-      })
-    );
+    await redisService.set(key, JSON.stringify({ status: "pending", ...initialData }), this.TASK_TIMEOUT);
     return taskId;
   }
 
   static async updateTask(taskId: string, data: any) {
     const key = this.getTaskKey(taskId);
-    await redis.setex(
-      key,
-      this.TASK_TIMEOUT,
-      JSON.stringify(data)
-    );
+    await redisService.set(key, JSON.stringify(data), this.TASK_TIMEOUT);
   }
 
   static async getTask(taskId: string) {
     const key = this.getTaskKey(taskId);
-    const data = await redis.get(key);
+    const data = await redisService.get(key);
     return data ? JSON.parse(data) : null;
   }
 
@@ -81,14 +149,13 @@ export class PulseCreditManager {
   }
 
   static async getReferralCount(userId: number): Promise<number> {
-    const count = await redis.get(this.getReferralCountKey(userId));
+    const count = await redisService.get(this.getReferralCountKey(userId));
     return parseInt(count || "0");
   }
 
   static async incrementReferralCount(userId: number): Promise<number> {
     const key = this.getReferralCountKey(userId);
-    const newCount = await redis.incr(key);
-    return newCount;
+    return await redisService.increment(key);
   }
 
   static getBonusForTier(referralCount: number): number {
@@ -102,45 +169,40 @@ export class PulseCreditManager {
 
   static async initializeCredits(userId: number): Promise<number> {
     const key = this.getCreditKey(userId);
-    const exists = await redis.exists(key);
+    const exists = await redisService.exists(key);
 
     if (!exists) {
-      await redis.set(key, this.DEFAULT_CREDITS);
+      await redisService.set(key, this.DEFAULT_CREDITS.toString());
       return this.DEFAULT_CREDITS;
     }
 
-    return parseInt(await redis.get(key) || "0");
+    const credits = await redisService.get(key);
+    return parseInt(credits || "0");
   }
 
   static async getCredits(userId: number): Promise<number> {
     const key = this.getCreditKey(userId);
-    const credits = await redis.get(key);
-    return credits ? parseInt(credits) : 0;
+    const credits = await redisService.get(key);
+    return parseInt(credits || "0");
   }
 
   static async addCredits(userId: number, amount: number): Promise<number> {
     const key = this.getCreditKey(userId);
-    const newBalance = await redis.incrby(key, amount);
-    return newBalance;
+    await redisService.client.incrby(key, amount);
+    const newBalance = await redisService.get(key);
+    return parseInt(newBalance || "0");
   }
 
   static async useCredits(userId: number, amount: number): Promise<boolean> {
     const key = this.getCreditKey(userId);
 
-    const result = await redis
-      .multi()
-      .get(key)
-      .exec();
-
-    if (!result) return false;
-
-    const currentCredits = parseInt(result[0][1] as string || "0");
+    const currentCredits = await this.getCredits(userId);
 
     if (currentCredits < amount) {
       return false;
     }
 
-    await redis.decrby(key, amount);
+    await redisService.client.decrby(key, amount);
     return true;
   }
 
@@ -153,15 +215,14 @@ export class PulseCreditManager {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const codeKey = this.getReferralCodeKey(code);
 
-    await redis.set(codeKey, userId);
-    await redis.set(this.getReferralKey(userId), code);
+    await redisService.set(codeKey, userId.toString());
+    await redisService.set(this.getReferralKey(userId), code);
 
     return code;
   }
 
   static async getReferralCode(userId: number): Promise<string | null> {
-    const code = await redis.get(this.getReferralKey(userId));
-    return code;
+    return await redisService.get(this.getReferralKey(userId));
   }
 
   static async useReferralCode(code: string, newUserId: number): Promise<{
@@ -170,7 +231,7 @@ export class PulseCreditManager {
     error?: string;
   }> {
     const codeKey = this.getReferralCodeKey(code);
-    const referrerId = await redis.get(codeKey);
+    const referrerId = await redisService.get(codeKey);
 
     if (!referrerId) {
       return { success: false, error: "Invalid referral code" };
@@ -203,7 +264,7 @@ export class PulseCreditManager {
   }> {
     const shareKey = this.getShareKey(userId);
 
-    const dailyShares = parseInt(await redis.get(shareKey) || "0");
+    const dailyShares = parseInt(await redisService.get(shareKey) || "0");
     if (dailyShares >= this.MAX_DAILY_SHARE_REWARDS) {
       return {
         credited: false,
@@ -212,8 +273,8 @@ export class PulseCreditManager {
       };
     }
 
-    await redis.incr(shareKey);
-    await redis.expire(shareKey, 24 * 60 * 60);
+    await redisService.increment(shareKey);
+    await redisService.client.expire(shareKey, 24 * 60 * 60);
     await this.addCredits(userId, this.SHARE_REWARD);
 
     return {
@@ -230,7 +291,7 @@ export class PulseCreditManager {
 
   static async getDailySharesCount(userId: number): Promise<number> {
     const shareKey = this.getShareKey(userId);
-    const count = await redis.get(shareKey);
+    const count = await redisService.get(shareKey);
     return parseInt(count || "0");
   }
 }
