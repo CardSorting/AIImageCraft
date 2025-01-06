@@ -176,7 +176,7 @@ export function PackListingCard({
                 {listing.seller?.username}
               </p>
               <p className="text-lg font-bold mt-2">
-                {listing.price} Credits
+                {listing.price} Pulse
               </p>
             </div>
           </CardHeader>
@@ -250,7 +250,7 @@ export function PackListingCard({
                 )}
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold">{listing.price} Credits</p>
+                <p className="text-lg font-bold">{listing.price} Pulse</p>
                 <p className="text-sm text-muted-foreground">
                   Listed: {new Date(listing.createdAt).toLocaleDateString()}
                 </p>
