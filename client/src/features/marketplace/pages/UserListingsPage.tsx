@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { marketplaceService } from "../services/marketplaceService";
 import { PackListingCard } from "../components/PackListingCard";
 import { 
@@ -55,6 +55,7 @@ import { SellerPerformanceDashboard } from "../components/SellerPerformanceDashb
 type ListingStatus = 'ACTIVE' | 'SOLD' | 'CANCELLED' | 'ALL';
 
 export function UserListingsPage() {
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<ListingStatus>('ALL');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'price_high' | 'price_low'>('newest');
   const [selectedView, setSelectedView] = useState<"grid" | "analytics">("grid");
@@ -138,10 +139,32 @@ export function UserListingsPage() {
   };
 
   const handleBulkCancel = async () => {
-    toast({
-      title: "Bulk cancel",
-      description: `Cancelling ${selectedListings.size} listings...`,
-    });
+    try {
+      // Wait for all cancel operations to complete
+      await Promise.all(
+        Array.from(selectedListings).map(listingId =>
+          marketplaceService.cancelListing(listingId)
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `Successfully cancelled ${selectedListings.size} listings`,
+      });
+
+      // Clear selection after successful cancellation
+      clearSelection();
+
+      // Invalidate both listing queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings/user"] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to cancel listings",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBulkPriceUpdate = async () => {
