@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
 import { eq, and } from "drizzle-orm";
-import { images, cardTemplates, tradingCards } from "@db/schema";
+import { images, cardTemplates, tradingCards, users } from "@db/schema"; // Added users import
 import { z } from "zod";
 import { ELEMENTAL_TYPES, RARITIES } from "../constants/cards";
 import { PulseCreditManager } from "../services/redis";
@@ -17,6 +17,66 @@ function generateRandomStats() {
   };
 }
 
+// Get user's cards
+router.get("/", async (req, res) => {
+  try {
+    // Use a proper join query instead of the query builder
+    const userCardsWithDetails = await db
+      .select({
+        card: tradingCards,
+        template: cardTemplates,
+        image: images,
+        creator: users,
+      })
+      .from(tradingCards)
+      .innerJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
+      .innerJoin(images, eq(cardTemplates.imageId, images.id))
+      .innerJoin(users, eq(cardTemplates.creatorId, users.id))
+      .where(eq(tradingCards.userId, req.user!.id))
+      .orderBy(tradingCards.createdAt);
+
+    const transformedCards = userCardsWithDetails.map(({ card, template, image, creator }) => ({
+      id: card.id,
+      name: template.name,
+      description: template.description,
+      elementalType: template.elementalType,
+      rarity: template.rarity,
+      powerStats: template.powerStats,
+      image: {
+        url: image.url,
+      },
+      createdAt: card.createdAt,
+      creator: {
+        id: creator.id,
+        username: creator.username,
+      },
+    }));
+
+    res.json(transformedCards);
+  } catch (error) {
+    console.error("Error fetching cards:", error);
+    res.status(500).send("Failed to fetch cards");
+  }
+});
+
+// Check if image has been used
+router.get("/check-image/:imageId", async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.imageId);
+
+    const [existingCard] = await db
+      .select()
+      .from(cardTemplates)
+      .where(eq(cardTemplates.imageId, imageId))
+      .limit(1);
+
+    res.json({ hasCard: !!existingCard });
+  } catch (error) {
+    console.error("Error checking image:", error);
+    res.status(500).send("Failed to check image status");
+  }
+});
+
 // Create a card from an existing image
 router.post("/", async (req, res) => {
   try {
@@ -26,7 +86,6 @@ router.post("/", async (req, res) => {
       return res.status(400).send("All fields are required: imageId, name, description, elementalType");
     }
 
-    // Check if user has enough credits
     const hasCredits = await PulseCreditManager.hasEnoughCredits(
       req.user!.id,
       PulseCreditManager.CARD_CREATION_COST
@@ -125,62 +184,6 @@ router.post("/", async (req, res) => {
   } catch (error: any) {
     console.error("Error creating card:", error);
     res.status(500).send(error.message);
-  }
-});
-
-// Get user's cards
-router.get("/", async (req, res) => {
-  try {
-    const userCards = await db.query.tradingCards.findMany({
-      where: eq(tradingCards.userId, req.user!.id),
-      with: {
-        template: {
-          with: {
-            image: true,
-            creator: true,
-          },
-        },
-      },
-      orderBy: (cards, { desc }) => [desc(cards.createdAt)],
-    });
-
-    const transformedCards = userCards.map(card => ({
-      id: card.id,
-      name: card.template.name,
-      description: card.template.description,
-      elementalType: card.template.elementalType,
-      rarity: card.template.rarity,
-      powerStats: card.template.powerStats,
-      image: {
-        url: card.template.image.url,
-      },
-      createdAt: card.createdAt,
-      creator: card.template.creator,
-    }));
-
-    res.json(transformedCards);
-  } catch (error) {
-    console.error("Error fetching cards:", error);
-    res.status(500).send("Failed to fetch cards");
-  }
-});
-
-// Add new endpoint to check if image has been used
-router.get("/check-image/:imageId", async (req, res) => {
-  try {
-    const imageId = parseInt(req.params.imageId);
-
-    // Use proper Drizzle select query instead of query builder
-    const [existingCard] = await db
-      .select()
-      .from(cardTemplates)
-      .where(eq(cardTemplates.imageId, imageId))
-      .limit(1);
-
-    res.json({ hasCard: !!existingCard });
-  } catch (error) {
-    console.error("Error checking image:", error);
-    res.status(500).send("Failed to check image status");
   }
 });
 
