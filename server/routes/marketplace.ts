@@ -28,6 +28,8 @@ router.get("/listings", async (req, res) => {
         pack: {
           with: {
             cards: {
+              // Limit to just one card for preview
+              limit: 1,
               with: {
                 globalPoolCard: {
                   with: {
@@ -60,22 +62,33 @@ router.get("/listings", async (req, res) => {
                desc(packListings.createdAt),
     });
 
-    // Apply rarity and element filters on the application level since they're card properties
-    let filteredListings = listings;
-    if (rarity || element) {
-      filteredListings = listings.filter(listing => {
-        const cards = listing.pack.cards.map(c => c.globalPoolCard.card.template);
-        if (rarity) {
-          return cards.some(card => card.rarity === rarity);
-        }
-        if (element) {
-          return cards.some(card => card.elementalType === element);
-        }
-        return true;
-      });
-    }
+    // Transform the data to include only preview information
+    const transformedListings = listings.map(listing => {
+      const previewCard = listing.pack.cards[0]?.globalPoolCard?.card?.template;
 
-    res.json(filteredListings);
+      return {
+        id: listing.id,
+        packId: listing.packId,
+        price: listing.price,
+        createdAt: listing.createdAt,
+        seller: listing.seller,
+        pack: {
+          name: listing.pack.name,
+          description: listing.pack.description,
+          previewCard: previewCard ? {
+            name: previewCard.name,
+            image: {
+              url: previewCard.image.url,
+            },
+            rarity: previewCard.rarity,
+            elementalType: previewCard.elementalType,
+          } : null,
+          totalCards: 10, // All packs must have 10 cards
+        },
+      };
+    });
+
+    res.json(transformedListings);
   } catch (error) {
     console.error("Error fetching pack listings:", error);
     res.status(500).send("Failed to fetch pack listings");
