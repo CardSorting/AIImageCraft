@@ -77,15 +77,20 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
     purchaseMutation.mutate({ listingId: listing.id });
   };
 
+  // Get the current user's ID from your auth context or global state
+  const currentUserId = window.__USER__?.id;
+
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-lg font-semibold">{listing.pack.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              Seller: {listing.seller.username}
-            </p>
+            {listing.seller && (
+              <p className="text-sm text-muted-foreground">
+                Seller: {listing.seller.username}
+              </p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-lg font-bold">{listing.price} Credits</p>
@@ -134,7 +139,7 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
       </CardContent>
       {showActions && (
         <CardFooter className="flex justify-end gap-2">
-          {listing.seller.id === window.__USER__?.id ? (
+          {listing.seller && listing.seller.id === currentUserId ? (
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={deleteMutation.isPending}>
