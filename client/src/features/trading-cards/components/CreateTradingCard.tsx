@@ -22,10 +22,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, Zap } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { ELEMENTAL_TYPES, RARITIES } from "../types";
 import { queryClient } from "@/lib/queryClient";
-import { useCredits } from "@/features/credits/hooks/use-credits";
 
 const formSchema = z.object({
   name: z.string().min(1, "Card name is required"),
@@ -49,7 +48,7 @@ function generateRandomStats() {
   };
 }
 
-export function CreateTradingCard({
+export default function CreateTradingCard({
   imageId,
   imageUrl,
   onSuccess,
@@ -57,7 +56,6 @@ export function CreateTradingCard({
   onOpenChange,
 }: CreateTradingCardProps) {
   const { toast } = useToast();
-  const { credits, isLoading: isLoadingCredits } = useCredits();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -99,13 +97,10 @@ export function CreateTradingCard({
       });
       form.reset();
       onOpenChange(false);
-      // Invalidate both the trading cards list and the specific image check
       queryClient.invalidateQueries({ queryKey: ["/api/trading-cards"] });
       queryClient.invalidateQueries({
         queryKey: [`/api/trading-cards/check-image/${imageId}`],
       });
-      // Also invalidate credits after successful card creation
-      queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
       onSuccess?.();
     },
     onError: (error: Error) => {
@@ -117,9 +112,6 @@ export function CreateTradingCard({
     },
   });
 
-  const requiredCredits = 1; // This should match PulseCreditManager.CARD_CREATION_COST
-  const hasEnoughCredits = credits >= requiredCredits;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] bg-black/80 border-purple-500/20 text-white">
@@ -127,10 +119,6 @@ export function CreateTradingCard({
           <DialogTitle>Create Trading Card</DialogTitle>
           <DialogDescription className="text-purple-300/70">
             Transform your AI-generated image into a unique trading card with random stats and attributes.
-            <div className="mt-2 flex items-center gap-2 font-medium">
-              <Zap className="w-4 h-4 text-purple-400" />
-              Cost: {requiredCredits} Pulse credit
-            </div>
           </DialogDescription>
         </DialogHeader>
 
@@ -181,12 +169,8 @@ export function CreateTradingCard({
 
             <Button
               type="submit"
-              disabled={isPending || !hasEnoughCredits}
-              className={`w-full ${
-                hasEnoughCredits
-                  ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  : "bg-gray-600 cursor-not-allowed"
-              }`}
+              disabled={isPending}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {isPending ? (
                 <>
@@ -196,13 +180,7 @@ export function CreateTradingCard({
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  {hasEnoughCredits ? (
-                    <>
-                      Forge Card <span className="ml-1 opacity-90">• {requiredCredits} Pulse</span>
-                    </>
-                  ) : (
-                    "Insufficient Pulse Credits"
-                  )}
+                  Create Trading Card
                 </>
               )}
             </Button>
