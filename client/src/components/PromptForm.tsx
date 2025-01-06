@@ -2,7 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Lightbulb, Coins } from "lucide-react";
 import { useState } from "react";
@@ -20,10 +26,13 @@ const EXAMPLE_PROMPTS = [
   "A mystical trading card featuring a dragon in a cyberpunk city",
   "An epic battle scene between ancient warriors in a fantasy realm",
   "A majestic creature emerging from a portal of swirling energy",
-  "A legendary artifact radiating magical power in a crystal cave"
+  "A legendary artifact radiating magical power in a crystal cave",
 ];
 
-export default function PromptForm({ onSubmit, isSubmitting }: PromptFormProps) {
+export default function PromptForm({
+  onSubmit,
+  isSubmitting,
+}: PromptFormProps) {
   const [currentExample, setCurrentExample] = useState(0);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -79,7 +88,7 @@ export default function PromptForm({ onSubmit, isSubmitting }: PromptFormProps) 
         <div className="space-y-4">
           <div className="flex items-center justify-center gap-2 text-sm text-purple-300/70">
             <Coins className="h-4 w-4" />
-            <span>Costs 5 credits per generation</span>
+            <span>Costs 4 credits per generation</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -91,11 +100,13 @@ export default function PromptForm({ onSubmit, isSubmitting }: PromptFormProps) 
                 hover:from-purple-700 hover:to-blue-700
                 disabled:from-purple-800 disabled:to-blue-800
                 transition-all duration-300 transform hover:scale-[1.02]
-                ${isSubmitting ? 'animate-pulse' : ''}
+                ${isSubmitting ? "animate-pulse" : ""}
               `}
             >
-              <Sparkles className={`mr-2 h-5 w-5 ${isSubmitting ? 'animate-spin' : ''}`} />
-              {isSubmitting ? 'Generating...' : 'Generate Image'}
+              <Sparkles
+                className={`mr-2 h-5 w-5 ${isSubmitting ? "animate-spin" : ""}`}
+              />
+              {isSubmitting ? "Generating..." : "Generate Image"}
             </Button>
           </div>
         </div>

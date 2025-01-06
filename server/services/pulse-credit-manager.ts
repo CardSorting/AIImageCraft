@@ -4,7 +4,7 @@ import { creditBalances, creditTransactions } from "@db/schema/credits/schema";
 import { redisService } from "./redis";
 
 export class PulseCreditManager {
-  static readonly IMAGE_GENERATION_COST = 50;
+  static readonly IMAGE_GENERATION_COST = 4;
   static readonly MAX_DAILY_SHARE_REWARDS = 5;
   static readonly SHARE_REWARD_AMOUNT = 2;
 
@@ -13,7 +13,7 @@ export class PulseCreditManager {
 
   private static async acquireLock(userId: number): Promise<boolean> {
     const lockKey = `${this.TRANSACTION_LOCK_PREFIX}${userId}`;
-    return await redisService.set(lockKey, "1", this.LOCK_TIMEOUT) === "OK";
+    return (await redisService.set(lockKey, "1", this.LOCK_TIMEOUT)) === "OK";
   }
 
   private static async releaseLock(userId: number): Promise<void> {
@@ -25,13 +25,16 @@ export class PulseCreditManager {
     userId: number,
     amount: number,
     type: string,
-    description: string
+    description: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Acquire lock for atomic transaction
       const lockAcquired = await this.acquireLock(userId);
       if (!lockAcquired) {
-        return { success: false, error: "Transaction in progress, please try again" };
+        return {
+          success: false,
+          error: "Transaction in progress, please try again",
+        };
       }
 
       try {
@@ -78,12 +81,15 @@ export class PulseCreditManager {
     userId: number,
     amount: number,
     type: string,
-    description: string
+    description: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const lockAcquired = await this.acquireLock(userId);
       if (!lockAcquired) {
-        return { success: false, error: "Transaction in progress, please try again" };
+        return {
+          success: false,
+          error: "Transaction in progress, please try again",
+        };
       }
 
       try {
@@ -125,7 +131,10 @@ export class PulseCreditManager {
     }
   }
 
-  static async hasEnoughCredits(userId: number, amount: number): Promise<boolean> {
+  static async hasEnoughCredits(
+    userId: number,
+    amount: number,
+  ): Promise<boolean> {
     const [balance] = await db
       .select()
       .from(creditBalances)
@@ -135,7 +144,11 @@ export class PulseCreditManager {
     return (balance?.balance ?? 0) >= amount;
   }
 
-  static async trackAndRewardShare(userId: number, itemType: 'image' | 'card', itemId: string | number) {
+  static async trackAndRewardShare(
+    userId: number,
+    itemType: "image" | "card",
+    itemId: string | number,
+  ) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -147,19 +160,20 @@ export class PulseCreditManager {
           eq(creditTransactions.userId, userId),
           eq(creditTransactions.type, "SYSTEM"),
           sql`${creditTransactions.description} LIKE 'Share reward%'`,
-          sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`
-        )
+          sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`,
+        ),
       );
 
     const dailySharesCount = Number(dailyShares[0]?.count ?? 0);
-    const canEarnReward = dailySharesCount < PulseCreditManager.MAX_DAILY_SHARE_REWARDS;
+    const canEarnReward =
+      dailySharesCount < PulseCreditManager.MAX_DAILY_SHARE_REWARDS;
 
     if (canEarnReward) {
       await this.addCredits(
         userId,
         PulseCreditManager.SHARE_REWARD_AMOUNT,
         "SYSTEM",
-        `Share reward for ${itemType} ${itemId}`
+        `Share reward for ${itemType} ${itemId}`,
       );
     }
 
@@ -179,8 +193,8 @@ export class PulseCreditManager {
           eq(creditTransactions.userId, userId),
           eq(creditTransactions.type, "SYSTEM"),
           sql`${creditTransactions.description} LIKE 'Share reward%'`,
-          sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`
-        )
+          sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`,
+        ),
       );
 
     return Number(result[0]?.count ?? 0);
