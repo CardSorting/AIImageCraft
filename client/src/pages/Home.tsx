@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import PromptForm from "@/components/PromptForm";
@@ -9,6 +9,12 @@ import LoadingAnimation from "@/components/LoadingAnimation";
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Fetch card statuses for all images in one go
+  const { data: cardStatuses } = useQuery({
+    queryKey: ["/api/trading-cards/check-images"],
+    enabled: images.length > 0,
+  });
 
   const { mutate: generateImage, isPending } = useMutation({
     mutationFn: async (prompt: string) => {
@@ -57,7 +63,11 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
           {images.map((imageUrl, index) => (
-            <ImageCard key={index} imageUrl={imageUrl} />
+            <ImageCard
+              key={index}
+              imageUrl={imageUrl}
+              hasCard={cardStatuses?.[index]?.hasCard || false}
+            />
           ))}
         </div>
       </div>

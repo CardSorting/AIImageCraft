@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Sparkles, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ImageCardProps {
   imageId: number;
   imageUrl: string;
   tags?: string[];
+  hasCard?: boolean;
 }
 
 function FavoriteButton({ imageId }: { imageId: number }) {
@@ -75,24 +75,9 @@ function FavoriteButton({ imageId }: { imageId: number }) {
 export default function ImageCard({ 
   imageId, 
   imageUrl, 
-  tags = []
+  tags = [],
+  hasCard = false
 }: ImageCardProps) {
-  const queryClient = useQueryClient();
-  const queryKey = `/api/trading-cards/check-image/${imageId}`;
-
-  // Configure the query with refetch options
-  const { data: cardStatus } = useQuery({
-    queryKey: [queryKey],
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0
-  });
-
-  // Force refetch when component mounts
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: [queryKey] });
-  }, [queryClient, queryKey]);
-
   const handleDownload = async () => {
     const response = await fetch(imageUrl);
     const blob = await response.blob();
@@ -137,7 +122,7 @@ export default function ImageCard({
             >
               <Download className="h-4 w-4" />
             </Button>
-            {cardStatus?.hasCard ? (
+            {hasCard ? (
               <Button
                 variant="secondary"
                 className="flex-1 bg-gray-500/20 hover:bg-gray-500/30 backdrop-blur-sm cursor-not-allowed"

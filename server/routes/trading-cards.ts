@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, inArray } from "drizzle-orm";
 import { images, cardTemplates, tradingCards, users } from "@db/schema";
 import { z } from "zod";
 import { ELEMENTAL_TYPES, RARITIES } from "../constants/cards";
@@ -75,6 +75,34 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("Error fetching cards:", error);
     res.status(500).send("Failed to fetch cards");
+  }
+});
+
+// Check status for multiple images
+router.get("/check-images", async (req, res) => {
+  try {
+    const imageIds = (req.query.ids as string)?.split(",").map(id => parseInt(id));
+
+    if (!imageIds?.length) {
+      return res.json([]);
+    }
+
+    const existingCards = await db
+      .select({
+        imageId: cardTemplates.imageId,
+      })
+      .from(cardTemplates)
+      .where(inArray(cardTemplates.imageId, imageIds));
+
+    const results = imageIds.map(id => ({
+      imageId: id,
+      hasCard: existingCards.some(card => card.imageId === id),
+    }));
+
+    res.json(results);
+  } catch (error) {
+    console.error("Error checking images:", error);
+    res.status(500).send("Failed to check image statuses");
   }
 });
 
@@ -168,24 +196,6 @@ router.post("/", async (req, res) => {
   } catch (error: any) {
     console.error("Error creating card:", error);
     res.status(500).send(error.message);
-  }
-});
-
-// Check if image has been used
-router.get("/check-image/:imageId", async (req, res) => {
-  try {
-    const imageId = parseInt(req.params.imageId);
-
-    const [existingCard] = await db
-      .select()
-      .from(cardTemplates)
-      .where(eq(cardTemplates.imageId, imageId))
-      .limit(1);
-
-    res.json({ hasCard: !!existingCard });
-  } catch (error) {
-    console.error("Error checking image:", error);
-    res.status(500).send("Failed to check image status");
   }
 });
 
