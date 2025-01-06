@@ -2,28 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and, or, inArray, sql, gt } from "drizzle-orm";
-import {
-  images,
-  trades,
-  tradeItems,
-  games,
-  insertTradeSchema,
-  tradingCards,
-  dailyChallenges,
-  challengeProgress,
-  users,
-  levelMilestones,
-  userRewards
-} from "@db/schema";
-import { WarGameService } from "./services/game/war/war.service";
+import creditRoutes from "./routes/credits";
+import marketplaceRoutes from "./routes/marketplace";
+import cardPackRoutes from "./routes/card-packs";
 import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
-import cardPackRoutes from "./routes/card-packs";
-import marketplaceRoutes from "./routes/marketplace";
-import { TaskService } from "./services/task";
-import { PulseCreditManager } from "./services/redis";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -41,10 +25,13 @@ export function registerRoutes(app: Express): Server {
     next();
   });
 
+  // Register credit routes
+  app.use("/api/credits", creditRoutes);
+
   // Register marketplace routes
   app.use("/api/marketplace", marketplaceRoutes);
 
-  // Register card packs routes - ensure this is before other routes
+  // Register card packs routes
   app.use("/api/card-packs", cardPackRoutes);
 
   // Register task management routes
@@ -519,15 +506,6 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Get user credits endpoint
-  app.get("/api/credits", async (req, res) => {
-    try {
-      const credits = await PulseCreditManager.getCredits(req.user!.id);
-      res.json({ credits });
-    } catch (error) {
-      console.error("Error fetching credits:", error);
-      res.status(500).send("Failed to fetch credits");
-    }
-  });
 
   // Add this new route after the /api/credits endpoint and before the httpServer creation
   app.post("/api/share", async (req, res) => {
