@@ -53,9 +53,11 @@ router.post("/", async (req, res) => {
     }
 
     // Check if a card already exists for this image
-    const existingCard = await db.query.cardTemplates.findFirst({
-      where: eq(cardTemplates.imageId, imageId),
-    });
+    const [existingCard] = await db
+      .select()
+      .from(cardTemplates)
+      .where(eq(cardTemplates.imageId, imageId))
+      .limit(1);
 
     if (existingCard) {
       return res.status(409).send("A card has already been created from this image");
@@ -167,9 +169,13 @@ router.get("/", async (req, res) => {
 router.get("/check-image/:imageId", async (req, res) => {
   try {
     const imageId = parseInt(req.params.imageId);
-    const existingCard = await db.query.cardTemplates.findFirst({
-      where: eq(cardTemplates.imageId, imageId),
-    });
+
+    // Use proper Drizzle select query instead of query builder
+    const [existingCard] = await db
+      .select()
+      .from(cardTemplates)
+      .where(eq(cardTemplates.imageId, imageId))
+      .limit(1);
 
     res.json({ hasCard: !!existingCard });
   } catch (error) {
