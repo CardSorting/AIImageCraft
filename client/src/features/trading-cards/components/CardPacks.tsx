@@ -20,6 +20,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ListPackModal } from "./ListPackModal";
+import { CardItem } from "@/features/gallery/components/CardItem";
+import { BulkCardSelector } from "./BulkCardSelector";
+import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+import type { TradingCard } from "@/features/trading-cards/types";
 
 interface CardPack {
   id: number;
@@ -197,6 +208,22 @@ export function CardPacks() {
     setSelectedCards(newSelected);
   };
 
+  const getPackCompletionStatus = (cardCount: number) => {
+    if (cardCount === 0) return { status: 'empty', color: 'bg-gray-500' };
+    if (cardCount < 5) return { status: 'starting', color: 'bg-red-500' };
+    if (cardCount < 8) return { status: 'progressing', color: 'bg-yellow-500' };
+    if (cardCount < 10) return { status: 'almost-complete', color: 'bg-blue-500' };
+    return { status: 'complete', color: 'bg-green-500' };
+  };
+
+  const getPackStatusMessage = (cardCount: number) => {
+    if (cardCount === 0) return "Start adding cards to your pack";
+    if (cardCount < 5) return "Keep adding more cards";
+    if (cardCount < 8) return "Getting there! Add more cards";
+    if (cardCount < 10) return `Almost complete! Need ${10 - cardCount} more cards`;
+    return "Pack complete! Ready to list";
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center">
@@ -259,6 +286,9 @@ export function CardPacks() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {cardPacks.map((pack) => {
+          const cardCount = pack.cards?.length || 0;
+          const { status, color } = getPackCompletionStatus(cardCount);
+          const statusMessage = getPackStatusMessage(cardCount);
           const previewCard = pack.cards.length > 0
             ? pack.cards[Math.floor(Math.random() * pack.cards.length)]
             : null;
@@ -282,9 +312,9 @@ export function CardPacks() {
                           </span>
                           <span className={`text-xs px-2 py-1 rounded-md ${
                             previewCard.rarity === 'Legendary' ? 'bg-yellow-500/40' :
-                            previewCard.rarity === 'Epic' ? 'bg-purple-500/40' :
-                            previewCard.rarity === 'Rare' ? 'bg-blue-500/40' :
-                            'bg-gray-500/40'
+                              previewCard.rarity === 'Epic' ? 'bg-purple-500/40' :
+                                previewCard.rarity === 'Rare' ? 'bg-blue-500/40' :
+                                  'bg-gray-500/40'
                           }`}>
                             {previewCard.rarity}
                           </span>
@@ -292,11 +322,30 @@ export function CardPacks() {
                       </div>
                     )}
 
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-white">{pack.name}</h3>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <div className={`px-2 py-1 rounded-full text-xs ${color} text-white`}>
+                                {cardCount}/10
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{statusMessage}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
-                      <ChevronsUpDown className="h-4 w-4 text-purple-400 mt-1" />
+
+                      <div className="w-full">
+                        <Progress
+                          value={(cardCount / 10) * 100}
+                          className="h-2"
+                          indicatorClassName={`${color}`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </CollapsibleTrigger>
@@ -304,25 +353,6 @@ export function CardPacks() {
                 {pack.description && (
                   <p className="text-purple-300/70 text-sm mt-4">{pack.description}</p>
                 )}
-
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-purple-400" />
-                    <span className="text-purple-300/70 text-sm">
-                      {pack.cards?.length || 0} / 10 cards
-                    </span>
-                  </div>
-                  {pack.creator && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
-                        <span className="text-xs font-medium text-purple-300">👤</span>
-                      </div>
-                      <span className="text-sm font-medium text-purple-300/70">
-                        {pack.creator.username}
-                      </span>
-                    </div>
-                  )}
-                </div>
 
                 <CollapsibleContent className="mt-4 space-y-4">
                   {pack.cards && pack.cards.length > 0 ? (
@@ -356,14 +386,14 @@ export function CardPacks() {
                         setIsAddingCards(true);
                         setSelectedCards(new Set());
                       }}
-                      disabled={pack.cards?.length >= 10}
+                      disabled={cardCount >= 10}
                       className="flex-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300"
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Cards
+                      {cardCount >= 10 ? "Pack Full" : "Add Cards"}
                     </Button>
 
-                    {pack.cards?.length === 10 ? (
+                    {cardCount === 10 ? (
                       <Button
                         onClick={() => {
                           setListingPackId(pack.id);
@@ -375,14 +405,22 @@ export function CardPacks() {
                         List Pack
                       </Button>
                     ) : (
-                      <Button
-                        disabled
-                        className="flex-1 bg-purple-600/20 text-purple-300/50 cursor-not-allowed"
-                        title={`Pack must have 10 cards to list (currently has ${pack.cards?.length || 0})`}
-                      >
-                        <Package className="mr-2 h-4 w-4" />
-                        Need {10 - (pack.cards?.length || 0)} More Cards
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              disabled
+                              className="flex-1 bg-purple-600/20 text-purple-300/50 cursor-not-allowed"
+                            >
+                              <Package className="mr-2 h-4 w-4" />
+                              Need {10 - cardCount} More Cards
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Pack must have exactly 10 cards to be listed in the marketplace</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </CollapsibleContent>
