@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceService } from "../services/marketplaceService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Package, AlertCircle, X } from "lucide-react";
+import { Loader2, Package, AlertCircle, X, Clock, CheckCircle, Ban } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface PackListingCardProps {
   listing: PackListing;
@@ -90,11 +91,33 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
   const currentUserId = window.__USER__?.id;
 
   return (
-    <Card className="w-full">
+    <Card className={cn(
+      "w-full transition-all duration-300",
+      listing.status === 'SOLD' && "bg-green-500/5 border-green-500/20",
+      listing.status === 'CANCELLED' && "bg-red-500/5 border-red-500/20",
+      listing.status === 'ACTIVE' && "hover:border-purple-500/50"
+    )}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-semibold">{listing.pack.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">{listing.pack.name}</h3>
+              {listing.status === 'ACTIVE' && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
+                  Active
+                </span>
+              )}
+              {listing.status === 'SOLD' && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
+                  Sold
+                </span>
+              )}
+              {listing.status === 'CANCELLED' && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500">
+                  Cancelled
+                </span>
+              )}
+            </div>
             {listing.seller && (
               <p className="text-sm text-muted-foreground">
                 Seller: {listing.seller.username}
@@ -126,12 +149,13 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
                 <span className="text-sm font-medium bg-black/40 px-2 py-1 rounded-md">
                   {listing.pack.previewCard.name}
                 </span>
-                <span className={`text-xs px-2 py-1 rounded-md ${
-                  listing.pack.previewCard.rarity === 'LEGENDARY' ? 'bg-yellow-500/40' :
-                  listing.pack.previewCard.rarity === 'EPIC' ? 'bg-purple-500/40' :
-                  listing.pack.previewCard.rarity === 'RARE' ? 'bg-blue-500/40' :
-                  'bg-gray-500/40'
-                }`}>
+                <span className={cn(
+                  "text-xs px-2 py-1 rounded-md",
+                  listing.pack.previewCard.rarity === 'LEGENDARY' && "bg-yellow-500/40",
+                  listing.pack.previewCard.rarity === 'EPIC' && "bg-purple-500/40",
+                  listing.pack.previewCard.rarity === 'RARE' && "bg-blue-500/40",
+                  listing.pack.previewCard.rarity === 'COMMON' && "bg-gray-500/40"
+                )}>
                   {listing.pack.previewCard.rarity}
                 </span>
               </div>
@@ -142,11 +166,31 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
             </div>
           )}
         </div>
-        <p className="text-sm text-muted-foreground mt-2">
-          Pack contains {listing.pack.totalCards} cards
-        </p>
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Pack contains {listing.pack.totalCards} cards
+          </p>
+          {listing.status === 'ACTIVE' && (
+            <p className="text-sm flex items-center gap-1 text-green-500">
+              <Clock className="w-4 h-4" />
+              Listed
+            </p>
+          )}
+          {listing.status === 'SOLD' && (
+            <p className="text-sm flex items-center gap-1 text-green-500">
+              <CheckCircle className="w-4 h-4" />
+              Sold
+            </p>
+          )}
+          {listing.status === 'CANCELLED' && (
+            <p className="text-sm flex items-center gap-1 text-red-500">
+              <Ban className="w-4 h-4" />
+              Cancelled
+            </p>
+          )}
+        </div>
       </CardContent>
-      {showActions && (
+      {showActions && listing.status === 'ACTIVE' && (
         <CardFooter className="flex justify-end gap-2">
           {listing.seller && listing.seller.id === currentUserId ? (
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
