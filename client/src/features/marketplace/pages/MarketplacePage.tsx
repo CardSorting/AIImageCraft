@@ -10,7 +10,9 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 
 export function MarketplacePage() {
-  const [filters, setFilters] = useState<FiltersType>({});
+  const [filters, setFilters] = useState<FiltersType>({
+    sortBy: 'trending' // Set default sort to trending
+  });
 
   const { data: listings, isLoading } = useQuery({
     queryKey: ["/api/marketplace/listings", filters],
@@ -89,10 +91,12 @@ export function MarketplacePage() {
       {/* Main Content */}
       <div className="container mx-auto py-8">
         <div className="flex flex-col md:flex-row gap-8">
-          <aside className="w-full md:w-80">
+          {/* Sidebar Filters */}
+          <aside className="w-full md:w-80 md:sticky md:top-8 self-start">
             <MarketplaceFilters filters={filters} onFilterChange={setFilters} />
           </aside>
 
+          {/* Main Content Area */}
           <main className="flex-1">
             {isLoading ? (
               <div className="flex justify-center items-center h-64">
@@ -100,10 +104,14 @@ export function MarketplacePage() {
               </div>
             ) : !listings?.length ? (
               <div className="text-center p-8 bg-muted rounded-lg">
+                <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-lg text-muted-foreground">No listings found</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try adjusting your filters or search criteria
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {listings.map((listing) => (
                   <PackListingCard 
                     key={listing.id} 

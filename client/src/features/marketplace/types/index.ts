@@ -41,7 +41,9 @@ export interface MarketplaceFilters {
   maxPrice?: number;
   rarity?: string;
   element?: string;
-  sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc';
+  sellerId?: number;
+  sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'trending' | 'popularity';
+  seller?: string;
 }
 
 export interface SellerPerformance {
