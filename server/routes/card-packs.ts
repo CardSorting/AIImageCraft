@@ -39,53 +39,73 @@ router.post("/", async (req, res) => {
 // Get user's card packs with cards (excluding listed packs)
 router.get("/", async (req, res) => {
   try {
-    const userPacks = await db.query.cardPacks.findMany({
-      where: eq(cardPacks.userId, req.user!.id),
-      with: {
-        cards: {
-          with: {
-            globalPoolCard: {
-              with: {
-                card: {
-                  with: {
-                    template: {
-                      with: {
-                        image: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        listings: {
-          where: eq(packListings.status, 'ACTIVE'),
-        },
-      },
-    });
+    // First get all user's packs
+    const userPacks = await db
+      .select({
+        pack: cardPacks,
+        listing: packListings,
+      })
+      .from(cardPacks)
+      .leftJoin(
+        packListings,
+        and(
+          eq(packListings.packId, cardPacks.id),
+          eq(packListings.status, 'ACTIVE')
+        )
+      )
+      .where(eq(cardPacks.userId, req.user!.id));
 
-    // Transform the data to match the expected client interface
-    // Only include packs that don't have active listings
-    const transformedPacks = userPacks
-      .filter(pack => !pack.listings?.length)
-      .map(pack => ({
-        id: pack.id,
-        name: pack.name,
-        description: pack.description,
-        createdAt: pack.createdAt.toISOString(),
-        cards: pack.cards
-          .filter(({ globalPoolCard }) => globalPoolCard?.card?.template)
-          .map(({ globalPoolCard }) => ({
-            id: globalPoolCard.card.id,
-            name: globalPoolCard.card.template.name,
+    // Filter out packs that have active listings
+    const availablePacks = userPacks.filter(({ listing }) => !listing);
+
+    // For each available pack, get its cards
+    const transformedPacks = await Promise.all(
+      availablePacks.map(async ({ pack }) => {
+        const packCards = await db
+          .select({
+            packCard: cardPackCards,
+            globalCard: globalCardPool,
+            card: tradingCards,
+            template: cardTemplates,
+            image: images,
+          })
+          .from(cardPackCards)
+          .innerJoin(
+            globalCardPool,
+            eq(cardPackCards.globalPoolCardId, globalCardPool.id)
+          )
+          .innerJoin(
+            tradingCards,
+            eq(globalCardPool.cardId, tradingCards.id)
+          )
+          .innerJoin(
+            cardTemplates,
+            eq(tradingCards.templateId, cardTemplates.id)
+          )
+          .innerJoin(
+            images,
+            eq(cardTemplates.imageId, images.id)
+          )
+          .where(eq(cardPackCards.packId, pack.id))
+          .orderBy(cardPackCards.position);
+
+        return {
+          id: pack.id,
+          name: pack.name,
+          description: pack.description,
+          createdAt: pack.createdAt.toISOString(),
+          cards: packCards.map(({ card, template, image }) => ({
+            id: card.id,
+            name: template.name,
             image: {
-              url: globalPoolCard.card.template.image.url,
+              url: image.url,
             },
-            elementalType: globalPoolCard.card.template.elementalType,
-            rarity: globalPoolCard.card.template.rarity,
+            elementalType: template.elementalType,
+            rarity: template.rarity,
           })),
-      }));
+        };
+      })
+    );
 
     res.json(transformedPacks);
   } catch (error: any) {
@@ -123,15 +143,20 @@ router.post("/:packId/cards", async (req, res) => {
     }
 
     // Verify cards exist and belong to user
-    const userCards = await db.query.tradingCards.findMany({
-      where: and(
+    const userCards = await db
+      .select({
+        card: tradingCards,
+        template: cardTemplates,
+      })
+      .from(tradingCards)
+      .innerJoin(
+        cardTemplates,
+        eq(tradingCards.templateId, cardTemplates.id)
+      )
+      .where(and(
         eq(tradingCards.userId, req.user!.id),
         inArray(tradingCards.id, result.data.cardIds)
-      ),
-      with: {
-        template: true,
-      },
-    });
+      ));
 
     if (userCards.length !== result.data.cardIds.length) {
       return res.status(400).send("Some cards not found or don't belong to you");
@@ -141,7 +166,7 @@ router.post("/:packId/cards", async (req, res) => {
     const packCards = await db.transaction(async (tx) => {
       // Move cards to global pool
       const globalPoolEntries = await Promise.all(
-        userCards.map(async (card) => {
+        userCards.map(async ({ card }) => {
           // Insert into global pool
           const [globalPoolCard] = await tx
             .insert(globalCardPool)
