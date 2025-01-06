@@ -1,15 +1,15 @@
-import { PackListing, CreatePackListing, PurchasePackListing, MarketplaceFilters } from "../types";
+import { PackListing, CreatePackListing, PurchasePackListing, MarketplaceFilters, SellerPerformance } from "../types";
 
 // Helper function to build query string from filters
 const buildQueryString = (filters: MarketplaceFilters): string => {
   const params = new URLSearchParams();
-  
+
   if (filters.minPrice) params.append('minPrice', filters.minPrice.toString());
   if (filters.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
   if (filters.rarity) params.append('rarity', filters.rarity);
   if (filters.element) params.append('element', filters.element);
   if (filters.sortBy) params.append('sortBy', filters.sortBy);
-  
+
   return params.toString();
 };
 
@@ -20,11 +20,11 @@ export const marketplaceService = {
     const response = await fetch(`/api/marketplace/listings${queryString}`, {
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(await response.text());
     }
-    
+
     return response.json();
   },
 
@@ -38,11 +38,11 @@ export const marketplaceService = {
       body: JSON.stringify(listing),
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(await response.text());
     }
-    
+
     return response.json();
   },
 
@@ -52,7 +52,7 @@ export const marketplaceService = {
       method: 'POST',
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(await response.text());
     }
@@ -64,7 +64,7 @@ export const marketplaceService = {
       method: 'POST',
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(await response.text());
     }
@@ -75,11 +75,24 @@ export const marketplaceService = {
     const response = await fetch('/api/marketplace/listings/user', {
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(await response.text());
     }
-    
+
+    return response.json();
+  },
+
+  // Get seller's performance metrics and achievements
+  getSellerPerformance: async (): Promise<SellerPerformance> => {
+    const response = await fetch('/api/marketplace/seller/performance', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
     return response.json();
   },
 };

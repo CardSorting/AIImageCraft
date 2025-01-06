@@ -43,3 +43,53 @@ export interface MarketplaceFilters {
   element?: string;
   sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc';
 }
+
+export interface SellerPerformance {
+  level: number;
+  experience: number;
+  experienceToNextLevel: number;
+  achievements: Achievement[];
+  stats: {
+    totalSales: number;
+    totalRevenue: number;
+    averageRating: number;
+    responseRate: number;
+    listingQuality: number;
+  };
+  weeklyGoals: {
+    sales: {
+      target: number;
+      current: number;
+    };
+    revenue: {
+      target: number;
+      current: number;
+    };
+    listings: {
+      target: number;
+      current: number;
+    };
+  };
+  activityStreak: {
+    current: number;
+    longest: number;
+    lastActive: string;
+  };
+  ranking: {
+    position: number;
+    totalSellers: number;
+    tier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
+  };
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  progress: number;
+  maxProgress: number;
+  unlockedAt?: string;
+  category: 'SALES' | 'ENGAGEMENT' | 'QUALITY' | 'SPECIAL';
+  rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+}
