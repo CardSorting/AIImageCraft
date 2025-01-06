@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, inArray } from "drizzle-orm";
-import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images } from "@db/schema";
+import { eq, and, inArray, or, isNull } from "drizzle-orm";
+import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images, packListings } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
@@ -36,11 +36,20 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Get user's card packs with cards
+// Get user's card packs with cards (excluding listed packs)
 router.get("/", async (req, res) => {
   try {
     const userPacks = await db.query.cardPacks.findMany({
-      where: eq(cardPacks.userId, req.user!.id),
+      where: and(
+        eq(cardPacks.userId, req.user!.id),
+        or(
+          // Pack has no active listing
+          isNull(packListings.id),
+          // Pack's listing is not active (completed, cancelled, etc.)
+          eq(packListings.status, 'SOLD'),
+          eq(packListings.status, 'CANCELLED')
+        )
+      ),
       with: {
         cards: {
           with: {
@@ -59,27 +68,33 @@ router.get("/", async (req, res) => {
             },
           },
         },
+        listings: {
+          where: eq(packListings.status, 'ACTIVE'),
+        },
       },
     });
 
     // Transform the data to match the expected client interface
-    const transformedPacks = userPacks.map(pack => ({
-      id: pack.id,
-      name: pack.name,
-      description: pack.description,
-      createdAt: pack.createdAt.toISOString(),
-      cards: pack.cards
-        .filter(({ globalPoolCard }) => globalPoolCard?.card?.template)
-        .map(({ globalPoolCard }) => ({
-          id: globalPoolCard.card.id,
-          name: globalPoolCard.card.template.name,
-          image: {
-            url: globalPoolCard.card.template.image.url,
-          },
-          elementalType: globalPoolCard.card.template.elementalType,
-          rarity: globalPoolCard.card.template.rarity,
-        })),
-    }));
+    // Only include packs that don't have active listings
+    const transformedPacks = userPacks
+      .filter(pack => pack.listings.length === 0)
+      .map(pack => ({
+        id: pack.id,
+        name: pack.name,
+        description: pack.description,
+        createdAt: pack.createdAt.toISOString(),
+        cards: pack.cards
+          .filter(({ globalPoolCard }) => globalPoolCard?.card?.template)
+          .map(({ globalPoolCard }) => ({
+            id: globalPoolCard.card.id,
+            name: globalPoolCard.card.template.name,
+            image: {
+              url: globalPoolCard.card.template.image.url,
+            },
+            elementalType: globalPoolCard.card.template.elementalType,
+            rarity: globalPoolCard.card.template.rarity,
+          })),
+      }));
 
     res.json(transformedPacks);
   } catch (error: any) {
