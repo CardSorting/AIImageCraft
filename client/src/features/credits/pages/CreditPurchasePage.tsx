@@ -6,15 +6,23 @@ import Header from "@/components/Header";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe, Stripe } from "@stripe/stripe-js";
 import PaymentForm from "../components/PaymentForm";
 
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error("Missing Stripe publishable key");
+// Ensure the publishable key is available
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+if (!STRIPE_PUBLISHABLE_KEY) {
+  throw new Error("Missing Stripe publishable key in environment variables (VITE_STRIPE_PUBLIC_KEY)");
 }
 
 // Initialize Stripe with publishable key
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+let stripePromise: Promise<Stripe | null>;
+try {
+  stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+} catch (error) {
+  console.error("Failed to initialize Stripe:", error);
+  stripePromise = Promise.reject(error);
+}
 
 export function CreditPurchasePage() {
   const { credits, packages, isLoading, purchaseCredits } = useCredits();
@@ -120,7 +128,22 @@ export function CreditPurchasePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <Elements 
+                  stripe={stripePromise} 
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'night',
+                      variables: {
+                        colorPrimary: '#a855f7',
+                        colorBackground: '#1a1a1a',
+                        colorText: '#ffffff',
+                        colorDanger: '#ef4444',
+                        fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont',
+                      },
+                    },
+                  }}
+                >
                   <PaymentForm 
                     onSuccess={() => {
                       setClientSecret(null);
