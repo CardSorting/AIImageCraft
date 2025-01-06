@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { User, ImagePlus, Images, LogOut, Library, ShoppingCart } from "lucide-react";
+import { User, ImagePlus, Images, LogOut, Library, ShoppingCart, Zap } from "lucide-react";
 import { CreditBalance } from "@/features/credits/components/CreditBalance";
 
 export default function Header() {
@@ -23,7 +23,17 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-4">
-          {user && <CreditBalance className="mr-2" />}
+          {user && (
+            <>
+              <CreditBalance className="mr-2" />
+              <Link href="/credits">
+                <Button variant="ghost" size="sm" className="text-purple-300/70 hover:text-purple-300">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Buy Credits
+                </Button>
+              </Link>
+            </>
+          )}
           <Link href="/create">
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <ImagePlus className="h-4 w-4 mr-2" />
