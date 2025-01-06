@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceService } from "../services/marketplaceService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Package, AlertCircle, X, Clock, CheckCircle, Ban } from "lucide-react";
+import { Loader2, Package, AlertCircle, X, Clock, CheckCircle, Ban, CheckSquare, Square } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,9 +23,19 @@ interface PackListingCardProps {
   listing: PackListing;
   onDelete?: () => void;
   showActions?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  showCheckbox?: boolean;
 }
 
-export function PackListingCard({ listing, onDelete, showActions = true }: PackListingCardProps) {
+export function PackListingCard({ 
+  listing, 
+  onDelete, 
+  showActions = true,
+  isSelected = false,
+  onSelect,
+  showCheckbox = false,
+}: PackListingCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -91,15 +101,30 @@ export function PackListingCard({ listing, onDelete, showActions = true }: PackL
   const currentUserId = window.__USER__?.id;
 
   return (
-    <Card className={cn(
-      "w-full transition-all duration-300",
-      listing.status === 'SOLD' && "bg-green-500/5 border-green-500/20",
-      listing.status === 'CANCELLED' && "bg-red-500/5 border-red-500/20",
-      listing.status === 'ACTIVE' && "hover:border-purple-500/50"
-    )}>
+    <Card 
+      className={cn(
+        "w-full transition-all duration-300 relative",
+        listing.status === 'SOLD' && "bg-green-500/5 border-green-500/20",
+        listing.status === 'CANCELLED' && "bg-red-500/5 border-red-500/20",
+        listing.status === 'ACTIVE' && "hover:border-purple-500/50",
+        isSelected && "ring-2 ring-primary",
+        showCheckbox && "cursor-pointer"
+      )}
+      onClick={() => showCheckbox && onSelect?.()}
+    >
+      {showCheckbox && (
+        <div className="absolute left-4 top-4 z-10">
+          {isSelected ? (
+            <CheckSquare className="w-5 h-5 text-primary" />
+          ) : (
+            <Square className="w-5 h-5 text-muted-foreground" />
+          )}
+        </div>
+      )}
+
       <CardHeader>
         <div className="flex justify-between items-start">
-          <div>
+          <div className={cn(showCheckbox && "pl-8")}>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">{listing.pack.name}</h3>
               {listing.status === 'ACTIVE' && (

@@ -4,7 +4,8 @@ import { PackListingCard } from "../components/PackListingCard";
 import { 
   Loader2, Package, ArrowLeft, Activity, 
   DollarSign, ShoppingCart, Clock, Plus, 
-  BarChart3, ListFilter 
+  BarChart3, ListFilter, Trash2, PenLine,
+  CheckSquare, Square, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -16,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { PackListing } from "../types";
 import {
@@ -33,6 +40,16 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 type ListingStatus = 'ACTIVE' | 'SOLD' | 'CANCELLED' | 'ALL';
 
@@ -40,6 +57,10 @@ export function UserListingsPage() {
   const [statusFilter, setStatusFilter] = useState<ListingStatus>('ALL');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'price_high' | 'price_low'>('newest');
   const [selectedView, setSelectedView] = useState<"grid" | "analytics">("grid");
+  const [selectedListings, setSelectedListings] = useState<Set<number>>(new Set());
+  const [showBulkPriceDialog, setShowBulkPriceDialog] = useState(false);
+  const [bulkPrice, setBulkPrice] = useState<string>("");
+  const { toast } = useToast();
 
   const { data: listings, isLoading } = useQuery({
     queryKey: ["/api/marketplace/listings/user"],
@@ -89,6 +110,52 @@ export function UserListingsPage() {
     { name: 'Cancelled', value: listings?.filter(l => l.status === 'CANCELLED').length || 0 },
   ];
 
+  const toggleSelectListing = (listingId: number) => {
+    const newSelected = new Set(selectedListings);
+    if (newSelected.has(listingId)) {
+      newSelected.delete(listingId);
+    } else {
+      newSelected.add(listingId);
+    }
+    setSelectedListings(newSelected);
+  };
+
+  const selectAllListings = () => {
+    if (sortedListings) {
+      const allIds = sortedListings.map(l => l.id);
+      setSelectedListings(new Set(allIds));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedListings(new Set());
+  };
+
+  const handleBulkCancel = async () => {
+    // Implementation for bulk cancellation
+    toast({
+      title: "Bulk cancel",
+      description: `Cancelling ${selectedListings.size} listings...`,
+    });
+  };
+
+  const handleBulkPriceUpdate = async () => {
+    if (!bulkPrice || isNaN(Number(bulkPrice))) {
+      toast({
+        title: "Invalid price",
+        description: "Please enter a valid price",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Implementation for bulk price update
+    toast({
+      title: "Bulk price update",
+      description: `Updating prices for ${selectedListings.size} listings to ${bulkPrice} credits...`,
+    });
+    setShowBulkPriceDialog(false);
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       {/* Header with Navigation and Quick Actions */}
@@ -120,6 +187,66 @@ export function UserListingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Bulk Actions Bar - Only shown when items are selected */}
+      {selectedListings.size > 0 && (
+        <div className="flex items-center justify-between p-4 bg-muted rounded-lg border">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={clearSelection}
+            >
+              <Square className="w-4 h-4 mr-2" />
+              Clear Selection ({selectedListings.size})
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={selectAllListings}
+            >
+              <CheckSquare className="w-4 h-4 mr-2" />
+              Select All
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkPriceDialog(true)}
+            >
+              <PenLine className="w-4 h-4 mr-2" />
+              Update Prices
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkCancel}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Cancel Selected
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  More Actions
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                  Download as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  Print Selected
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
@@ -254,6 +381,9 @@ export function UserListingsPage() {
                         key={listing.id} 
                         listing={listing} 
                         showActions={true}
+                        isSelected={selectedListings.has(listing.id)}
+                        onSelect={() => toggleSelectListing(listing.id)}
+                        showCheckbox={true}
                       />
                     ))}
                   </div>
@@ -266,6 +396,9 @@ export function UserListingsPage() {
                         key={listing.id} 
                         listing={listing} 
                         showActions={true}
+                        isSelected={selectedListings.has(listing.id)}
+                        onSelect={() => toggleSelectListing(listing.id)}
+                        showCheckbox={true}
                       />
                     ))}
                   </div>
@@ -278,6 +411,9 @@ export function UserListingsPage() {
                         key={listing.id} 
                         listing={listing} 
                         showActions={true}
+                        isSelected={selectedListings.has(listing.id)}
+                        onSelect={() => toggleSelectListing(listing.id)}
+                        showCheckbox={true}
                       />
                     ))}
                   </div>
@@ -290,6 +426,9 @@ export function UserListingsPage() {
                         key={listing.id} 
                         listing={listing} 
                         showActions={true}
+                        isSelected={selectedListings.has(listing.id)}
+                        onSelect={() => toggleSelectListing(listing.id)}
+                        showCheckbox={true}
                       />
                     ))}
                   </div>
@@ -297,6 +436,36 @@ export function UserListingsPage() {
               </Tabs>
             </>
           )}
+
+          {/* Bulk Price Update Dialog */}
+          <Dialog open={showBulkPriceDialog} onOpenChange={setShowBulkPriceDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Update Prices</DialogTitle>
+                <DialogDescription>
+                  Set a new price for {selectedListings.size} selected listings
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Enter new price"
+                    value={bulkPrice}
+                    onChange={(e) => setBulkPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowBulkPriceDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBulkPriceUpdate}>
+                  Update Prices
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
