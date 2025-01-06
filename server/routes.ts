@@ -183,7 +183,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Then fetch associated tags
-      const imageTags = await db
+      const imageTagResults = await db
         .select({
           name: tags.name
         })
@@ -194,7 +194,7 @@ export function registerRoutes(app: Express): Server {
       // Combine the results
       const result = {
         ...image,
-        tags: imageTags.map(tag => tag.name)
+        tags: imageTagResults.map(tag => tag.name)
       };
 
       res.json(result);
