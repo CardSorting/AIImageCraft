@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { marketplaceService } from "../services/marketplaceService";
 import { PackListingCard } from "../components/PackListingCard";
-import { 
-  Loader2, Package, ArrowLeft, Activity, 
-  DollarSign, ShoppingCart, Clock, Plus, 
+import {
+  Loader2, Package, ArrowLeft, Activity,
+  DollarSign, ShoppingCart, Clock, Plus,
   BarChart3, ListFilter, Trash2, PenLine,
   CheckSquare, Square, ChevronDown, Trophy
 } from "lucide-react";
@@ -75,7 +75,7 @@ export function UserListingsPage() {
     queryFn: () => marketplaceService.getSellerPerformance(),
   });
 
-  const filteredListings = listings?.filter(listing => 
+  const filteredListings = listings?.filter(listing =>
     statusFilter === 'ALL' ? true : listing.status === statusFilter
   );
 
@@ -140,7 +140,6 @@ export function UserListingsPage() {
 
   const handleBulkCancel = async () => {
     try {
-      // Wait for all cancel operations to complete
       await Promise.all(
         Array.from(selectedListings).map(listingId =>
           marketplaceService.cancelListing(listingId)
@@ -152,10 +151,8 @@ export function UserListingsPage() {
         description: `Successfully cancelled ${selectedListings.size} listings`,
       });
 
-      // Clear selection after successful cancellation
       clearSelection();
 
-      // Invalidate both listing queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings/user"] });
     } catch (error) {
@@ -203,8 +200,8 @@ export function UserListingsPage() {
                   Create Listing
                 </Button>
               </Link>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setSelectedView(selectedView === "grid" ? "analytics" : "grid")}
               >
                 {selectedView === "grid" ? (
@@ -394,16 +391,16 @@ export function UserListingsPage() {
                 </Card>
               ) : (
                 <>
-                  <Tabs defaultValue="all" className="w-full">
+                  <Tabs defaultValue="active" className="w-full">
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-card p-4 rounded-lg border">
                       <div>
                         <TabsList>
-                          <TabsTrigger value="all">All ({listings?.length || 0})</TabsTrigger>
                           <TabsTrigger value="active">Active ({stats?.activeListings || 0})</TabsTrigger>
                           <TabsTrigger value="sold">Sold ({stats?.soldListings || 0})</TabsTrigger>
                           <TabsTrigger value="cancelled">
                             Cancelled ({listings?.filter(l => l.status === 'CANCELLED').length || 0})
                           </TabsTrigger>
+                          <TabsTrigger value="all">All ({listings?.length || 0})</TabsTrigger>
                         </TabsList>
                       </div>
                       <Select
@@ -422,61 +419,65 @@ export function UserListingsPage() {
                       </Select>
                     </div>
 
-                    <TabsContent value="all" className="mt-6">
-                      <div className="grid gap-6">
-                        {sortedListings?.map((listing) => (
-                          <PackListingCard 
-                            key={listing.id} 
-                            listing={listing} 
-                            showActions={true}
-                            isSelected={selectedListings.has(listing.id)}
-                            onSelect={() => toggleSelectListing(listing.id)}
-                            showCheckbox={true}
-                          />
-                        ))}
-                      </div>
-                    </TabsContent>
-
                     <TabsContent value="active" className="mt-6">
-                      <div className="grid gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {sortedListings?.filter(l => l.status === 'ACTIVE').map((listing) => (
-                          <PackListingCard 
-                            key={listing.id} 
-                            listing={listing} 
+                          <PackListingCard
+                            key={listing.id}
+                            listing={listing}
                             showActions={true}
                             isSelected={selectedListings.has(listing.id)}
                             onSelect={() => toggleSelectListing(listing.id)}
                             showCheckbox={true}
+                            layout="grid"
                           />
                         ))}
                       </div>
                     </TabsContent>
 
                     <TabsContent value="sold" className="mt-6">
-                      <div className="grid gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {sortedListings?.filter(l => l.status === 'SOLD').map((listing) => (
-                          <PackListingCard 
-                            key={listing.id} 
-                            listing={listing} 
+                          <PackListingCard
+                            key={listing.id}
+                            listing={listing}
                             showActions={true}
                             isSelected={selectedListings.has(listing.id)}
                             onSelect={() => toggleSelectListing(listing.id)}
                             showCheckbox={true}
+                            layout="grid"
                           />
                         ))}
                       </div>
                     </TabsContent>
 
                     <TabsContent value="cancelled" className="mt-6">
-                      <div className="grid gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {sortedListings?.filter(l => l.status === 'CANCELLED').map((listing) => (
-                          <PackListingCard 
-                            key={listing.id} 
-                            listing={listing} 
+                          <PackListingCard
+                            key={listing.id}
+                            listing={listing}
                             showActions={true}
                             isSelected={selectedListings.has(listing.id)}
                             onSelect={() => toggleSelectListing(listing.id)}
                             showCheckbox={true}
+                            layout="grid"
+                          />
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="all" className="mt-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {sortedListings?.map((listing) => (
+                          <PackListingCard
+                            key={listing.id}
+                            listing={listing}
+                            showActions={true}
+                            isSelected={selectedListings.has(listing.id)}
+                            onSelect={() => toggleSelectListing(listing.id)}
+                            showCheckbox={true}
+                            layout="grid"
                           />
                         ))}
                       </div>
