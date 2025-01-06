@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceService } from "../services/marketplaceService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Package } from "lucide-react";
 
 interface PackListingCardProps {
   listing: PackListing;
@@ -39,41 +39,6 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
     purchaseMutation.mutate({ listingId: listing.id });
   };
 
-  const renderCardPreview = (card: PackListing["pack"]["cards"][0], index: number) => {
-    try {
-      const imageUrl = card?.globalPoolCard?.card?.template?.image?.url;
-      if (!imageUrl) {
-        return (
-          <div key={index} className="aspect-card bg-muted rounded-lg p-2 flex items-center justify-center">
-            <AlertCircle className="w-6 h-6 text-muted-foreground" />
-          </div>
-        );
-      }
-
-      return (
-        <div key={index} className="aspect-card bg-muted rounded-lg p-2">
-          <img
-            src={imageUrl}
-            alt={`Card ${index + 1}`}
-            className="w-full h-full object-cover rounded"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = 'fallback-image-url.jpg'; // Add a fallback image URL
-              target.alt = 'Card image unavailable';
-            }}
-          />
-        </div>
-      );
-    } catch (error) {
-      console.error('Error rendering card preview:', error);
-      return (
-        <div key={index} className="aspect-card bg-muted rounded-lg p-2 flex items-center justify-center">
-          <AlertCircle className="w-6 h-6 text-muted-foreground" />
-        </div>
-      );
-    }
-  };
-
   return (
     <Card className="w-full">
       <CardHeader>
@@ -96,9 +61,38 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
         {listing.pack.description && (
           <p className="text-sm mb-4">{listing.pack.description}</p>
         )}
-        <div className="grid grid-cols-4 gap-2">
-          {listing.pack.cards.map((card, index) => renderCardPreview(card, index))}
+        <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+          {listing.pack.previewCard ? (
+            <>
+              <img
+                src={listing.pack.previewCard.image.url}
+                alt={`Preview of ${listing.pack.name}`}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
+                <span className="text-sm font-medium bg-black/40 px-2 py-1 rounded-md">
+                  {listing.pack.previewCard.name}
+                </span>
+                <span className={`text-xs px-2 py-1 rounded-md ${
+                  listing.pack.previewCard.rarity === 'Legendary' ? 'bg-yellow-500/40' :
+                  listing.pack.previewCard.rarity === 'Epic' ? 'bg-purple-500/40' :
+                  listing.pack.previewCard.rarity === 'Rare' ? 'bg-blue-500/40' :
+                  'bg-gray-500/40'
+                }`}>
+                  {listing.pack.previewCard.rarity}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="w-12 h-12 text-muted-foreground" />
+            </div>
+          )}
         </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          Pack contains {listing.pack.totalCards} cards
+        </p>
       </CardContent>
       {showActions && (
         <CardFooter className="flex justify-end gap-2">

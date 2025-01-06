@@ -15,22 +15,15 @@ export interface PackListing {
     id: number;
     name: string;
     description?: string;
-    cards: Array<{
-      id: number;
-      globalPoolCard: {
-        id: number;
-        card: {
-          id: number;
-          template: {
-            id: number;
-            name: string;
-            image: {
-              url: string;
-            };
-          };
-        };
+    previewCard: {
+      name: string;
+      image: {
+        url: string;
       };
-    }>;
+      rarity: string;
+      elementalType: string;
+    } | null;
+    totalCards: number;
   };
 }
 
