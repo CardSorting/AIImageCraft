@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceService } from "../services/marketplaceService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, AlertCircle } from "lucide-react";
 
 interface PackListingCardProps {
   listing: PackListing;
@@ -38,6 +39,41 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
     purchaseMutation.mutate({ listingId: listing.id });
   };
 
+  const renderCardPreview = (card: PackListing["pack"]["cards"][0], index: number) => {
+    try {
+      const imageUrl = card?.globalPoolCard?.card?.template?.image?.url;
+      if (!imageUrl) {
+        return (
+          <div key={index} className="aspect-card bg-muted rounded-lg p-2 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-muted-foreground" />
+          </div>
+        );
+      }
+
+      return (
+        <div key={index} className="aspect-card bg-muted rounded-lg p-2">
+          <img
+            src={imageUrl}
+            alt={`Card ${index + 1}`}
+            className="w-full h-full object-cover rounded"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = 'fallback-image-url.jpg'; // Add a fallback image URL
+              target.alt = 'Card image unavailable';
+            }}
+          />
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering card preview:', error);
+      return (
+        <div key={index} className="aspect-card bg-muted rounded-lg p-2 flex items-center justify-center">
+          <AlertCircle className="w-6 h-6 text-muted-foreground" />
+        </div>
+      );
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -57,17 +93,11 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm mb-4">{listing.pack.description}</p>
+        {listing.pack.description && (
+          <p className="text-sm mb-4">{listing.pack.description}</p>
+        )}
         <div className="grid grid-cols-4 gap-2">
-          {listing.pack.cards.map((card, index) => (
-            <div key={index} className="aspect-card bg-muted rounded-lg p-2">
-              <img
-                src={card.globalPoolCard.card.template.image.url}
-                alt={`Card ${index + 1}`}
-                className="w-full h-full object-cover rounded"
-              />
-            </div>
-          ))}
+          {listing.pack.cards.map((card, index) => renderCardPreview(card, index))}
         </div>
       </CardContent>
       {showActions && (
@@ -76,7 +106,14 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
             onClick={handlePurchase}
             disabled={purchaseMutation.isPending}
           >
-            {purchaseMutation.isPending ? "Purchasing..." : "Purchase Pack"}
+            {purchaseMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Purchasing...
+              </>
+            ) : (
+              "Purchase Pack"
+            )}
           </Button>
         </CardFooter>
       )}

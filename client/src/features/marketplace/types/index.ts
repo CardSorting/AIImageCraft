@@ -1,4 +1,4 @@
-import type { CardPack } from "@/features/trading-cards/types";
+import type { TradingCard } from "@/features/trading-cards/types";
 
 export interface PackListing {
   id: number;
@@ -6,11 +6,31 @@ export interface PackListing {
   sellerId: number;
   price: number;
   status: 'ACTIVE' | 'SOLD' | 'CANCELLED';
-  pack: CardPack;
   createdAt: string;
   seller: {
     id: number;
     username: string;
+  };
+  pack: {
+    id: number;
+    name: string;
+    description?: string;
+    cards: Array<{
+      id: number;
+      globalPoolCard: {
+        id: number;
+        card: {
+          id: number;
+          template: {
+            id: number;
+            name: string;
+            image: {
+              url: string;
+            };
+          };
+        };
+      };
+    }>;
   };
 }
 
