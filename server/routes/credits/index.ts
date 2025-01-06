@@ -1,86 +1,135 @@
 import { Router } from "express";
-import { CreditService } from "../../services/credits/credit-service";
-import { InsufficientCreditsError } from "../../services/credits/types";
+import { db } from "../../../db";
+import { eq } from "drizzle-orm";
+import { creditBalances, creditTransactions } from "../../../db/schema/credits/schema";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("Missing STRIPE_SECRET_KEY environment variable");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
 
 const router = Router();
 
-// Get user balance
-router.get("/balance", async (req, res) => {
+// Get user credit balance
+router.get("/", async (req, res) => {
   try {
-    const balance = await CreditService.getBalance(req.user!.id);
-    res.json({ balance });
+    const [balance] = await db
+      .select({
+        credits: creditBalances.balance,
+      })
+      .from(creditBalances)
+      .where(eq(creditBalances.userId, req.user!.id))
+      .limit(1);
+
+    res.json({ credits: balance?.credits ?? 0 });
   } catch (error) {
-    console.error("Error fetching balance:", error);
-    res.status(500).send("Failed to fetch balance");
+    console.error("Error fetching credits:", error);
+    res.status(500).send("Failed to fetch credit balance");
   }
 });
 
-// Add credits (through purchase or other means)
-router.post("/add", async (req, res) => {
+// Initiate credit purchase
+router.post("/purchase", async (req, res) => {
   try {
-    const { amount, description = "Credit purchase" } = req.body;
+    const { packageId } = req.body;
 
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).send("Invalid amount. Must be a positive number.");
+    // Get package details (hardcoded for now, could be moved to database later)
+    const packages = {
+      basic: { credits: 100, price: 499 },
+      plus: { credits: 500, price: 1999 },
+      pro: { credits: 1200, price: 3999 },
+    };
+
+    const selectedPackage = packages[packageId as keyof typeof packages];
+    if (!selectedPackage) {
+      return res.status(400).send("Invalid package selected");
     }
 
-    const newBalance = await CreditService.addCredits(
-      req.user!.id,
-      amount,
-      description
-    );
+    // Create Stripe payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: selectedPackage.price,
+      currency: "usd",
+      metadata: {
+        userId: req.user!.id.toString(),
+        packageId,
+        credits: selectedPackage.credits.toString(),
+      },
+    });
 
     res.json({
-      success: true,
-      balance: newBalance,
-      message: `Successfully added ${amount} credits`
+      clientSecret: paymentIntent.client_secret,
     });
   } catch (error) {
-    console.error("Error adding credits:", error);
-    res.status(500).send("Failed to add credits");
+    console.error("Error creating payment intent:", error);
+    res.status(500).send("Failed to initiate purchase");
   }
 });
 
-// Use credits
-router.post("/use", async (req, res) => {
+// Complete credit purchase
+router.post("/purchase/complete", async (req, res) => {
   try {
-    const { amount, description = "Credit usage" } = req.body;
+    const { paymentIntentId } = req.body;
 
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).send("Invalid amount. Must be a positive number.");
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (!paymentIntent || paymentIntent.status !== "succeeded") {
+      return res.status(400).send("Invalid or incomplete payment");
     }
 
-    const newBalance = await CreditService.useCredits(
-      req.user!.id,
-      amount,
-      description
-    );
+    const credits = parseInt(paymentIntent.metadata.credits);
+    if (isNaN(credits)) {
+      return res.status(400).send("Invalid credit amount");
+    }
 
-    res.json({
-      success: true,
-      balance: newBalance,
-      message: `Successfully used ${amount} credits`
-    });
-  } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
+    // Add credits to user's balance within a transaction
+    const result = await db.transaction(async (tx) => {
+      // Get current balance or create if it doesn't exist
+      const [currentBalance] = await tx
+        .select()
+        .from(creditBalances)
+        .where(eq(creditBalances.userId, req.user!.id))
+        .limit(1);
+
+      if (currentBalance) {
+        await tx
+          .update(creditBalances)
+          .set({ balance: currentBalance.balance + credits })
+          .where(eq(creditBalances.userId, req.user!.id));
+      } else {
+        await tx.insert(creditBalances).values({
+          userId: req.user!.id,
+          balance: credits,
+        });
+      }
+
+      // Record the transaction
+      await tx.insert(creditTransactions).values({
+        userId: req.user!.id,
+        amount: credits,
+        type: "purchase",
+        description: `Purchased ${credits} credits`,
+        paymentIntentId,
       });
-    }
-    console.error("Error using credits:", error);
-    res.status(500).send("Failed to use credits");
-  }
-});
 
-// Get transaction history
-router.get("/history", async (req, res) => {
-  try {
-    const history = await CreditService.getTransactionHistory(req.user!.id);
-    res.json(history);
+      const [newBalance] = await tx
+        .select()
+        .from(creditBalances)
+        .where(eq(creditBalances.userId, req.user!.id))
+        .limit(1);
+
+      return newBalance;
+    });
+
+    res.json({
+      success: true,
+      balance: result.balance,
+    });
   } catch (error) {
-    console.error("Error fetching history:", error);
-    res.status(500).send("Failed to fetch history");
+    console.error("Error completing purchase:", error);
+    res.status(500).send("Failed to complete purchase");
   }
 });
 

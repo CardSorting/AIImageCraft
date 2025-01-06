@@ -1,23 +1,83 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  fetchCredits,
-  generateReferralCode,
-  getReferralCode,
-  getReferralStats,
-  useReferralCode
-} from "../api/credits";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchCredits } from "../api/credits";
 import { useToast } from "@/hooks/use-toast";
 
+export interface CreditPackage {
+  id: string;
+  credits: number;
+  price: number;
+}
+
+// Credit packages configuration
+const creditPackages: CreditPackage[] = [
+  { id: 'basic', credits: 100, price: 499 }, // $4.99
+  { id: 'plus', credits: 500, price: 1999 }, // $19.99
+  { id: 'pro', credits: 1200, price: 3999 }, // $39.99
+];
+
 export function useCredits() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/credits"],
     queryFn: fetchCredits,
   });
 
+  const purchaseMutation = useMutation({
+    mutationFn: async ({ packageId }: { packageId: string }) => {
+      const response = await fetch('/api/credits/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
+      toast({
+        title: "Purchase successful!",
+        description: "Credits have been added to your account.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Purchase failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const completePurchase = async ({ paymentIntentId }: { paymentIntentId: string }) => {
+    const response = await fetch('/api/credits/purchase/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentIntentId }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  };
+
   return {
     credits: data?.credits ?? 0,
+    packages: creditPackages,
     isLoading,
     error,
+    purchaseCredits: purchaseMutation.mutateAsync,
+    isPurchasing: purchaseMutation.isPending,
+    completePurchase,
   };
 }
 

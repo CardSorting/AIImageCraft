@@ -4,24 +4,25 @@ import { useCredits } from "../hooks/use-credits";
 import { Loader2, Sparkles, Package, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export function CreditPurchasePage() {
   const { credits, packages, isLoading, purchaseCredits, completePurchase } = useCredits();
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const { toast } = useToast();
 
   const handlePurchase = async (packageId: string) => {
     try {
       setIsPurchasing(true);
       setSelectedPackage(packageId);
-      
+
       const { clientSecret } = await purchaseCredits({ packageId });
-      
+
       // TODO: Handle Stripe payment flow
       // For now, we'll just complete the purchase directly
       await completePurchase({ paymentIntentId: clientSecret });
-      
+
       toast({
         title: "Purchase successful!",
         description: "Credits have been added to your account.",
@@ -38,10 +39,21 @@ export function CreditPurchasePage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto py-8">
         <div className="max-w-4xl mx-auto">
           {/* Current Balance */}
@@ -54,11 +66,7 @@ export function CreditPurchasePage() {
                 </div>
                 <div className="flex items-center gap-2 text-3xl font-bold">
                   <Zap className="w-8 h-8 text-purple-500" />
-                  {isLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <span>{credits} Credits</span>
-                  )}
+                  <span>{credits} Credits</span>
                 </div>
               </div>
             </CardContent>
@@ -66,11 +74,11 @@ export function CreditPurchasePage() {
 
           {/* Credit Packages */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {packages.map((pkg) => (
+            {packages && packages.map((pkg) => (
               <Card key={pkg.id} className="relative overflow-hidden">
                 {/* Decorative gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent" />
-                
+
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="w-5 h-5" />
@@ -80,7 +88,7 @@ export function CreditPurchasePage() {
                     ${(pkg.price / 100).toFixed(2)} USD
                   </CardDescription>
                 </CardHeader>
-                
+
                 <CardContent>
                   <Button 
                     className="w-full"

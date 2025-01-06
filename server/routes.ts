@@ -3,13 +3,24 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
 import { eq, and, or, sql } from "drizzle-orm";
-import { creditTransactions, images, cardTemplates, tradingCards, users } from "@db/schema";
+import { creditTransactions, creditBalances } from "../db/schema/credits/schema";
+import { users } from "../db/schema/users/schema";
 import creditRoutes from "./routes/credits";
 import marketplaceRoutes from "./routes/marketplace";
 import cardPackRoutes from "./routes/card-packs";
 import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
+import { dailyChallenges, challengeProgress } from "../db/schema";
+import { trades, tradeItems } from "../db/schema/trades/schema";
+import { insertTradeSchema } from "./schemas";
+import { PulseCreditManager } from "./services/pulse-credit-manager";
+import { TaskService } from "./services/task-service";
+import { WarGameService } from "./services/war-game-service";
+import { games, levelMilestones, userRewards } from "../db/schema";
+import { images } from "../db/schema";
+import { tradingCards } from "../db/schema/trading-cards/schema";
+
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes first
@@ -501,7 +512,6 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Get user credits endpoint
-
   // Add this new route after the /api/credits endpoint and before the httpServer creation
   app.post("/api/share", async (req, res) => {
     try {
