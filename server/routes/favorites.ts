@@ -6,6 +6,12 @@ import { z } from "zod";
 
 const router = Router();
 
+// Define validation schema for favorite toggle
+const toggleFavoriteSchema = z.object({
+  itemType: z.enum(['card', 'image']),
+  itemId: z.number().int().positive(),
+});
+
 // Get user's favorites
 router.get("/", async (req, res) => {
   try {
@@ -119,7 +125,7 @@ router.post("/:type/:id", async (req, res) => {
 
     if (!result.success) {
       return res.status(400).send(
-        "Invalid input: " + result.error.issues.map(i => i.message).join(", ")
+        "Invalid input: " + result.error.issues.map((i: z.ZodIssue) => i.message).join(", ")
       );
     }
 
