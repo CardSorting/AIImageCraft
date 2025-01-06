@@ -4,17 +4,30 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceService } from "../services/marketplaceService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, AlertCircle, Package } from "lucide-react";
+import { Loader2, Package, AlertCircle, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 interface PackListingCardProps {
   listing: PackListing;
-  onPurchase?: () => void;
+  onDelete?: () => void;
   showActions?: boolean;
 }
 
-export function PackListingCard({ listing, onPurchase, showActions = true }: PackListingCardProps) {
+export function PackListingCard({ listing, onDelete, showActions = true }: PackListingCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const purchaseMutation = useMutation({
     mutationFn: marketplaceService.purchaseListing,
@@ -24,7 +37,7 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
         description: "You have successfully purchased the pack.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
-      onPurchase?.();
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings/user"] });
     },
     onError: (error: Error) => {
       toast({
@@ -34,6 +47,31 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
       });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: marketplaceService.cancelListing,
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Listing has been cancelled successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings/user"] });
+      onDelete?.();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    deleteMutation.mutate(listing.id);
+    setShowDeleteDialog(false);
+  };
 
   const handlePurchase = () => {
     purchaseMutation.mutate({ listingId: listing.id });
@@ -75,9 +113,9 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
                   {listing.pack.previewCard.name}
                 </span>
                 <span className={`text-xs px-2 py-1 rounded-md ${
-                  listing.pack.previewCard.rarity === 'Legendary' ? 'bg-yellow-500/40' :
-                  listing.pack.previewCard.rarity === 'Epic' ? 'bg-purple-500/40' :
-                  listing.pack.previewCard.rarity === 'Rare' ? 'bg-blue-500/40' :
+                  listing.pack.previewCard.rarity === 'LEGENDARY' ? 'bg-yellow-500/40' :
+                  listing.pack.previewCard.rarity === 'EPIC' ? 'bg-purple-500/40' :
+                  listing.pack.previewCard.rarity === 'RARE' ? 'bg-blue-500/40' :
                   'bg-gray-500/40'
                 }`}>
                   {listing.pack.previewCard.rarity}
@@ -96,19 +134,53 @@ export function PackListingCard({ listing, onPurchase, showActions = true }: Pac
       </CardContent>
       {showActions && (
         <CardFooter className="flex justify-end gap-2">
-          <Button
-            onClick={handlePurchase}
-            disabled={purchaseMutation.isPending}
-          >
-            {purchaseMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Purchasing...
-              </>
-            ) : (
-              "Purchase Pack"
-            )}
-          </Button>
+          {listing.seller.id === window.__USER__?.id ? (
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deleteMutation.isPending}>
+                  {deleteMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Cancelling...
+                    </>
+                  ) : (
+                    <>
+                      <X className="mr-2 h-4 w-4" />
+                      Cancel Listing
+                    </>
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel Listing</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to cancel this listing? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>
+                    Confirm
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              onClick={handlePurchase}
+              disabled={purchaseMutation.isPending}
+            >
+              {purchaseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Purchasing...
+                </>
+              ) : (
+                "Purchase Pack"
+              )}
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>

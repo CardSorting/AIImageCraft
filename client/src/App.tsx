@@ -13,6 +13,7 @@ import TradingCardsPage from "@/features/trading-cards/pages/TradingCardsPage";
 import CreateTradingCardPage from "@/features/trading-cards/pages/CreateTradingCardPage";
 import { DailyChallengesPage } from "@/pages/DailyChallengesPage";
 import { MarketplacePage } from "@/features/marketplace/pages/MarketplacePage";
+import { UserListingsPage } from "@/features/marketplace/pages/UserListingsPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -70,6 +71,9 @@ function App() {
           </Route>
           <Route path="/marketplace">
             {user ? <MarketplacePage /> : <AuthPage />}
+          </Route>
+          <Route path="/marketplace/listings">
+            {user ? <UserListingsPage /> : <AuthPage />}
           </Route>
           <Route path="/queue">
             {user ? <GameQueue /> : <AuthPage />}
