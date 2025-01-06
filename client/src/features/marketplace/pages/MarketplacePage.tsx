@@ -4,7 +4,9 @@ import { PackListingCard } from "../components/PackListingCard";
 import { MarketplaceFilters } from "../components/MarketplaceFilters";
 import { useState } from "react";
 import type { MarketplaceFilters as FiltersType } from "../types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 export function MarketplacePage() {
   const [filters, setFilters] = useState<FiltersType>({});
@@ -16,14 +18,22 @@ export function MarketplacePage() {
 
   return (
     <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Card Pack Marketplace</h1>
+        <Link href="/marketplace/listings">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            My Listings
+          </Button>
+        </Link>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-80">
           <MarketplaceFilters filters={filters} onFilterChange={setFilters} />
         </aside>
 
         <main className="flex-1">
-          <h1 className="text-3xl font-bold mb-6">Card Pack Marketplace</h1>
-          
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <Loader2 className="w-8 h-8 animate-spin" />
