@@ -1,47 +1,54 @@
 import { Router } from "express";
 import { db } from "@db";
 import { eq, and } from "drizzle-orm";
-import { userFavorites, tradingCards, cardTemplates, images } from "@db/schema";
+import { userFavorites, tradingCards, cardTemplates, images, users } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
 
-// Validation schema for favorite toggle
-const toggleFavoriteSchema = z.object({
-  itemType: z.enum(['card', 'image']),
-  itemId: z.number().int().positive(),
-});
-
 // Get user's favorites
 router.get("/", async (req, res) => {
   try {
-    const userFavoritesList = await db.query.userFavorites.findMany({
-      where: eq(userFavorites.userId, req.user!.id),
-      orderBy: (favorites, { desc }) => [desc(favorites.createdAt)],
-    });
+    // Get all user favorites
+    const userFavoritesList = await db
+      .select()
+      .from(userFavorites)
+      .where(eq(userFavorites.userId, req.user!.id))
+      .orderBy(userFavorites.createdAt);
 
     // Fetch details for each favorite item
     const favorites = await Promise.all(
       userFavoritesList.map(async (favorite) => {
         if (favorite.itemType === 'card') {
-          const card = await db.query.tradingCards.findFirst({
-            where: eq(tradingCards.id, favorite.itemId),
-            with: {
-              template: {
-                with: {
-                  image: true,
-                  creator: true,
-                },
-              },
-              owner: true,
-            },
-          });
+          // Get card details with template and creator info
+          const [card] = await db
+            .select({
+              card: tradingCards,
+              template: cardTemplates,
+              image: images,
+              creator: users,
+            })
+            .from(tradingCards)
+            .innerJoin(
+              cardTemplates,
+              eq(tradingCards.templateId, cardTemplates.id)
+            )
+            .innerJoin(
+              images,
+              eq(cardTemplates.imageId, images.id)
+            )
+            .innerJoin(
+              users,
+              eq(cardTemplates.creatorId, users.id)
+            )
+            .where(eq(tradingCards.id, favorite.itemId))
+            .limit(1);
 
           if (!card) return null;
 
           return {
             id: favorite.id,
-            itemId: card.id,
+            itemId: card.card.id,
             type: 'card',
             name: card.template.name,
             description: card.template.description,
@@ -49,32 +56,44 @@ router.get("/", async (req, res) => {
             rarity: card.template.rarity,
             powerStats: card.template.powerStats,
             image: {
-              url: card.template.image.url,
+              url: card.image.url,
             },
-            createdAt: card.createdAt,
-            creator: card.template.creator,
-            owner: card.owner,
+            createdAt: favorite.createdAt,
+            creator: {
+              id: card.creator.id,
+              username: card.creator.username,
+            },
           };
         }
 
         if (favorite.itemType === 'image') {
-          const image = await db.query.images.findFirst({
-            where: eq(images.id, favorite.itemId),
-            with: {
-              user: true,
-            },
-          });
+          // Get image details with creator info
+          const [image] = await db
+            .select({
+              image: images,
+              creator: users,
+            })
+            .from(images)
+            .innerJoin(
+              users,
+              eq(images.userId, users.id)
+            )
+            .where(eq(images.id, favorite.itemId))
+            .limit(1);
 
           if (!image) return null;
 
           return {
             id: favorite.id,
-            itemId: image.id,
+            itemId: image.image.id,
             type: 'image',
-            url: image.url,
-            prompt: image.prompt,
-            creator: image.user,
-            createdAt: image.createdAt,
+            url: image.image.url,
+            prompt: image.image.prompt,
+            creator: {
+              id: image.creator.id,
+              username: image.creator.username,
+            },
+            createdAt: favorite.createdAt,
           };
         }
 
@@ -109,14 +128,18 @@ router.post("/:type/:id", async (req, res) => {
     // Verify the item exists based on type
     let exists = false;
     if (itemType === 'card') {
-      const card = await db.query.tradingCards.findFirst({
-        where: eq(tradingCards.id, itemId),
-      });
+      const [card] = await db
+        .select()
+        .from(tradingCards)
+        .where(eq(tradingCards.id, itemId))
+        .limit(1);
       exists = !!card;
     } else if (itemType === 'image') {
-      const image = await db.query.images.findFirst({
-        where: eq(images.id, itemId),
-      });
+      const [image] = await db
+        .select()
+        .from(images)
+        .where(eq(images.id, itemId))
+        .limit(1);
       exists = !!image;
     }
 
@@ -125,22 +148,26 @@ router.post("/:type/:id", async (req, res) => {
     }
 
     // Check if already favorited
-    const existing = await db.query.userFavorites.findFirst({
-      where: and(
+    const [existing] = await db
+      .select()
+      .from(userFavorites)
+      .where(and(
         eq(userFavorites.userId, req.user!.id),
         eq(userFavorites.itemType, itemType),
         eq(userFavorites.itemId, itemId)
-      ),
-    });
+      ))
+      .limit(1);
 
     if (existing) {
       // If already favorited, remove it
-      await db.delete(userFavorites)
+      await db
+        .delete(userFavorites)
         .where(eq(userFavorites.id, existing.id));
       res.json({ favorited: false });
     } else {
       // Add to favorites
-      await db.insert(userFavorites)
+      await db
+        .insert(userFavorites)
         .values({
           userId: req.user!.id,
           itemType,
