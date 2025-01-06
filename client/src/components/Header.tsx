@@ -23,7 +23,7 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-4">
-          <CreditBalance />
+          {user && <CreditBalance className="mr-2" />}
           <Link href="/create">
             <Button variant="ghost" className="text-purple-300/70 hover:text-purple-300">
               <ImagePlus className="h-4 w-4 mr-2" />
