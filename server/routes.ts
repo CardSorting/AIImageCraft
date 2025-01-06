@@ -38,6 +38,18 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
+      // Check if user has enough credits first
+      const hasEnoughCredits = await PulseCreditManager.hasEnoughCredits(
+        req.user!.id,
+        PulseCreditManager.IMAGE_GENERATION_COST
+      );
+
+      if (!hasEnoughCredits) {
+        return res.status(400).send(
+          `Insufficient credits. Image generation costs ${PulseCreditManager.IMAGE_GENERATION_COST} credits.`
+        );
+      }
+
       // Use Redis-based atomic transaction for credit deduction
       const deductionResult = await PulseCreditManager.deductCredits(
         req.user!.id,
@@ -47,12 +59,23 @@ export function registerRoutes(app: Express): Server {
       );
 
       if (!deductionResult.success) {
-        return res.status(400).send(deductionResult.error || `Insufficient credits. Image generation costs ${PulseCreditManager.IMAGE_GENERATION_COST} credits.`);
+        return res.status(400).send(deductionResult.error || `Failed to process credit deduction. Please try again.`);
       }
 
-      // Create the image generation task
-      const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
-      res.json(result);
+      try {
+        // Create the image generation task
+        const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
+        res.json(result);
+      } catch (taskError: any) {
+        // If task creation fails, refund the credits
+        await PulseCreditManager.addCredits(
+          req.user!.id,
+          PulseCreditManager.IMAGE_GENERATION_COST,
+          "REFUND",
+          "Image generation failed - credit refund"
+        );
+        throw taskError;
+      }
     } catch (error: any) {
       console.error("Error generating image:", error);
       if (error.message.includes("GOAPI_API_KEY")) {
