@@ -404,6 +404,50 @@ export const userRewardsRelations = relations(userRewards, ({ one }) => ({
   }),
 }));
 
+// Add marketplace tables after the existing tables
+export const packListings = pgTable("pack_listings", {
+  id: serial("id").primaryKey(),
+  packId: integer("pack_id").notNull().references(() => cardPacks.id),
+  sellerId: integer("seller_id").notNull().references(() => users.id),
+  price: integer("price").notNull(),
+  status: text("status").notNull().default('ACTIVE'),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const marketplaceTransactions = pgTable("marketplace_transactions", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  buyerId: integer("buyer_id").notNull().references(() => users.id),
+  price: integer("price").notNull(),
+  status: text("status").notNull().default('COMPLETED'),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Add relations for marketplace tables
+export const packListingsRelations = relations(packListings, ({ one, many }) => ({
+  pack: one(cardPacks, {
+    fields: [packListings.packId],
+    references: [cardPacks.id],
+  }),
+  seller: one(users, {
+    fields: [packListings.sellerId],
+    references: [users.id],
+  }),
+  transactions: many(marketplaceTransactions),
+}));
+
+export const marketplaceTransactionsRelations = relations(marketplaceTransactions, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [marketplaceTransactions.listingId],
+    references: [packListings.id],
+  }),
+  buyer: one(users, {
+    fields: [marketplaceTransactions.buyerId],
+    references: [users.id],
+  }),
+}));
+
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
 
@@ -465,6 +509,13 @@ export const selectCardPackCardSchema = createSelectSchema(cardPackCards);
 export const insertGlobalCardPoolSchema = createInsertSchema(globalCardPool);
 export const selectGlobalCardPoolSchema = createSelectSchema(globalCardPool);
 
+export const insertPackListingSchema = createInsertSchema(packListings);
+export const selectPackListingSchema = createSelectSchema(packListings);
+
+export const insertMarketplaceTransactionSchema = createInsertSchema(marketplaceTransactions);
+export const selectMarketplaceTransactionSchema = createSelectSchema(marketplaceTransactions);
+
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -525,3 +576,9 @@ export type SelectCardPackCard = typeof cardPackCards.$inferSelect;
 
 export type InsertGlobalCardPool = typeof globalCardPool.$inferInsert;
 export type SelectGlobalCardPool = typeof globalCardPool.$inferSelect;
+
+export type InsertPackListing = typeof packListings.$inferInsert;
+export type SelectPackListing = typeof packListings.$inferSelect;
+
+export type InsertMarketplaceTransaction = typeof marketplaceTransactions.$inferInsert;
+export type SelectMarketplaceTransaction = typeof marketplaceTransactions.$inferSelect;

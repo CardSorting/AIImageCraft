@@ -21,6 +21,7 @@ import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
 import tradingCardRoutes from "./routes/trading-cards";
 import cardPackRoutes from "./routes/card-packs";
+import marketplaceRoutes from "./routes/marketplace";
 import { TaskService } from "./services/task";
 import { PulseCreditManager } from "./services/redis";
 
@@ -39,6 +40,9 @@ export function registerRoutes(app: Express): Server {
     }
     next();
   });
+
+  // Register marketplace routes
+  app.use("/api/marketplace", marketplaceRoutes);
 
   // Register card packs routes - ensure this is before other routes
   app.use("/api/card-packs", cardPackRoutes);
@@ -221,6 +225,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to fetch images");
     }
   });
+
 
 
   // Trading marketplace routes
