@@ -12,6 +12,8 @@ import LandingPage from "@/pages/LandingPage";
 import TradingCardsPage from "@/features/trading-cards/pages/TradingCardsPage";
 import CreateTradingCardPage from "@/features/trading-cards/pages/CreateTradingCardPage";
 import { DailyChallengesPage } from "@/pages/DailyChallengesPage";
+import { MarketplacePage } from "@/features/marketplace/pages/MarketplacePage";
+import { MainNav } from "@/components/ui/nav";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -42,42 +44,57 @@ function App() {
   }
 
   return (
-    <Switch>
-      {/* Public routes */}
-      <Route path="/" component={LandingPage} />
-      <Route path="/auth">
-        {user ? <Gallery /> : <AuthPage />}
-      </Route>
+    <div className="min-h-screen flex flex-col">
+      {user && (
+        <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center">
+            <MainNav />
+          </div>
+        </header>
+      )}
 
-      {/* Protected routes */}
-      <Route path="/create">
-        {user ? <CreateImage /> : <AuthPage />}
-      </Route>
-      <Route path="/gallery">
-        {user ? <Gallery /> : <AuthPage />}
-      </Route>
-      <Route path="/profile">
-        {user ? <Profile /> : <AuthPage />}
-      </Route>
-      <Route path="/cards">
-        {user ? <TradingCardsPage /> : <AuthPage />}
-      </Route>
-      <Route path="/cards/create">
-        {user ? <CreateTradingCardPage /> : <AuthPage />}
-      </Route>
-      <Route path="/queue">
-        {user ? <GameQueue /> : <AuthPage />}
-      </Route>
-      <Route path="/games/:id">
-        {user ? <GameQueue /> : <AuthPage />}
-      </Route>
-      <Route path="/challenges">
-        {user ? <DailyChallengesPage /> : <AuthPage />}
-      </Route>
-      <Route>
-        {() => <NotFound />}
-      </Route>
-    </Switch>
+      <main className="flex-1">
+        <Switch>
+          {/* Public routes */}
+          <Route path="/" component={LandingPage} />
+          <Route path="/auth">
+            {user ? <Gallery /> : <AuthPage />}
+          </Route>
+
+          {/* Protected routes */}
+          <Route path="/create">
+            {user ? <CreateImage /> : <AuthPage />}
+          </Route>
+          <Route path="/gallery">
+            {user ? <Gallery /> : <AuthPage />}
+          </Route>
+          <Route path="/profile">
+            {user ? <Profile /> : <AuthPage />}
+          </Route>
+          <Route path="/cards">
+            {user ? <TradingCardsPage /> : <AuthPage />}
+          </Route>
+          <Route path="/cards/create">
+            {user ? <CreateTradingCardPage /> : <AuthPage />}
+          </Route>
+          <Route path="/marketplace">
+            {user ? <MarketplacePage /> : <AuthPage />}
+          </Route>
+          <Route path="/queue">
+            {user ? <GameQueue /> : <AuthPage />}
+          </Route>
+          <Route path="/games/:id">
+            {user ? <GameQueue /> : <AuthPage />}
+          </Route>
+          <Route path="/challenges">
+            {user ? <DailyChallengesPage /> : <AuthPage />}
+          </Route>
+          <Route>
+            {() => <NotFound />}
+          </Route>
+        </Switch>
+      </main>
+    </div>
   );
 }
 
