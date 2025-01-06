@@ -425,6 +425,48 @@ export const marketplaceTransactions = pgTable("marketplace_transactions", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// Add after existing marketplaceTransactions table
+export const listingViews = pgTable("listing_views", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  viewerId: integer("viewer_id").references(() => users.id),
+  viewedAt: timestamp("viewed_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  duration: integer("duration_seconds"),
+  source: text("source"), // Where the view came from (search, browse, etc.)
+  deviceType: text("device_type"), // mobile, desktop, tablet
+});
+
+export const listingPriceHistory = pgTable("listing_price_history", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  price: integer("price").notNull(),
+  changedAt: timestamp("changed_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  reason: text("reason"), // manual, auto-optimization, etc.
+});
+
+export const listingAnalyticsAggregate = pgTable("listing_analytics_aggregate", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  date: timestamp("date").notNull(),
+  viewCount: integer("view_count").notNull().default(0),
+  uniqueViewers: integer("unique_viewers").notNull().default(0),
+  averageViewDuration: integer("average_view_duration"),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  conversionRate: integer("conversion_rate").notNull().default(0),
+  categoryPerformance: jsonb("category_performance"), // Rarity and element performance data
+  comparisonMetrics: jsonb("comparison_metrics"), // Market average comparisons
+});
+
+export const listingEngagementMetrics = pgTable("listing_engagement_metrics", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  date: timestamp("date").notNull(),
+  clickThroughRate: integer("click_through_rate").notNull().default(0),
+  bookmarkCount: integer("bookmark_count").notNull().default(0),
+  shareCount: integer("share_count").notNull().default(0),
+  inquiryCount: integer("inquiry_count").notNull().default(0),
+});
+
 // Add relations for marketplace tables
 export const packListingsRelations = relations(packListings, ({ one, many }) => ({
   pack: one(cardPacks, {
@@ -449,6 +491,40 @@ export const marketplaceTransactionsRelations = relations(marketplaceTransaction
   }),
 }));
 
+// Add relations for new tables
+export const listingViewsRelations = relations(listingViews, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [listingViews.listingId],
+    references: [packListings.id],
+  }),
+  viewer: one(users, {
+    fields: [listingViews.viewerId],
+    references: [users.id],
+  }),
+}));
+
+export const listingPriceHistoryRelations = relations(listingPriceHistory, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [listingPriceHistory.listingId],
+    references: [packListings.id],
+  }),
+}));
+
+export const listingAnalyticsAggregateRelations = relations(listingAnalyticsAggregate, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [listingAnalyticsAggregate.listingId],
+    references: [packListings.id],
+  }),
+}));
+
+export const listingEngagementMetricsRelations = relations(listingEngagementMetrics, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [listingEngagementMetrics.listingId],
+    references: [packListings.id],
+  }),
+}));
+
+// Add schemas for the new tables
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
 
@@ -516,7 +592,19 @@ export const selectPackListingSchema = createSelectSchema(packListings);
 export const insertMarketplaceTransactionSchema = createInsertSchema(marketplaceTransactions);
 export const selectMarketplaceTransactionSchema = createSelectSchema(marketplaceTransactions);
 
+export const insertListingViewSchema = createInsertSchema(listingViews);
+export const selectListingViewSchema = createSelectSchema(listingViews);
 
+export const insertListingPriceHistorySchema = createInsertSchema(listingPriceHistory);
+export const selectListingPriceHistorySchema = createSelectSchema(listingPriceHistory);
+
+export const insertListingAnalyticsAggregateSchema = createInsertSchema(listingAnalyticsAggregate);
+export const selectListingAnalyticsAggregateSchema = createSelectSchema(listingAnalyticsAggregate);
+
+export const insertListingEngagementMetricsSchema = createInsertSchema(listingEngagementMetrics);
+export const selectListingEngagementMetricsSchema = createSelectSchema(listingEngagementMetrics);
+
+// Add types for the new tables
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -583,3 +671,15 @@ export type SelectPackListing = typeof packListings.$inferSelect;
 
 export type InsertMarketplaceTransaction = typeof marketplaceTransactions.$inferInsert;
 export type SelectMarketplaceTransaction = typeof marketplaceTransactions.$inferSelect;
+
+export type InsertListingView = typeof listingViews.$inferInsert;
+export type SelectListingView = typeof listingViews.$inferSelect;
+
+export type InsertListingPriceHistory = typeof listingPriceHistory.$inferInsert;
+export type SelectListingPriceHistory = typeof listingPriceHistory.$inferSelect;
+
+export type InsertListingAnalyticsAggregate = typeof listingAnalyticsAggregate.$inferInsert;
+export type SelectListingAnalyticsAggregate = typeof listingAnalyticsAggregate.$inferSelect;
+
+export type InsertListingEngagementMetrics = typeof listingEngagementMetrics.$inferInsert;
+export type SelectListingEngagementMetrics = typeof listingEngagementMetrics.$inferSelect;
