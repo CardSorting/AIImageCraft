@@ -1,7 +1,15 @@
 import { Router } from "express";
 import { db } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
-import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images } from "@db/schema";
+import { 
+  cardPacks, 
+  cardPackCards, 
+  tradingCards, 
+  globalCardPool, 
+  cardTemplates, 
+  images, 
+  packListings 
+} from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
