@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
 import { 
   marketplaceListings,
   cardPacks,
@@ -49,7 +49,7 @@ router.get("/listings", async (req, res) => {
       ],
     });
 
-    // Get preview data based on listing type
+    // Get preview data for each listing
     const listingsWithPreview = await Promise.all(
       listings.map(async (listing) => {
         let previewData = null;
@@ -128,35 +128,44 @@ router.post("/listings", async (req, res) => {
       return res.status(400).send(result.error.issues[0].message);
     }
 
-    // Start transaction for creating listing
-    const listing = await db.transaction(async (tx) => {
-      // Generate Redis key for listing coordination
-      const redisKey = await RedisMarketplaceCoordinator.generateListingKey();
-
-      // Create the listing
-      const [newListing] = await tx.insert(marketplaceListings)
-        .values({
-          type: result.data.type,
-          title: result.data.title,
-          description: result.data.description,
-          basePrice: result.data.basePrice,
-          metadata: result.data.metadata || {},
-          sellerId: req.user!.id,
-          status: 'DRAFT',
-          redisKey,
-        })
-        .returning();
-
-      // Register listing with Redis coordinator
-      await RedisMarketplaceCoordinator.registerListing(redisKey, {
-        listingId: newListing.id,
-        sellerId: req.user!.id,
-        type: result.data.type,
-        status: 'DRAFT'
+    // Verify pack ownership if it's a pack listing
+    if (result.data.type === 'PACK' && result.data.metadata?.packId) {
+      const pack = await db.query.cardPacks.findFirst({
+        where: and(
+          eq(cardPacks.id, result.data.metadata.packId),
+          eq(cardPacks.userId, req.user!.id)
+        ),
       });
 
-      return newListing;
-    });
+      if (!pack) {
+        return res.status(403).send("Pack not found or doesn't belong to you");
+      }
+
+      // Check if pack is already listed
+      const existingListing = await db.query.marketplaceListings.findFirst({
+        where: and(
+          eq(marketplaceListings.type, 'PACK'),
+          eq(marketplaceListings.status, 'ACTIVE')
+        ),
+      });
+
+      if (existingListing) {
+        return res.status(400).send("This pack is already listed in the marketplace");
+      }
+    }
+
+    // Create the listing with ACTIVE status
+    const [listing] = await db.insert(marketplaceListings)
+      .values({
+        type: result.data.type,
+        title: result.data.title,
+        description: result.data.description,
+        basePrice: result.data.basePrice,
+        metadata: result.data.metadata || {},
+        sellerId: req.user!.id,
+        status: 'ACTIVE', // Set status to ACTIVE by default
+      })
+      .returning();
 
     res.json(listing);
   } catch (error) {
