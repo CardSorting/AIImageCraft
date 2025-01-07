@@ -3,7 +3,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
-  id: text("firebase_uid").primaryKey(),
+  id: text("id").primaryKey(),  
   email: text("email").notNull(),
   displayName: text("display_name"),
   photoURL: text("photo_url"),
