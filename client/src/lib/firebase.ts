@@ -41,7 +41,7 @@ export const signInWithGoogle = async () => {
     const idToken = await result.user.getIdToken();
 
     // Send the token to your backend
-    await fetch('/api/auth/token', {
+    const response = await fetch('/api/auth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,8 +50,12 @@ export const signInWithGoogle = async () => {
       credentials: 'include',
     });
 
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in with Google", error);
     throw error;
   }

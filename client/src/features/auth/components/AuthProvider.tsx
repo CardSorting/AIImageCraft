@@ -24,12 +24,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       try {
         if (user) {
+          // Get a fresh token
+          const token = await user.getIdToken(true);
+          // Verify token with backend
+          const response = await fetch('/api/auth/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+            credentials: 'include',
+          });
+
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+
           const authUser = convertFirebaseUser(user);
           setState({ user: authUser, loading: false, error: null });
         } else {
           setState({ user: null, loading: false, error: null });
         }
       } catch (error) {
+        console.error('Auth state change error:', error);
         setState((prev) => ({ ...prev, error: error as Error, loading: false }));
       }
     });
@@ -43,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithGoogle();
     } catch (error) {
       setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+      throw error;
     }
   };
 
@@ -53,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState({ user: null, loading: false, error: null });
     } catch (error) {
       setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+      throw error;
     }
   };
 
