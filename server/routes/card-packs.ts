@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { 
   cardPacks, 
   cardPackCards, 
@@ -56,11 +56,9 @@ router.get("/", async (req, res) => {
       .from(cardPacks)
       .leftJoin(
         marketplaceListings,
-        and(
-          eq(marketplaceListings.metadata['packId'].cast('int'), cardPacks.id),
-          eq(marketplaceListings.status, 'ACTIVE'),
-          eq(marketplaceListings.type, 'PACK')
-        )
+        sql`${marketplaceListings.metadata}->>'packId' = ${cardPacks.id}::text 
+            AND ${marketplaceListings.status} = 'ACTIVE' 
+            AND ${marketplaceListings.type} = 'PACK'`
       )
       .where(eq(cardPacks.userId, req.user!.id));
 
