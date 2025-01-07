@@ -1,4 +1,14 @@
-import { PackListing, CreatePackListing, PurchasePackListing, MarketplaceFilters, SellerPerformance, MarketplaceAnalytics, ListingCategory } from "../types";
+import { 
+  PackListing, 
+  CreatePackListing, 
+  PurchasePackListing, 
+  MarketplaceFilters, 
+  SellerPerformance, 
+  MarketplaceAnalytics, 
+  ListingCategory,
+  MarketplaceDispute,
+  EscrowDetails
+} from "../types";
 
 // Helper function to build query string from filters
 const buildQueryString = (filters: MarketplaceFilters): string => {
@@ -10,6 +20,8 @@ const buildQueryString = (filters: MarketplaceFilters): string => {
   if (filters.element) params.append('element', filters.element);
   if (filters.sortBy) params.append('sortBy', filters.sortBy);
   if (filters.category) params.append('category', filters.category);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.processingStatus) params.append('processingStatus', filters.processingStatus);
 
   return params.toString();
 };
@@ -48,9 +60,13 @@ export const marketplaceService = {
   },
 
   // Purchase a pack listing
-  purchaseListing: async ({ listingId }: PurchasePackListing): Promise<void> => {
+  purchaseListing: async ({ listingId, escrowOptions }: PurchasePackListing): Promise<void> => {
     const response = await fetch(`/api/marketplace/listings/${listingId}/purchase`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ escrowOptions }),
       credentials: 'include',
     });
 
@@ -72,8 +88,9 @@ export const marketplaceService = {
   },
 
   // Get user's active listings
-  getUserListings: async (): Promise<PackListing[]> => {
-    const response = await fetch('/api/marketplace/listings/user', {
+  getUserListings: async (status?: PackListing['status']): Promise<PackListing[]> => {
+    const queryString = status ? `?status=${status}` : '';
+    const response = await fetch(`/api/marketplace/listings/user${queryString}`, {
       credentials: 'include',
     });
 
@@ -165,6 +182,52 @@ export const marketplaceService = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ categoryId }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+  },
+
+  // Dispute management
+  createDispute: async (
+    transactionId: number, 
+    type: MarketplaceDispute['type'],
+    reason: string
+  ): Promise<MarketplaceDispute> => {
+    const response = await fetch('/api/marketplace/disputes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ transactionId, type, reason }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  // Escrow management
+  getEscrowDetails: async (transactionId: number): Promise<EscrowDetails> => {
+    const response = await fetch(`/api/marketplace/transactions/${transactionId}/escrow`, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  releaseEscrow: async (transactionId: number): Promise<void> => {
+    const response = await fetch(`/api/marketplace/transactions/${transactionId}/escrow/release`, {
+      method: 'POST',
       credentials: 'include',
     });
 

@@ -5,7 +5,7 @@ export interface PackListing {
   packId: number;
   sellerId: number;
   price: number;
-  status: 'ACTIVE' | 'SOLD' | 'CANCELLED';
+  status: 'DRAFT' | 'ACTIVE' | 'SOLD' | 'CANCELLED' | 'LOCKED';
   createdAt: string;
   seller: {
     id: number;
@@ -25,8 +25,10 @@ export interface PackListing {
     } | null;
     totalCards: number;
   };
-  views?: number;
-  lastViewed?: string;
+  metadata: Record<string, any>;
+  processingStatus?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  transactionKey?: string;
+  escrowStatus?: 'NONE' | 'PENDING' | 'HELD' | 'RELEASED';
 }
 
 export interface MarketplaceAnalytics {
@@ -74,10 +76,15 @@ export interface CreatePackListing {
   packId: number;
   price: number;
   categoryId?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface PurchasePackListing {
   listingId: number;
+  escrowOptions?: {
+    releaseConditions: string[];
+    expiresIn?: number; // in hours
+  };
 }
 
 export interface MarketplaceFilters {
@@ -89,6 +96,8 @@ export interface MarketplaceFilters {
   sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'trending' | 'popularity';
   seller?: string;
   category?: string;
+  status?: 'ACTIVE' | 'DRAFT' | 'SOLD' | 'CANCELLED' | 'LOCKED';
+  processingStatus?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 }
 
 export interface SellerPerformance {
@@ -139,4 +148,33 @@ export interface Achievement {
   unlockedAt?: string;
   category: 'SALES' | 'ENGAGEMENT' | 'QUALITY' | 'SPECIAL';
   rarity: 'COMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+}
+
+export interface MarketplaceDispute {
+  id: number;
+  transactionId: number;
+  reporterId: number;
+  type: 'ITEM_NOT_RECEIVED' | 'ITEM_NOT_AS_DESCRIBED' | 'OTHER';
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'CLOSED';
+  reason: string;
+  resolution?: string;
+  evidence?: {
+    type: string;
+    url: string;
+    description: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+}
+
+export interface EscrowDetails {
+  id: number;
+  transactionId: number;
+  amount: number;
+  releaseConditions: string[];
+  status: 'PENDING' | 'HELD' | 'RELEASED' | 'REFUNDED';
+  createdAt: string;
+  releasedAt?: string;
+  expiresAt?: string;
 }

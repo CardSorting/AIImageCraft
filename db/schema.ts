@@ -1,6 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { sql, relations, eq, and, or, inArray } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 
 // Define all tables first, starting with independent tables
 export const users = pgTable("users", {
@@ -91,64 +91,67 @@ export const cardPacks = pgTable("card_packs", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const packListings = pgTable("pack_listings", {
+// Core marketplace tables
+export const marketplaceListings = pgTable("marketplace_listings", {
   id: serial("id").primaryKey(),
-  packId: integer("pack_id").notNull().references(() => cardPacks.id),
   sellerId: integer("seller_id").notNull().references(() => users.id),
-  price: integer("price").notNull(),
-  status: text("status").notNull().default('ACTIVE'),
+  title: text("title").notNull(),
+  description: text("description"),
+  basePrice: integer("base_price").notNull(),
+  status: text("status").notNull().default('DRAFT'),
+  type: text("type").notNull(), // SINGLE_CARD, PACK, BUNDLE
+  metadata: jsonb("metadata").notNull(), // Flexible storage for different listing types
+  visibility: text("visibility").notNull().default('PUBLIC'),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  expiresAt: timestamp("expires_at"),
+  lastProcessedAt: timestamp("last_processed_at"),
+  redisKey: text("redis_key").unique(), // For Redis lookup optimization
+  processingLock: text("processing_lock"), // For distributed locking
 });
 
 export const marketplaceTransactions = pgTable("marketplace_transactions", {
   id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  listingId: integer("listing_id").notNull().references(() => marketplaceListings.id),
   buyerId: integer("buyer_id").notNull().references(() => users.id),
-  price: integer("price").notNull(),
-  status: text("status").notNull().default('COMPLETED'),
+  sellerId: integer("seller_id").notNull().references(() => users.id),
+  status: text("status").notNull(),
+  amount: integer("amount").notNull(),
+  fee: integer("fee").notNull(),
+  processingKey: text("processing_key").unique(), // Redis transaction processing key
+  escrowKey: text("escrow_key").unique(), // Redis escrow reference
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  completedAt: timestamp("completed_at"),
+  expiresAt: timestamp("expires_at"),
+  redisStateKey: text("redis_state_key").unique(), // For transaction state machine
 });
 
-export const listingViews = pgTable("listing_views", {
+export const marketplaceDisputes = pgTable("marketplace_disputes", {
   id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
-  viewerId: integer("viewer_id").references(() => users.id),
-  viewedAt: timestamp("viewed_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  duration: integer("duration_seconds"),
-  source: text("source"),
-  deviceType: text("device_type"),
+  transactionId: integer("transaction_id").notNull().references(() => marketplaceTransactions.id),
+  reporterId: integer("reporter_id").notNull().references(() => users.id),
+  type: text("type").notNull(),
+  status: text("status").notNull().default('OPEN'),
+  reason: text("reason").notNull(),
+  resolution: text("resolution"),
+  evidenceKeys: jsonb("evidence_keys"), // Array of Redis keys containing evidence
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  processingQueueKey: text("processing_queue_key"), // Redis processing queue reference
 });
 
-export const listingPriceHistory = pgTable("listing_price_history", {
+export const marketplaceEscrow = pgTable("marketplace_escrow", {
   id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
-  price: integer("price").notNull(),
-  changedAt: timestamp("changed_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  reason: text("reason"),
-});
-
-export const listingAnalyticsAggregate = pgTable("listing_analytics_aggregate", {
-  id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
-  date: timestamp("date").notNull(),
-  viewCount: integer("view_count").notNull().default(0),
-  uniqueViewers: integer("unique_viewers").notNull().default(0),
-  averageViewDuration: integer("average_view_duration"),
-  totalRevenue: integer("total_revenue").notNull().default(0),
-  conversionRate: integer("conversion_rate").notNull().default(0),
-  categoryPerformance: jsonb("category_performance"),
-  comparisonMetrics: jsonb("comparison_metrics"),
-});
-
-export const listingEngagementMetrics = pgTable("listing_engagement_metrics", {
-  id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
-  date: timestamp("date").notNull(),
-  clickThroughRate: integer("click_through_rate").notNull().default(0),
-  bookmarkCount: integer("bookmark_count").notNull().default(0),
-  shareCount: integer("share_count").notNull().default(0),
-  inquiryCount: integer("inquiry_count").notNull().default(0),
+  transactionId: integer("transaction_id").notNull().references(() => marketplaceTransactions.id).unique(),
+  amount: integer("amount").notNull(),
+  releaseConditions: jsonb("release_conditions").notNull(),
+  status: text("status").notNull().default('HELD'),
+  redisLockKey: text("redis_lock_key").unique(), // For distributed locking
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  releasedAt: timestamp("released_at"),
+  expiresAt: timestamp("expires_at"),
 });
 
 export const globalCardPool = pgTable("global_card_pool", {
@@ -268,6 +271,7 @@ export const challengeProgress = pgTable("challenge_progress", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+
 // Add new analytics and marketplace enhancement tables
 export const marketplaceAnalytics = pgTable("marketplace_analytics", {
   id: serial("id").primaryKey(),
@@ -302,9 +306,22 @@ export const listingCategories = pgTable("listing_categories", {
 
 export const listingCategoryAssignments = pgTable("listing_category_assignments", {
   id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  listingId: integer("listing_id").notNull().references(() => marketplaceListings.id), // Updated to reference new marketplaceListings
   categoryId: integer("category_id").notNull().references(() => listingCategories.id),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Add marketplaceOperationLog table definition
+export const marketplaceOperationLog = pgTable("marketplace_operation_log", {
+  id: serial("id").primaryKey(),
+  operationType: text("operation_type").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: integer("target_id").notNull(),
+  status: text("status").notNull(),
+  metadata: jsonb("metadata"),
+  redisKey: text("redis_key"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 // Define relations
@@ -340,7 +357,7 @@ export const cardPacksRelations = relations(cardPacks, ({ one, many }) => ({
     references: [users.id],
   }),
   cards: many(cardPackCards),
-  listings: many(packListings),
+  listings: many(marketplaceListings), //Updated to reference new marketplaceListings
 }));
 
 export const cardPackCardsRelations = relations(cardPackCards, ({ one }) => ({
@@ -365,62 +382,50 @@ export const globalCardPoolRelations = relations(globalCardPool, ({ one }) => ({
   }),
 }));
 
-export const packListingsRelations = relations(packListings, ({ one, many }) => ({
-  pack: one(cardPacks, {
-    fields: [packListings.packId],
-    references: [cardPacks.id],
-  }),
+export const marketplaceListingsRelations = relations(marketplaceListings, ({ one, many }) => ({
   seller: one(users, {
-    fields: [packListings.sellerId],
+    fields: [marketplaceListings.sellerId],
     references: [users.id],
   }),
   transactions: many(marketplaceTransactions),
-  views: many(listingViews),
-  priceHistory: many(listingPriceHistory),
-  analytics: one(listingAnalyticsAggregate),
-  engagement: one(listingEngagementMetrics),
+  categories: many(listingCategoryAssignments),
+  operationLogs: many(marketplaceOperationLog, {
+    relationName: "listingOperations"
+  }),
 }));
 
 export const marketplaceTransactionsRelations = relations(marketplaceTransactions, ({ one }) => ({
-  listing: one(packListings, {
+  listing: one(marketplaceListings, {
     fields: [marketplaceTransactions.listingId],
-    references: [packListings.id],
+    references: [marketplaceListings.id],
   }),
   buyer: one(users, {
     fields: [marketplaceTransactions.buyerId],
     references: [users.id],
   }),
+  seller: one(users, {
+    fields: [marketplaceTransactions.sellerId],
+    references: [users.id],
+  }),
+  escrow: one(marketplaceEscrow),
+  disputes: many(marketplaceDisputes),
 }));
 
-export const listingViewsRelations = relations(listingViews, ({ one }) => ({
-  listing: one(packListings, {
-    fields: [listingViews.listingId],
-    references: [packListings.id],
+export const marketplaceDisputesRelations = relations(marketplaceDisputes, ({ one }) => ({
+  transaction: one(marketplaceTransactions, {
+    fields: [marketplaceDisputes.transactionId],
+    references: [marketplaceTransactions.id],
   }),
-  viewer: one(users, {
-    fields: [listingViews.viewerId],
+  reporter: one(users, {
+    fields: [marketplaceDisputes.reporterId],
     references: [users.id],
   }),
 }));
 
-export const listingPriceHistoryRelations = relations(listingPriceHistory, ({ one }) => ({
-  listing: one(packListings, {
-    fields: [listingPriceHistory.listingId],
-    references: [packListings.id],
-  }),
-}));
-
-export const listingAnalyticsAggregateRelations = relations(listingAnalyticsAggregate, ({ one }) => ({
-  listing: one(packListings, {
-    fields: [listingAnalyticsAggregate.listingId],
-    references: [packListings.id],
-  }),
-}));
-
-export const listingEngagementMetricsRelations = relations(listingEngagementMetrics, ({ one }) => ({
-  listing: one(packListings, {
-    fields: [listingEngagementMetrics.listingId],
-    references: [packListings.id],
+export const marketplaceEscrowRelations = relations(marketplaceEscrow, ({ one }) => ({
+  transaction: one(marketplaceTransactions, {
+    fields: [marketplaceEscrow.transactionId],
+    references: [marketplaceTransactions.id],
   }),
 }));
 
@@ -591,7 +596,6 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
     }),
 }));
 
-
 // Add relations
 export const marketplaceAnalyticsRelations = relations(marketplaceAnalytics, ({ }) => ({}));
 
@@ -611,9 +615,9 @@ export const listingCategoriesRelations = relations(listingCategories, ({ one, m
 }));
 
 export const listingCategoryAssignmentsRelations = relations(listingCategoryAssignments, ({ one }) => ({
-  listing: one(packListings, {
+  listing: one(marketplaceListings, { // Updated to reference new marketplaceListings
     fields: [listingCategoryAssignments.listingId],
-    references: [packListings.id],
+    references: [marketplaceListings.id],
   }),
   category: one(listingCategories, {
     fields: [listingCategoryAssignments.categoryId],
@@ -621,15 +625,22 @@ export const listingCategoryAssignmentsRelations = relations(listingCategoryAssi
   }),
 }));
 
+// Add relations for operation log
+export const marketplaceOperationLogRelations = relations(marketplaceOperationLog, ({ one }) => ({
+  listing: one(marketplaceListings, {
+    fields: [marketplaceOperationLog.targetId],
+    references: [marketplaceListings.id],
+    relationName: "listingOperations"
+  }),
+}));
+
+
 // Finally, define schemas and types
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions);
 export const selectCreditTransactionSchema = createSelectSchema(creditTransactions);
 
 export const insertCreditPurchaseSchema = createInsertSchema(creditPurchases);
 export const selectCreditPurchaseSchema = createSelectSchema(creditPurchases);
-
-export const insertPackListingSchema = createInsertSchema(packListings);
-export const selectPackListingSchema = createSelectSchema(packListings);
 
 export const insertCardPackSchema = createInsertSchema(cardPacks);
 export const selectCardPackSchema = createSelectSchema(cardPacks);
@@ -640,20 +651,17 @@ export const selectCardPackCardSchema = createSelectSchema(cardPackCards);
 export const insertGlobalCardPoolSchema = createInsertSchema(globalCardPool);
 export const selectGlobalCardPoolSchema = createSelectSchema(globalCardPool);
 
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings);
+export const selectMarketplaceListingSchema = createSelectSchema(marketplaceListings);
+
 export const insertMarketplaceTransactionSchema = createInsertSchema(marketplaceTransactions);
 export const selectMarketplaceTransactionSchema = createSelectSchema(marketplaceTransactions);
 
-export const insertListingViewSchema = createInsertSchema(listingViews);
-export const selectListingViewSchema = createSelectSchema(listingViews);
+export const insertMarketplaceDisputeSchema = createInsertSchema(marketplaceDisputes);
+export const selectMarketplaceDisputeSchema = createSelectSchema(marketplaceDisputes);
 
-export const insertListingPriceHistorySchema = createInsertSchema(listingPriceHistory);
-export const selectListingPriceHistorySchema = createSelectSchema(listingPriceHistory);
-
-export const insertListingAnalyticsAggregateSchema = createInsertSchema(listingAnalyticsAggregate);
-export const selectListingAnalyticsAggregateSchema = createSelectSchema(listingAnalyticsAggregate);
-
-export const insertListingEngagementMetricsSchema = createInsertSchema(listingEngagementMetrics);
-export const selectListingEngagementMetricsSchema = createSelectSchema(listingEngagementMetrics);
+export const insertMarketplaceEscrowSchema = createInsertSchema(marketplaceEscrow);
+export const selectMarketplaceEscrowSchema = createSelectSchema(marketplaceEscrow);
 
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
@@ -706,6 +714,36 @@ export const selectLevelMilestoneSchema = createSelectSchema(levelMilestones);
 export const insertUserRewardSchema = createInsertSchema(userRewards);
 export const selectUserRewardSchema = createSelectSchema(userRewards);
 
+// Add new schemas
+export const insertMarketplaceAnalyticsSchema = createInsertSchema(marketplaceAnalytics);
+export const selectMarketplaceAnalyticsSchema = createSelectSchema(marketplaceAnalytics);
+
+export const insertSellerMetricsSchema = createInsertSchema(sellerMetrics);
+export const selectSellerMetricsSchema = createSelectSchema(sellerMetrics);
+
+export const insertListingCategorySchema = createInsertSchema(listingCategories);
+export const selectListingCategorySchema = createSelectSchema(listingCategories);
+
+export const insertListingCategoryAssignmentSchema = createInsertSchema(listingCategoryAssignments);
+export const selectListingCategoryAssignmentSchema = createSelectSchema(listingCategoryAssignments);
+
+// Add operation log schemas
+export const insertMarketplaceOperationLogSchema = createInsertSchema(marketplaceOperationLog);
+export const selectMarketplaceOperationLogSchema = createSelectSchema(marketplaceOperationLog);
+
+// Add new types
+export type InsertMarketplaceAnalytics = typeof marketplaceAnalytics.$inferInsert;
+export type SelectMarketplaceAnalytics = typeof marketplaceAnalytics.$inferSelect;
+
+export type InsertSellerMetrics = typeof sellerMetrics.$inferInsert;
+export type SelectSellerMetrics = typeof sellerMetrics.$inferSelect;
+
+export type InsertListingCategory = typeof listingCategories.$inferInsert;
+export type SelectListingCategory = typeof listingCategories.$inferSelect;
+
+export type InsertListingCategoryAssignment = typeof listingCategoryAssignments.$inferInsert;
+export type SelectListingCategoryAssignment = typeof listingCategoryAssignments.$inferSelect;
+
 export type InsertCardTemplate = typeof cardTemplates.$inferInsert;
 export type SelectCardTemplate = typeof cardTemplates.$inferSelect;
 
@@ -757,28 +795,18 @@ export type SelectLevelMilestone = typeof levelMilestones.$inferSelect;
 export type InsertUserReward = typeof userRewards.$inferInsert;
 export type SelectUserReward = typeof userRewards.$inferSelect;
 
-// Add new schemas
-export const insertMarketplaceAnalyticsSchema = createInsertSchema(marketplaceAnalytics);
-export const selectMarketplaceAnalyticsSchema = createSelectSchema(marketplaceAnalytics);
+export type InsertMarketplaceListing = typeof marketplaceListings.$inferInsert;
+export type SelectMarketplaceListing = typeof marketplaceListings.$inferSelect;
 
-export const insertSellerMetricsSchema = createInsertSchema(sellerMetrics);
-export const selectSellerMetricsSchema = createSelectSchema(sellerMetrics);
+export type InsertMarketplaceTransaction = typeof marketplaceTransactions.$inferInsert;
+export type SelectMarketplaceTransaction = typeof marketplaceTransactions.$inferSelect;
 
-export const insertListingCategorySchema = createInsertSchema(listingCategories);
-export const selectListingCategorySchema = createSelectSchema(listingCategories);
+export type InsertMarketplaceDispute = typeof marketplaceDisputes.$inferInsert;
+export type SelectMarketplaceDispute = typeof marketplaceDisputes.$inferSelect;
 
-export const insertListingCategoryAssignmentSchema = createInsertSchema(listingCategoryAssignments);
-export const selectListingCategoryAssignmentSchema = createSelectSchema(listingCategoryAssignments);
+export type InsertMarketplaceEscrow = typeof marketplaceEscrow.$inferInsert;
+export type SelectMarketplaceEscrow = typeof marketplaceEscrow.$inferSelect;
 
-// Add new types
-export type InsertMarketplaceAnalytics = typeof marketplaceAnalytics.$inferInsert;
-export type SelectMarketplaceAnalytics = typeof marketplaceAnalytics.$inferSelect;
-
-export type InsertSellerMetrics = typeof sellerMetrics.$inferInsert;
-export type SelectSellerMetrics = typeof sellerMetrics.$inferSelect;
-
-export type InsertListingCategory = typeof listingCategories.$inferInsert;
-export type SelectListingCategory = typeof listingCategories.$inferSelect;
-
-export type InsertListingCategoryAssignment = typeof listingCategoryAssignments.$inferInsert;
-export type SelectListingCategoryAssignment = typeof listingCategoryAssignments.$inferSelect;
+// Add operation log types
+export type InsertMarketplaceOperationLog = typeof marketplaceOperationLog.$inferInsert;
+exportexport type SelectMarketplaceOperationLog = typeof marketplaceOperationLog.$inferSelect;

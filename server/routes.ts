@@ -12,10 +12,15 @@ import {
   userRewards,
   levelMilestones,
   challengeProgress,
-  dailyChallenges
+  dailyChallenges,
+  marketplaceListings,
+  marketplaceTransactions,
+  marketplaceDisputes,
+  marketplaceEscrow,
 } from "@db/schema";
 import { TaskService } from "./services/task";
 import { PulseCreditManager } from "./services/redis";
+import { RedisMarketplaceCoordinator } from "./services/redis/marketplace";
 import creditRoutes from "./routes/credits";
 import marketplaceRoutes from "./routes/marketplace";
 import cardPackRoutes from "./routes/card-packs";
