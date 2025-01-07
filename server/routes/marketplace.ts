@@ -14,7 +14,11 @@ router.get("/listings", async (req, res) => {
     console.log("Fetching listings with filters:", { minPrice, maxPrice, sortBy });
 
     // Build conditions array for dynamic filtering
-    const conditions = [eq(packListings.status, 'ACTIVE')];
+    // Initially fetch all listings to debug
+    const conditions = [];
+
+    // Only add status filter if we confirm we have data
+    // conditions.push(eq(packListings.status, 'ACTIVE'));
 
     if (minPrice && !isNaN(Number(minPrice))) {
       conditions.push(gte(packListings.price, Number(minPrice)));
@@ -43,8 +47,9 @@ router.get("/listings", async (req, res) => {
       .from(packListings)
       .leftJoin(users, eq(packListings.sellerId, users.id))
       .leftJoin(cardPacks, eq(packListings.packId, cardPacks.id))
-      .where(and(...conditions))
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(
+        sortBy === 'trending' ? desc(packListings.createdAt) :  // Default trending to newest
         sortBy === 'price_desc' ? desc(packListings.price) :
         sortBy === 'price_asc' ? asc(packListings.price) :
         sortBy === 'date_desc' ? desc(packListings.createdAt) :
@@ -53,6 +58,7 @@ router.get("/listings", async (req, res) => {
       );
 
     console.log("Found listings:", listings.length);
+    console.log("Raw listings data:", JSON.stringify(listings, null, 2));
 
     // For each listing, get the first card as preview
     const listingsWithPreview = await Promise.all(
