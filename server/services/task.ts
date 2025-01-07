@@ -58,8 +58,6 @@ export class TaskService {
   private static readonly API_URL = 'https://api.goapi.ai/api/v1/task';
   private static readonly RETRIES = 3;
   private static readonly RETRY_DELAY = 1000; // 1 second
-  private static readonly COMPLETION_STATUSES = ['completed', 'failed'];
-  private static readonly POLL_INTERVAL = 2000; // 2 seconds
 
   static async createImageGenerationTask(prompt: string, userId: number): Promise<{ taskId: string, status: string }> {
     try {
@@ -122,17 +120,8 @@ export class TaskService {
         meta: result.data.meta || {}
       };
 
-      // Store task in Redis using TaskQueue
+      // Store task in Redis
       await TaskQueue.createTask(result.data.task_id, taskData);
-
-      // Add to processing queue if not already completed
-      if (!this.COMPLETION_STATUSES.includes(result.data.status)) {
-        await TaskQueue.addToQueue('image_generation', {
-          taskId: result.data.task_id,
-          userId,
-          prompt
-        });
-      }
 
       return {
         taskId: result.data.task_id,
@@ -146,13 +135,6 @@ export class TaskService {
 
   static async getTaskStatus(taskId: string): Promise<TaskResponse> {
     try {
-      // First check Redis for cached task status
-      const cachedTask = await TaskQueue.getTask(taskId);
-      if (cachedTask && this.COMPLETION_STATUSES.includes(cachedTask.status)) {
-        console.log(`Returning cached completed task ${taskId}`);
-        return cachedTask as TaskResponse;
-      }
-
       if (!process.env.GOAPI_API_KEY) {
         throw new Error("GOAPI_API_KEY is not configured");
       }
@@ -172,49 +154,16 @@ export class TaskService {
       const result = await response.json();
       const taskData = result.data;
 
-      // Update task status in Redis with the latest data
+      // Update task status in Redis
       await TaskQueue.updateTask(taskId, {
         ...taskData,
         updatedAt: new Date().toISOString()
       });
 
-      // Schedule next poll based on status
-      if (!this.COMPLETION_STATUSES.includes(taskData.status)) {
-        const nextPollTime = Date.now() + this.POLL_INTERVAL;
-        await TaskQueue.updateTaskPollTime(taskId, nextPollTime);
-      } else {
-        console.log(`Task ${taskId} completed with status: ${taskData.status}`);
-      }
-
       return taskData;
     } catch (error: any) {
       console.error("Error getting task status:", error);
       throw error;
-    }
-  }
-
-  static async pollPendingTasks() {
-    try {
-      const now = Date.now();
-      const tasksToUpdate = await TaskQueue.getTasksToUpdate(0, now);
-
-      console.log(`Polling ${tasksToUpdate.length} pending tasks`);
-
-      for (const taskId of tasksToUpdate) {
-        try {
-          const taskStatus = await this.getTaskStatus(taskId);
-          console.log(`Task ${taskId} status: ${taskStatus.status}`);
-
-          // If the task is complete, it will be automatically removed from polling
-          // by the updateTask method in TaskQueue when status is completed/failed
-        } catch (error) {
-          console.error(`Error polling task ${taskId}:`, error);
-          // Don't let one failed task stop the polling of other tasks
-          continue;
-        }
-      }
-    } catch (error) {
-      console.error("Error in pollPendingTasks:", error);
     }
   }
 
@@ -230,26 +179,14 @@ export class TaskService {
         });
 
         if (response.ok) {
-          // Update task status in Redis
           await TaskQueue.updateTask(taskId, {
             status: 'pending',
             retryCount: i + 1,
             updatedAt: new Date().toISOString()
           });
-
-          // Add back to processing queue
-          const task = await TaskQueue.getTask(taskId);
-          if (task) {
-            await TaskQueue.addToQueue('image_generation', {
-              taskId,
-              userId: task.userId,
-              prompt: task.prompt
-            });
-          }
           return;
         }
 
-        // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY));
       } catch (error) {
         console.error(`Retry attempt ${i + 1} failed:`, error);
@@ -258,8 +195,3 @@ export class TaskService {
     }
   }
 }
-
-// Start polling interval
-setInterval(() => {
-  TaskService.pollPendingTasks().catch(console.error);
-}, TaskService.POLL_INTERVAL);
