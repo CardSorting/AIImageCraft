@@ -1,14 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
-import {
-  creditTransactions,
-  creditBalances,
-  type CreditTransaction,
-  type InsertCreditTransaction,
-  type CreditBalance,
-  type InsertCreditBalance,
-} from "./schema/credits/schema";
-import { users, type User, type InsertUser } from "./schema/users/schema";
+import * as schema from "@db/schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -18,23 +10,8 @@ if (!process.env.DATABASE_URL) {
 
 export const db = drizzle({
   connection: process.env.DATABASE_URL,
-  schema: {
-    users,
-    creditTransactions,
-    creditBalances,
-  },
+  schema,
   ws: ws,
 });
 
-// Re-export schemas and types
-export {
-  creditTransactions,
-  creditBalances,
-  type CreditTransaction,
-  type InsertCreditTransaction,
-  type CreditBalance,
-  type InsertCreditBalance,
-  users,
-  type User,
-  type InsertUser,
-};
+export * from "@db/schema";
