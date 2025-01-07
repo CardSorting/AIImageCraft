@@ -30,15 +30,21 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+auth.useDeviceLanguage();
 
-// Google Auth Provider
+// Google Auth Provider with custom parameters
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 export const signInWithGoogle = async () => {
   try {
+    // Use signInWithPopup instead of redirect
     const result = await signInWithPopup(auth, googleProvider);
+
     // Get the Firebase ID token
-    const idToken = await result.user.getIdToken();
+    const idToken = await result.user.getIdToken(true);
 
     // Send the token to your backend
     const response = await fetch('/api/auth/token', {

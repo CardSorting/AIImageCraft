@@ -10,7 +10,13 @@ app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Cross-Origin-Opener-Policy',
+    'Cross-Origin-Embedder-Policy'
+  ],
+  exposedHeaders: ['Cross-Origin-Opener-Policy'],
 }));
 
 app.use(express.json());
@@ -22,6 +28,13 @@ if (process.env.NODE_ENV !== "production") {
   process.env.VITE_FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
   process.env.VITE_FIREBASE_APP_ID = process.env.FIREBASE_APP_ID;
 }
+
+// Add security headers
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
