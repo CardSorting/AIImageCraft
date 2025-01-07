@@ -60,7 +60,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
-      // Check if user has enough credits first
+      // Check if user has enough credits using PostgreSQL
       const hasEnoughCredits = await PulseCreditManager.hasEnoughCredits(
         req.user!.id,
         PulseCreditManager.IMAGE_GENERATION_COST
@@ -72,30 +72,25 @@ export function registerRoutes(app: Express): Server {
         );
       }
 
-      // Use Redis-based atomic transaction for credit deduction
-      const deductionResult = await PulseCreditManager.deductCredits(
-        req.user!.id,
-        PulseCreditManager.IMAGE_GENERATION_COST,
-        "USAGE",
-        "Image generation"
-      );
-
-      if (!deductionResult.success) {
-        return res.status(400).send(deductionResult.error || `Failed to process credit deduction. Please try again.`);
-      }
-
       try {
-        // Create the image generation task
+        // Create the image generation task first to ensure it works
         const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
-        res.json(result);
-      } catch (taskError: any) {
-        // If task creation fails, refund the credits
-        await PulseCreditManager.addCredits(
+
+        // If task creation succeeds, deduct credits using PostgreSQL
+        const deductResult = await PulseCreditManager.deductCredits(
           req.user!.id,
           PulseCreditManager.IMAGE_GENERATION_COST,
-          "REFUND",
-          "Image generation failed - credit refund"
+          'USAGE',
+          'Image generation'
         );
+
+        if (!deductResult.success) {
+          throw new Error(deductResult.error || "Failed to process credit deduction");
+        }
+
+        res.json(result);
+      } catch (taskError: any) {
+        console.error("Task creation error:", taskError);
         throw taskError;
       }
     } catch (error: any) {
