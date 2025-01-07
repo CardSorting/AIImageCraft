@@ -1,4 +1,4 @@
-import { TaskManager } from "./redis";
+import { TaskQueue } from "./task-queue";
 
 interface TaskConfig {
   service_mode: string;
@@ -95,11 +95,18 @@ export class TaskService {
         throw new Error("Invalid response from GoAPI: Missing task ID");
       }
 
-      // Store task in Redis
-      await TaskManager.createTask(result.data.task_id, {
+      // Store task in Redis using TaskQueue
+      await TaskQueue.createTask(result.data.task_id, {
         prompt,
         userId,
         createdAt: new Date().toISOString()
+      });
+
+      // Add to processing queue
+      await TaskQueue.addToQueue('image_generation', {
+        taskId: result.data.task_id,
+        userId,
+        prompt
       });
 
       return {
@@ -114,6 +121,12 @@ export class TaskService {
 
   static async getTaskStatus(taskId: string): Promise<TaskResponse> {
     try {
+      // First check Redis for cached task status
+      const cachedTask = await TaskQueue.getTask(taskId);
+      if (cachedTask && cachedTask.status === 'completed') {
+        return cachedTask;
+      }
+
       if (!process.env.GOAPI_API_KEY) {
         throw new Error("GOAPI_API_KEY is not configured");
       }
@@ -131,6 +144,10 @@ export class TaskService {
       }
 
       const result = await response.json();
+
+      // Update task status in Redis
+      await TaskQueue.updateTask(taskId, result.data);
+
       return result.data;
     } catch (error: any) {
       console.error("Error getting task status:", error);
@@ -150,6 +167,8 @@ export class TaskService {
         });
 
         if (response.ok) {
+          // Update task status in Redis
+          await TaskQueue.updateTask(taskId, { status: 'pending', retryCount: i + 1 });
           return;
         }
 
