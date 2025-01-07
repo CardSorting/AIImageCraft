@@ -6,6 +6,13 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Expose Firebase environment variables to frontend during development
+if (process.env.NODE_ENV !== "production") {
+  process.env.VITE_FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
+  process.env.VITE_FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
+  process.env.VITE_FIREBASE_APP_ID = process.env.FIREBASE_APP_ID;
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

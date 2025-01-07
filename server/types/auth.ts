@@ -1,9 +1,8 @@
 import type { SelectUser } from "@db/schema/users";
 
-declare global {
-  namespace Express {
-    interface User extends SelectUser {}
-  }
-}
+export interface User extends SelectUser {}
 
-export {};
+// Export session types
+export interface AuthenticatedRequest extends Express.Request {
+  user: User;
+}

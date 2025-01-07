@@ -1,13 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { auth } from "../lib/firebase-admin";
 import { getFirebaseUser } from "@db/utils/firebase-auth";
-import type { SelectUser } from "@db/schema/users";
-import "@/types/auth";
+import type { User } from "../types/auth";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: SelectUser;
+      user?: User;
       userId?: string;
     }
   }
