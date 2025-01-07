@@ -1,7 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { sql, relations, type Relations } from "drizzle-orm";
-import { many } from "drizzle-orm/pg-core";
+import { sql, relations } from "drizzle-orm";
 
 // Define all tables first, starting with independent tables
 export const users = pgTable("users", {
@@ -16,7 +15,7 @@ export const users = pgTable("users", {
   levelUpNotification: boolean("level_up_notification").default(false),
 });
 
-// Add tasks table after users table
+// Updated tasks table with proper fields for task management
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   taskId: text("task_id").unique().notNull(),
@@ -28,6 +27,14 @@ export const tasks = pgTable("tasks", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
+
+// Define relations for tasks
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  user: one(users, {
+    fields: [tasks.userId],
+    references: [users.id],
+  }),
+}));
 
 // Add creditBalances table definition after users table
 export const creditBalances = pgTable("credit_balances", {
@@ -804,7 +811,6 @@ export type SelectTradeItem = typeof tradeItems.$inferSelect;
 
 export type InsertGame = typeof games.$inferInsert;
 export type SelectGame = typeof games.$inferSelect;
-
 export type InsertGameCard = typeof gameCards.$inferInsert;
 export type SelectGameCard = typeof gameCards.$inferSelect;
 

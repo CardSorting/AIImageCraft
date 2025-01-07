@@ -16,6 +16,7 @@ interface TaskResponse {
   imageUrls?: string[];
   error?: string;
   prompt?: string;
+  nextPoll?: number; // Added nextPoll property
 }
 
 interface GeneratedImage {
@@ -60,9 +61,9 @@ export default function CreateImage() {
   });
 
   // Poll task status when there's an active task
-  const checkTaskStatus = useCallback(async (taskId: string) => {
+  const checkTaskStatus = useCallback(async (taskId: string, attempt = 1) => {
     try {
-      const res = await fetch(`/api/tasks/${taskId}`);
+      const res = await fetch(`/api/tasks/${taskId}?attempt=${attempt}`);
       if (!res.ok) throw new Error(await res.text());
 
       const data: TaskResponse = await res.json();
@@ -93,6 +94,11 @@ export default function CreateImage() {
           description: data.error || "Unable to create your image",
           className: "border-red-500/20",
         });
+      } else if (data.nextPoll) {
+        // Schedule next poll with the server-recommended interval
+        setTimeout(() => {
+          checkTaskStatus(taskId, attempt + 1);
+        }, data.nextPoll);
       }
     } catch (error) {
       console.error("Error checking task status:", error);
@@ -109,13 +115,11 @@ export default function CreateImage() {
   useEffect(() => {
     if (!currentTask) return;
 
-    const interval = setInterval(() => {
-      checkTaskStatus(currentTask);
-    }, 2000);
+    // Start polling with attempt 1
+    checkTaskStatus(currentTask, 1);
 
-    return () => {
-      clearInterval(interval);
-    };
+    // Cleanup is not needed anymore since we're using setTimeout
+    return () => {};
   }, [currentTask, checkTaskStatus]);
 
   const { mutate: generateImage, isPending } = useMutation({

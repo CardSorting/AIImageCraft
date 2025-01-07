@@ -32,6 +32,8 @@ router.post("/", async (req, res) => {
 router.get("/:taskId", async (req, res) => {
   try {
     const { taskId } = req.params;
+    const { attempt = '1' } = req.query;
+    const currentAttempt = parseInt(attempt as string);
 
     // Get task from PostgreSQL
     const task = await db.query.tasks.findFirst({
@@ -47,20 +49,45 @@ router.get("/:taskId", async (req, res) => {
       return res.status(403).send("Unauthorized");
     }
 
-    // If task is already completed in our database, return immediately
+    // Calculate recommended next poll interval based on attempts and status
+    const getNextPollInterval = (status: string, attempts: number) => {
+      const baseInterval = 3000; // Start with 3 seconds
+      const maxInterval = 15000; // Cap at 15 seconds
+      const factor = status === 'pending' ? 2 : 1.5; // More aggressive backoff for pending
+
+      // For pending status, use exponential backoff
+      if (status === 'pending') {
+        const interval = Math.min(baseInterval * Math.pow(factor, attempts - 1), maxInterval);
+        return Math.floor(interval);
+      }
+
+      // For processing status, use a more gradual increase
+      if (status === 'processing') {
+        const interval = Math.min(baseInterval * Math.pow(1.3, attempts - 1), maxInterval);
+        return Math.floor(interval);
+      }
+
+      return 0; // For completed/failed states
+    };
+
+    // If task is already completed or failed in our database, return immediately
     if (task.status === "completed" || task.status === "failed") {
       return res.json({
         ...task,
         status: task.status,
         imageUrls: task.output?.image_urls,
-        error: task.metadata?.error
+        error: task.metadata?.error,
+        nextPoll: 0 // Signal to stop polling
       });
     }
 
     // Get latest status from GoAPI
     const apiStatus = await TaskService.getTaskStatus(taskId);
 
-    // If task is completed, store images if not already stored
+    // Calculate next poll interval
+    const nextPollInterval = getNextPollInterval(apiStatus.status, currentAttempt);
+
+    // If task is completed, store images
     if (apiStatus.status === "completed" && apiStatus.output?.image_urls) {
       // Store all image variations in the database
       const imageRecords = await Promise.all(
@@ -92,7 +119,8 @@ router.get("/:taskId", async (req, res) => {
         ...task,
         status: "completed",
         imageUrls: apiStatus.output.image_urls,
-        imageIds: imageRecords.map(img => img.id)
+        imageIds: imageRecords.map(img => img.id),
+        nextPoll: 0 // Signal to stop polling
       });
     } else if (apiStatus.status === "failed") {
       // Update task as failed
@@ -108,14 +136,17 @@ router.get("/:taskId", async (req, res) => {
       return res.json({
         ...task,
         status: "failed",
-        error: apiStatus.error?.message
+        error: apiStatus.error?.message,
+        nextPoll: 0 // Signal to stop polling
       });
     }
 
-    // For pending/processing statuses, return the current state
+    // For pending/processing statuses, return the current state with next poll interval
     res.json({
       ...task,
-      status: apiStatus.status
+      status: apiStatus.status,
+      nextPoll: nextPollInterval,
+      attempt: currentAttempt
     });
   } catch (error) {
     console.error("Error checking task status:", error);
@@ -184,30 +215,6 @@ router.post("/webhook", async (req, res) => {
   } catch (error) {
     console.error("Error processing webhook:", error);
     res.status(500).send("Internal server error");
-  }
-});
-
-// Retry a failed task
-router.post("/:taskId/retry", async (req, res) => {
-  try {
-    const { taskId } = req.params;
-    const task = await db.query.tasks.findFirst({
-      where: eq(tasks.taskId, taskId)
-    });
-
-    if (!task) {
-      return res.status(404).send("Task not found");
-    }
-
-    if (task.userId !== req.user!.id) {
-      return res.status(403).send("Unauthorized");
-    }
-
-    await TaskService.retryTask(taskId);
-    res.json({ message: "Task retry initiated" });
-  } catch (error) {
-    console.error("Error retrying task:", error);
-    res.status(500).send("Failed to retry task");
   }
 });
 
