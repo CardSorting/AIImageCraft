@@ -11,7 +11,6 @@ import { Package, Plus, Loader2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -52,13 +51,11 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
   const shouldUse3DEffect = ['Rare', 'Epic', 'Legendary', 'Mythic'].includes(card.rarity);
   const { cardRef, shineRef, rainbowShineRef } = shouldUse3DEffect ? use3DCardEffect() : { cardRef: null, shineRef: null, rainbowShineRef: null };
 
-  // Fetch existing card packs
   const { data: cardPacks, isLoading: isLoadingPacks } = useQuery<CardPack[]>({
     queryKey: ["/api/card-packs"],
     enabled: isAddingToPack,
   });
 
-  // Mutation for adding card to pack
   const { mutate: addCardToPack, isPending: isAddingCard } = useMutation({
     mutationFn: async ({ packId }: { packId: number }) => {
       const res = await fetch(`/api/card-packs/${packId}/cards`, {
@@ -91,7 +88,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
     },
   });
 
-  // Handler for when a pack is selected from the dropdown
   const handlePackSelect = (packId: string) => {
     setSelectedPackId(packId);
     if (packId) {
@@ -102,7 +98,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
   return (
     <>
       <div className="space-y-4">
-        {/* Card Display */}
         <div
           className={cn(
             "relative group transform transition-all duration-300 hover:scale-105",
@@ -124,14 +119,12 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               ${isSelected ? 'opacity-90' : ''}
             `}
           >
-            {/* Selection Indicator */}
             {isCardsRoute && isSelected && (
               <div className="absolute top-2 left-2 z-50 w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
                 <Check className="w-5 h-5 text-white" />
               </div>
             )}
 
-            {/* Card Header - Name and Type */}
             <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/90 via-black/60 to-transparent">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1">
@@ -156,7 +149,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               </div>
             </div>
 
-            {/* Card Image */}
             <div className="absolute inset-0 z-10">
               <img
                 src={card.image.url}
@@ -166,7 +158,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/90" />
             </div>
 
-            {/* Add 3D effect layers for rare+ cards */}
             {shouldUse3DEffect && (
               <>
                 <div ref={shineRef} className="shine-effect" />
@@ -176,7 +167,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               </>
             )}
 
-            {/* Card Description */}
             <div className="absolute bottom-28 left-0 right-0 p-4 z-20">
               <div className="bg-black/40 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                 <p className="text-sm text-gray-200/95 leading-relaxed italic">
@@ -185,7 +175,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               </div>
             </div>
 
-            {/* Card Stats */}
             <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-black/60 backdrop-blur-sm border-t border-white/10">
               <div className="grid grid-cols-2 gap-2">
                 <StatDisplay
@@ -215,7 +204,6 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               </div>
             </div>
 
-            {/* Rarity Badge */}
             <div className={`
               absolute top-4 right-4 z-30 px-3 py-1.5
               rounded-full text-xs font-bold uppercase tracking-wider
@@ -227,12 +215,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
               {card.rarity}
             </div>
 
-            {/* Favorite Button - Only show if not on /cards route */}
             {!isCardsRoute && <FavoriteButton itemId={card.id} itemType="card" />}
           </div>
         </div>
 
-        {/* Add to Pack Button - Only show if on /cards route */}
         {isCardsRoute && (
           <Button
             onClick={() => setIsAddingToPack(true)}
@@ -245,24 +231,21 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
         )}
       </div>
 
-      {/* Add to Pack Dialog */}
       <Dialog open={isAddingToPack} onOpenChange={setIsAddingToPack}>
         <DialogContent className="sm:max-w-[425px] bg-black/80 border-purple-500/20 text-white">
           <DialogHeader>
             <DialogTitle>Add to Card Pack</DialogTitle>
-            {/* Changed from DialogDescription to div to fix nesting issue */}
-            <div className="text-purple-300/70">
+            <div className="text-sm text-purple-300/70">
               Add this card to an existing pack or create a new one.
             </div>
           </DialogHeader>
 
           {isLoadingPacks ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Existing Packs Section - Enhanced visual hierarchy */}
               {cardPacks && cardPacks.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-white">Select Existing Pack</h3>
@@ -296,17 +279,9 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
 
               <Separator className="bg-purple-500/20" />
 
-              {/* Create New Pack Section - Enhanced visual hierarchy */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-white">Create New Pack</h3>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    // createPackWithCard functionality will be implemented later
-                  }}
-                  className="space-y-4"
-                >
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-purple-300">Pack Name</label>
                     <input
@@ -327,7 +302,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
                     />
                   </div>
                   <Button
-                    type="submit"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // Implementation will be added later
+                    }}
                     disabled={isAddingCard}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-300"
                   >
@@ -343,7 +321,7 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
                       </>
                     )}
                   </Button>
-                </form>
+                </div>
               </div>
             </div>
           )}
