@@ -250,9 +250,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
         <DialogContent className="sm:max-w-[425px] bg-black/80 border-purple-500/20 text-white">
           <DialogHeader>
             <DialogTitle>Add to Card Pack</DialogTitle>
-            <DialogDescription className="text-purple-300/70">
+            {/* Changed from DialogDescription to div to fix nesting issue */}
+            <div className="text-purple-300/70">
               Add this card to an existing pack or create a new one.
-            </DialogDescription>
+            </div>
           </DialogHeader>
 
           {isLoadingPacks ? (
@@ -261,12 +262,10 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Existing Packs Dropdown */}
+              {/* Existing Packs Section - Enhanced visual hierarchy */}
               {cardPacks && cardPacks.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-white">
-                    Select Existing Pack
-                  </label>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-white">Select Existing Pack</h3>
                   <Select
                     value={selectedPackId}
                     onValueChange={handlePackSelect}
@@ -282,12 +281,12 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
                           disabled={(pack.cards?.length || 0) >= 10}
                           className="text-white hover:bg-purple-500/20 focus:bg-purple-500/20 focus:text-white"
                         >
-                          <span className="flex items-center justify-between w-full">
-                            <span>{pack.name}</span>
-                            <span className="text-sm text-purple-300/70">
-                              {pack.cards?.length || 0}/10
+                          <div className="flex items-center justify-between w-full">
+                            <span className="font-medium">{pack.name}</span>
+                            <span className="text-sm text-purple-300/70 bg-purple-500/10 px-2 py-0.5 rounded">
+                              {pack.cards?.length || 0}/10 cards
                             </span>
-                          </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -297,47 +296,50 @@ export function CardItem({ card, isCardsRoute, isSelected = false, onSelect }: C
 
               <Separator className="bg-purple-500/20" />
 
-              {/* Create New Pack */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-white">Create New Pack</h3>
+              {/* Create New Pack Section - Enhanced visual hierarchy */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-white">Create New Pack</h3>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     const formData = new FormData(e.currentTarget);
-                    // createPackWithCard({ //This line is removed as per the intention
-                    //   name: formData.get("name") as string,
-                    //   description: formData.get("description") as string,
-                    // });
+                    // createPackWithCard functionality will be implemented later
                   }}
                   className="space-y-4"
                 >
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Pack Name"
-                    required
-                    className="w-full px-3 py-2 bg-purple-950/30 border border-purple-500/30 rounded-md text-white placeholder:text-purple-300/50"
-                  />
-                  <textarea
-                    name="description"
-                    placeholder="Pack Description (optional)"
-                    className="w-full px-3 py-2 bg-purple-950/30 border border-purple-500/30 rounded-md text-white placeholder:text-purple-300/50 resize-none"
-                    rows={3}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-purple-300">Pack Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Enter pack name"
+                      required
+                      className="w-full px-3 py-2 bg-purple-950/30 border border-purple-500/30 rounded-md text-white placeholder:text-purple-300/50 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-purple-300">Description (optional)</label>
+                    <textarea
+                      name="description"
+                      placeholder="Describe your pack"
+                      className="w-full px-3 py-2 bg-purple-950/30 border border-purple-500/30 rounded-md text-white placeholder:text-purple-300/50 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
+                      rows={3}
+                    />
+                  </div>
                   <Button
                     type="submit"
                     disabled={isAddingCard}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-300"
                   >
                     {isAddingCard ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
+                        Creating Pack...
                       </>
                     ) : (
                       <>
                         <Plus className="mr-2 h-4 w-4" />
-                        Create & Add Card
+                        Create Pack & Add Card
                       </>
                     )}
                   </Button>
