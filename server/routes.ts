@@ -2,11 +2,20 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { db } from "@db";
-import { eq, and, desc, inArray } from "drizzle-orm";
-import { creditTransactions, creditBalances } from "../db/schema/credits/schema";
-import { images, imageTags, tags } from "@db/schema";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { 
+  users, 
+  creditTransactions,
+  images, 
+  imageTags, 
+  tags,
+  userRewards,
+  levelMilestones,
+  challengeProgress,
+  dailyChallenges
+} from "@db/schema";
 import { TaskService } from "./services/task";
-import { PulseCreditManager } from "./services/pulse-credit-manager";
+import { PulseCreditManager } from "./services/redis";
 import creditRoutes from "./routes/credits";
 import marketplaceRoutes from "./routes/marketplace";
 import cardPackRoutes from "./routes/card-packs";
@@ -28,6 +37,14 @@ export function registerRoutes(app: Express): Server {
     }
     next();
   });
+
+  // Register all route modules
+  app.use("/api/credits", creditRoutes);
+  app.use("/api/marketplace", marketplaceRoutes);
+  app.use("/api/card-packs", cardPackRoutes);
+  app.use("/api/tasks", taskRoutes);
+  app.use("/api/favorites", favoritesRoutes);
+  app.use("/api/trading-cards", tradingCardRoutes);
 
   // Add the specific /generate route for image generation
   app.post("/api/generate", async (req, res) => {
@@ -87,13 +104,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Register routes
-  app.use("/api/credits", creditRoutes);
-  app.use("/api/marketplace", marketplaceRoutes);
-  app.use("/api/card-packs", cardPackRoutes);
-  app.use("/api/tasks", taskRoutes);
-  app.use("/api/favorites", favoritesRoutes);
-  app.use("/api/trading-cards", tradingCardRoutes);
 
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
