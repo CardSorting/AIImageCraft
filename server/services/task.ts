@@ -26,6 +26,11 @@ interface TaskError {
 interface TaskOutput {
   image_urls?: string[];
   progress?: number;
+  temporary_image_urls?: string[] | null;
+  image_url?: string;
+  discord_image_url?: string;
+  actions?: any[];
+  intermediate_image_urls?: string[] | null;
 }
 
 interface TaskResponse {
@@ -37,12 +42,23 @@ interface TaskResponse {
   input: TaskInput;
   output: TaskOutput;
   error: TaskError;
+  meta?: {
+    created_at: string;
+    started_at: string;
+    ended_at: string;
+    usage: any;
+    is_using_private_pool: boolean;
+    model_version: string;
+    process_mode: string;
+    failover_triggered: boolean;
+  };
 }
 
 export class TaskService {
   private static readonly API_URL = 'https://api.goapi.ai/api/v1/task';
   private static readonly RETRIES = 3;
   private static readonly RETRY_DELAY = 1000; // 1 second
+  private static readonly COMPLETION_STATUSES = ['completed', 'failed'];
 
   static async createImageGenerationTask(prompt: string, userId: number): Promise<{ taskId: string, status: string }> {
     try {
@@ -95,23 +111,31 @@ export class TaskService {
         throw new Error("Invalid response from GoAPI: Missing task ID");
       }
 
-      // Store task in Redis using TaskQueue
-      await TaskQueue.createTask(result.data.task_id, {
+      const taskData = {
+        taskId: result.data.task_id,
         prompt,
         userId,
-        createdAt: new Date().toISOString()
-      });
+        status: result.data.status,
+        createdAt: new Date().toISOString(),
+        output: result.data.output || {},
+        meta: result.data.meta || {}
+      };
 
-      // Add to processing queue
-      await TaskQueue.addToQueue('image_generation', {
-        taskId: result.data.task_id,
-        userId,
-        prompt
-      });
+      // Store task in Redis using TaskQueue
+      await TaskQueue.createTask(result.data.task_id, taskData);
+
+      // Add to processing queue if not already completed
+      if (!this.COMPLETION_STATUSES.includes(result.data.status)) {
+        await TaskQueue.addToQueue('image_generation', {
+          taskId: result.data.task_id,
+          userId,
+          prompt
+        });
+      }
 
       return {
         taskId: result.data.task_id,
-        status: "pending"
+        status: result.data.status
       };
     } catch (error: any) {
       console.error("Error creating image generation task:", error);
@@ -123,8 +147,8 @@ export class TaskService {
     try {
       // First check Redis for cached task status
       const cachedTask = await TaskQueue.getTask(taskId);
-      if (cachedTask && cachedTask.status === 'completed') {
-        return cachedTask;
+      if (cachedTask && this.COMPLETION_STATUSES.includes(cachedTask.status)) {
+        return cachedTask as TaskResponse;
       }
 
       if (!process.env.GOAPI_API_KEY) {
@@ -144,11 +168,21 @@ export class TaskService {
       }
 
       const result = await response.json();
+      const taskData = result.data;
 
       // Update task status in Redis
-      await TaskQueue.updateTask(taskId, result.data);
+      await TaskQueue.updateTask(taskId, {
+        ...taskData,
+        updatedAt: new Date().toISOString()
+      });
 
-      return result.data;
+      // If task is complete, remove from processing queue
+      if (this.COMPLETION_STATUSES.includes(taskData.status)) {
+        // Note: Implementation of task completion handling can be added here
+        console.log(`Task ${taskId} completed with status: ${taskData.status}`);
+      }
+
+      return taskData;
     } catch (error: any) {
       console.error("Error getting task status:", error);
       throw error;
@@ -168,7 +202,21 @@ export class TaskService {
 
         if (response.ok) {
           // Update task status in Redis
-          await TaskQueue.updateTask(taskId, { status: 'pending', retryCount: i + 1 });
+          await TaskQueue.updateTask(taskId, {
+            status: 'pending',
+            retryCount: i + 1,
+            updatedAt: new Date().toISOString()
+          });
+
+          // Add back to processing queue
+          const task = await TaskQueue.getTask(taskId);
+          if (task) {
+            await TaskQueue.addToQueue('image_generation', {
+              taskId,
+              userId: task.userId,
+              prompt: task.prompt
+            });
+          }
           return;
         }
 
