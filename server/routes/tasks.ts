@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { TaskService } from "../services/task";
-import { TaskManager } from "../services/redis";
 import { db } from "@db";
-import { images } from "@db/schema";
+import { tasks, images } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -33,30 +32,44 @@ router.post("/", async (req, res) => {
 router.get("/:taskId", async (req, res) => {
   try {
     const { taskId } = req.params;
-    const taskData = await TaskManager.getTask(taskId);
 
-    if (!taskData) {
+    // Get task from PostgreSQL
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.taskId, taskId)
+    });
+
+    if (!task) {
       return res.status(404).send("Task not found");
     }
 
     // Verify task ownership
-    if (taskData.userId !== req.user!.id) {
+    if (task.userId !== req.user!.id) {
       return res.status(403).send("Unauthorized");
+    }
+
+    // If task is already completed in our database, return immediately
+    if (task.status === "completed" || task.status === "failed") {
+      return res.json({
+        ...task,
+        status: task.status,
+        imageUrls: task.output?.image_urls,
+        error: task.metadata?.error
+      });
     }
 
     // Get latest status from GoAPI
     const apiStatus = await TaskService.getTaskStatus(taskId);
 
     // If task is completed, store images if not already stored
-    if (apiStatus.status === "completed" && apiStatus.output?.image_urls && !taskData.imageIds) {
+    if (apiStatus.status === "completed" && apiStatus.output?.image_urls) {
       // Store all image variations in the database
       const imageRecords = await Promise.all(
         apiStatus.output.image_urls.map(async (url: string, index: number) => {
           const [newImage] = await db.insert(images)
             .values({
-              userId: taskData.userId,
+              userId: task.userId,
               url: url,
-              prompt: taskData.prompt,
+              prompt: task.prompt,
               variationIndex: index
             })
             .returning();
@@ -64,27 +77,45 @@ router.get("/:taskId", async (req, res) => {
         })
       );
 
-      // Update task data in Redis
-      await TaskManager.updateTask(taskId, {
-        ...taskData,
+      // Update task status in PostgreSQL
+      await db
+        .update(tasks)
+        .set({
+          status: "completed",
+          output: apiStatus.output,
+          metadata: apiStatus.meta || {},
+          updatedAt: new Date()
+        })
+        .where(eq(tasks.taskId, taskId));
+
+      return res.json({
+        ...task,
         status: "completed",
         imageUrls: apiStatus.output.image_urls,
         imageIds: imageRecords.map(img => img.id)
       });
+    } else if (apiStatus.status === "failed") {
+      // Update task as failed
+      await db
+        .update(tasks)
+        .set({
+          status: "failed",
+          metadata: { error: apiStatus.error?.message || "Unknown error" },
+          updatedAt: new Date()
+        })
+        .where(eq(tasks.taskId, taskId));
 
       return res.json({
-        ...taskData,
-        status: "completed",
-        imageUrls: apiStatus.output.image_urls,
-        imageIds: imageRecords.map(img => img.id)
+        ...task,
+        status: "failed",
+        error: apiStatus.error?.message
       });
     }
 
-    // For other statuses, just return the current state
+    // For pending/processing statuses, return the current state
     res.json({
-      ...taskData,
-      status: apiStatus.status,
-      error: apiStatus.error?.message
+      ...task,
+      status: apiStatus.status
     });
   } catch (error) {
     console.error("Error checking task status:", error);
@@ -103,9 +134,12 @@ router.post("/webhook", async (req, res) => {
       return res.status(401).send("Invalid webhook secret");
     }
 
-    // Get task data from Redis
-    const taskData = await TaskManager.getTask(task_id);
-    if (!taskData) {
+    // Get task from PostgreSQL
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.taskId, task_id)
+    });
+
+    if (!task) {
       return res.status(404).send("Task not found");
     }
 
@@ -115,9 +149,9 @@ router.post("/webhook", async (req, res) => {
         output.image_urls.map(async (url: string, index: number) => {
           const [newImage] = await db.insert(images)
             .values({
-              userId: taskData.userId,
+              userId: task.userId,
               url: url,
-              prompt: taskData.prompt,
+              prompt: task.prompt,
               variationIndex: index
             })
             .returning();
@@ -125,20 +159,25 @@ router.post("/webhook", async (req, res) => {
         })
       );
 
-      // Update task status in Redis with all image variations
-      await TaskManager.updateTask(task_id, {
-        ...taskData,
-        status: "completed",
-        imageUrls: output.image_urls,
-        imageIds: imageRecords.map(img => img.id)
-      });
+      // Update task status in PostgreSQL
+      await db
+        .update(tasks)
+        .set({
+          status: "completed",
+          output: output,
+          updatedAt: new Date()
+        })
+        .where(eq(tasks.taskId, task_id));
 
     } else if (status === "failed") {
-      await TaskManager.updateTask(task_id, {
-        ...taskData,
-        status: "failed",
-        error: error?.message || "Unknown error"
-      });
+      await db
+        .update(tasks)
+        .set({
+          status: "failed",
+          metadata: { error: error?.message || "Unknown error" },
+          updatedAt: new Date()
+        })
+        .where(eq(tasks.taskId, task_id));
     }
 
     res.sendStatus(200);
@@ -152,13 +191,15 @@ router.post("/webhook", async (req, res) => {
 router.post("/:taskId/retry", async (req, res) => {
   try {
     const { taskId } = req.params;
-    const taskData = await TaskManager.getTask(taskId);
+    const task = await db.query.tasks.findFirst({
+      where: eq(tasks.taskId, taskId)
+    });
 
-    if (!taskData) {
+    if (!task) {
       return res.status(404).send("Task not found");
     }
 
-    if (taskData.userId !== req.user!.id) {
+    if (task.userId !== req.user!.id) {
       return res.status(403).send("Unauthorized");
     }
 

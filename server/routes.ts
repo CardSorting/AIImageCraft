@@ -18,7 +18,7 @@ import { TaskService } from "./services/task";
 import { CreditManager } from "./services/credits/credit-manager";
 import creditRoutes from "./routes/credits";
 import favoritesRoutes from "./routes/favorites";
-
+import taskRoutes from "./routes/tasks";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -38,7 +38,7 @@ export function registerRoutes(app: Express): Server {
   // Register all route modules
   app.use("/api/credits", creditRoutes);
   app.use("/api/favorites", favoritesRoutes);
-
+  app.use("/api/tasks", taskRoutes);
 
   // Add the specific /generate route for image generation
   app.post("/api/generate", async (req, res) => {
