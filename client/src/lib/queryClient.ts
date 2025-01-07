@@ -4,7 +4,16 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: async ({ queryKey }) => {
-        const res = await fetch(queryKey[0] as string, {
+        const [url, params] = queryKey;
+
+        // Build URL with query parameters if they exist
+        const queryParams = params ? new URLSearchParams(
+          Object.entries(params).map(([key, value]) => [key, String(value)])
+        ).toString() : '';
+
+        const fullUrl = queryParams ? `${url}?${queryParams}` : url;
+
+        const res = await fetch(fullUrl, {
           credentials: "include",
         });
 

@@ -24,7 +24,7 @@ export function CardGallery() {
   const isCardsRoute = location === "/cards";
 
   const { data, isLoading, error } = useQuery<CardsResponse>({
-    queryKey: ["/api/trading-cards", currentPage],
+    queryKey: ["/api/trading-cards", { page: currentPage }],
   });
 
   if (isLoading) {
