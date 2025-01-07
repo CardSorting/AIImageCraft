@@ -25,10 +25,10 @@ export default function LandingHeader() {
 
           <div className="flex items-center gap-4">
             <Link href="/auth" className="text-purple-200 hover:text-purple-100 hover:bg-purple-500/20 px-4 py-2 rounded-md transition-colors">
-              Log in
+              Sign in
             </Link>
             <Link href="/auth" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-4 py-2 rounded-md text-white transition-colors">
-              Sign up
+              Create account
             </Link>
           </div>
         </div>

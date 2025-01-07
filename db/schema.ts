@@ -30,10 +30,10 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string().min(3).max(50),
   password: z.string().min(8).max(100),
-}).omit({ createdAt: true, updatedAt: true });
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
-export const selectUserSchema = createSelectSchema(users).omit({ 
-  password: true 
+export const selectUserSchema = createSelectSchema(users).omit({
+  password: true
 });
 
 // Export types
@@ -45,3 +45,8 @@ export { defaultFields, createSchemas };
 
 // Export shared types
 export type { TableType, InsertType, SelectType } from "./utils/schema-utils";
+
+// Push the schema changes
+export const schema = {
+  users,
+};

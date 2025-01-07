@@ -5,22 +5,18 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Configure CORS
+// Configure CORS with credentials support
 app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization'
-  ]
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-
-// Configure security headers
+// Configure security headers while allowing auth to work
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
@@ -34,13 +30,13 @@ app.use((req, res, next) => {
       "object-src 'none'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "connect-src 'self'"
+      "connect-src 'self' http://localhost:* http://0.0.0.0:*"
     ].join("; ")
   );
-
   next();
 });
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -74,14 +70,25 @@ app.use((req, res, next) => {
 (async () => {
   const server = registerRoutes(app);
 
+  // Enhanced error handling for auth errors
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error("Error:", err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Handle authentication errors specifically
+    if (status === 401) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    if (status === 403) {
+      return res.status(403).json({ message: "Access forbidden" });
+    }
+
     res.status(status).json({ message });
   });
 
+  // Vite setup in development, static serving in production
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {

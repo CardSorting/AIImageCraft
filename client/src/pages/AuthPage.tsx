@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/features/auth/components/AuthProvider";
+import { useUser } from "@/hooks/use-user";
 import {
   Card,
   CardContent,
@@ -9,38 +9,60 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { SiGoogle } from "react-icons/si";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const formSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export default function AuthPage() {
-  const { user, signInWithGoogle, error, loading, clearError } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const { login, register, error, isLoading } = useUser();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  // Redirect if user is already authenticated
-  useEffect(() => {
-    if (user) {
-      setLocation("/gallery");
-    }
-  }, [user, setLocation]);
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
 
-  const handleGoogleSignIn = async () => {
+  const onSubmit = async (data: FormData) => {
     try {
-      clearError?.(); // Clear any previous errors
-      await signInWithGoogle();
-      // The redirect will be handled by the AuthProvider after successful authentication
-    } catch (error: any) {
+      if (isLogin) {
+        await login(data);
+      } else {
+        await register(data);
+      }
+      setLocation("/gallery");
+    } catch (err: any) {
       toast({
         variant: "destructive",
         title: "Authentication Error",
-        description: error.message || "Failed to sign in with Google",
+        description: err.message || "Failed to authenticate",
       });
     }
   };
 
-  // Show loading state while checking auth
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
@@ -52,31 +74,83 @@ export default function AuthPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
       <Card className="w-full max-w-md backdrop-blur-sm bg-black/30 border-purple-500/20">
         <CardHeader>
-          <CardTitle className="text-2xl text-white">Welcome</CardTitle>
+          <CardTitle className="text-2xl text-white">
+            {isLogin ? "Welcome Back" : "Create Account"}
+          </CardTitle>
           <CardDescription className="text-purple-300/70">
-            Sign in with your Google account to continue
+            {isLogin
+              ? "Sign in to your account"
+              : "Sign up for a new account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <Button
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-purple-300">Username</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        className="bg-black/50 border-purple-500/30 text-white"
+                        placeholder="Enter your username"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-purple-300">Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="password"
+                        className="bg-black/50 border-purple-500/30 text-white"
+                        placeholder="Enter your password"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isLogin ? (
+                  "Sign In"
+                ) : (
+                  "Sign Up"
+                )}
+              </Button>
+            </form>
+          </Form>
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-purple-300/70 hover:text-purple-300 text-sm"
             >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <SiGoogle className="h-4 w-4" />
-              )}
-              Sign in with Google
-            </Button>
-            {error && (
-              <p className="text-sm text-red-500 text-center">
-                {error.message}
-              </p>
-            )}
+              {isLogin
+                ? "Need an account? Sign up"
+                : "Already have an account? Sign in"}
+            </button>
           </div>
+          {error && (
+            <p className="mt-4 text-sm text-red-500 text-center">
+              {error.message}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
