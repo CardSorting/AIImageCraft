@@ -14,11 +14,7 @@ router.get("/listings", async (req, res) => {
     console.log("Fetching listings with filters:", { minPrice, maxPrice, sortBy });
 
     // Build conditions array for dynamic filtering
-    // Initially fetch all listings to debug
-    const conditions = [];
-
-    // Only add status filter if we confirm we have data
-    // conditions.push(eq(packListings.status, 'ACTIVE'));
+    const conditions = [eq(packListings.status, 'ACTIVE')];
 
     if (minPrice && !isNaN(Number(minPrice))) {
       conditions.push(gte(packListings.price, Number(minPrice)));
@@ -47,7 +43,7 @@ router.get("/listings", async (req, res) => {
       .from(packListings)
       .leftJoin(users, eq(packListings.sellerId, users.id))
       .leftJoin(cardPacks, eq(packListings.packId, cardPacks.id))
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(
         sortBy === 'trending' ? desc(packListings.createdAt) :  // Default trending to newest
         sortBy === 'price_desc' ? desc(packListings.price) :
