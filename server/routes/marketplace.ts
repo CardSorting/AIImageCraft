@@ -11,11 +11,12 @@ import {
   images,
   users,
   marketplaceTransactions,
-  marketplaceEscrow
+  marketplaceEscrow,
+  creditBalances
 } from "@db/schema";
 import { z } from "zod";
-import { PulseCreditManager } from "../services/redis";
-import { RedisMarketplaceCoordinator } from "../services/redis/marketplace";
+import { CreditManager } from "../services/credits/credit-manager";
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.get("/listings", async (req, res) => {
             }
           });
 
-          if (packPreview) {
+          if (packPreview?.globalPoolCard?.card?.template) {
             previewData = {
               name: packPreview.globalPoolCard.card.template.name,
               rarity: packPreview.globalPoolCard.card.template.rarity,
@@ -112,72 +113,6 @@ router.get("/listings", async (req, res) => {
   }
 });
 
-// Create a new listing
-router.post("/listings", async (req, res) => {
-  try {
-    const schema = z.object({
-      type: z.enum(['PACK', 'SINGLE_CARD', 'BUNDLE']),
-      title: z.string().min(1),
-      description: z.string().optional(),
-      basePrice: z.number().min(1),
-      metadata: z.record(z.any()).optional(),
-    });
-
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).send(result.error.issues[0].message);
-    }
-
-    // Verify pack ownership if it's a pack listing
-    if (result.data.type === 'PACK' && result.data.metadata?.packId) {
-      const pack = await db.query.cardPacks.findFirst({
-        where: and(
-          eq(cardPacks.id, result.data.metadata.packId),
-          eq(cardPacks.userId, req.user!.id)
-        ),
-      });
-
-      if (!pack) {
-        return res.status(403).send("Pack not found or doesn't belong to you");
-      }
-
-      // Check if pack is already listed
-      const existingListing = await db.query.marketplaceListings.findFirst({
-        where: and(
-          eq(marketplaceListings.type, 'PACK'),
-          eq(marketplaceListings.status, 'ACTIVE')
-        ),
-      });
-
-      if (existingListing) {
-        return res.status(400).send("This pack is already listed in the marketplace");
-      }
-    }
-
-    // Create the listing with ACTIVE status
-    const [listing] = await db.insert(marketplaceListings)
-      .values({
-        type: result.data.type,
-        title: result.data.title,
-        description: result.data.description,
-        basePrice: result.data.basePrice,
-        metadata: result.data.metadata || {},
-        sellerId: req.user!.id,
-        status: 'ACTIVE', // Set status to ACTIVE by default
-      })
-      .returning();
-
-    res.json(listing);
-  } catch (error) {
-    console.error("Error creating marketplace listing:", error);
-    if (error instanceof Error) {
-      res.status(500).send(error.message);
-    } else {
-      res.status(500).send("Failed to create marketplace listing");
-    }
-  }
-});
-
 // Purchase a listing
 router.post("/listings/:id/purchase", async (req, res) => {
   try {
@@ -186,7 +121,7 @@ router.post("/listings/:id/purchase", async (req, res) => {
 
     // Start transaction for purchase
     const result = await db.transaction(async (tx) => {
-      // Get listing with latest status
+      // Get listing with latest status and lock the row for update
       const [listing] = await tx
         .select()
         .from(marketplaceListings)
@@ -194,6 +129,7 @@ router.post("/listings/:id/purchase", async (req, res) => {
           eq(marketplaceListings.id, listingId),
           eq(marketplaceListings.status, 'ACTIVE')
         ))
+        .forUpdate() // This will lock the row until transaction completes
         .limit(1);
 
       if (!listing) {
@@ -204,93 +140,64 @@ router.post("/listings/:id/purchase", async (req, res) => {
         throw new Error("You cannot purchase your own listing");
       }
 
-      // Try to acquire lock through Redis (keeping this for listing lock only)
-      const lockAcquired = await RedisMarketplaceCoordinator.acquireListingLock(
-        listing.redisKey,
-        req.user!.id
+      // Check if buyer has enough credits using PostgreSQL
+      const hasCredits = await CreditManager.hasEnoughCredits(
+        req.user!.id,
+        listing.basePrice
       );
 
-      if (!lockAcquired) {
-        throw new Error("Listing is currently being processed");
+      if (!hasCredits) {
+        throw new Error(`Insufficient credits. You need ${listing.basePrice} credits to purchase this listing.`);
       }
 
-      try {
-        // Check if buyer has enough credits using PostgreSQL
-        const hasCredits = await PulseCreditManager.hasEnoughCredits(
-          req.user!.id,
-          listing.basePrice
-        );
+      // Create transaction record
+      const [transaction] = await tx
+        .insert(marketplaceTransactions)
+        .values({
+          listingId,
+          buyerId: req.user!.id,
+          sellerId: listing.sellerId,
+          amount: listing.basePrice,
+          fee: Math.floor(listing.basePrice * 0.05), // 5% marketplace fee
+          status: escrowOptions ? 'ESCROW_PENDING' : 'PROCESSING',
+          processingKey: crypto.randomUUID(), // Using native UUID instead of Redis
+        })
+        .returning();
 
-        if (!hasCredits) {
-          throw new Error(`Insufficient credits. You need ${listing.basePrice} credits to purchase this listing.`);
-        }
+      // Deduct credits from buyer using PostgreSQL
+      const deductResult = await CreditManager.useCredits(
+        req.user!.id,
+        listing.basePrice
+      );
 
-        // Create transaction record
-        const [transaction] = await tx
-          .insert(marketplaceTransactions)
+      if (!deductResult) {
+        throw new Error("Failed to process payment");
+      }
+
+      // If escrow is requested, create escrow record
+      if (escrowOptions) {
+        const [escrow] = await tx
+          .insert(marketplaceEscrow)
           .values({
-            listingId,
-            buyerId: req.user!.id,
-            sellerId: listing.sellerId,
+            transactionId: transaction.id,
             amount: listing.basePrice,
-            fee: Math.floor(listing.basePrice * 0.05), // 5% marketplace fee
-            status: escrowOptions ? 'ESCROW_PENDING' : 'PROCESSING',
-            processingKey: await RedisMarketplaceCoordinator.generateTransactionKey(),
+            releaseConditions: escrowOptions.releaseConditions,
+            status: 'PENDING',
+            escrowKey: crypto.randomUUID(), // Using native UUID instead of Redis
           })
           .returning();
-
-        // Deduct credits from buyer using PostgreSQL
-        const deductResult = await PulseCreditManager.deductCredits(
-          req.user!.id,
-          listing.basePrice,
-          'USAGE',
-          `Purchase of listing #${listingId}`
-        );
-
-        if (!deductResult.success) {
-          throw new Error(deductResult.error || "Failed to process payment");
-        }
-
-        // If escrow is requested, create escrow record
-        if (escrowOptions) {
-          const [escrow] = await tx
-            .insert(marketplaceEscrow)
-            .values({
-              transactionId: transaction.id,
-              amount: listing.basePrice,
-              releaseConditions: escrowOptions.releaseConditions,
-              status: 'PENDING',
-              redisLockKey: await RedisMarketplaceCoordinator.generateEscrowKey(),
-            })
-            .returning();
-
-          // Register escrow with Redis
-          await RedisMarketplaceCoordinator.setupEscrow(
-            escrow.redisLockKey,
-            {
-              escrowId: escrow.id,
-              transactionId: transaction.id,
-              amount: listing.basePrice,
-              buyerId: req.user!.id,
-              sellerId: listing.sellerId,
-            }
-          );
-        }
-
-        // Update listing status
-        await tx
-          .update(marketplaceListings)
-          .set({
-            status: 'LOCKED',
-            lastProcessedAt: new Date(),
-          })
-          .where(eq(marketplaceListings.id, listingId));
-
-        return transaction;
-      } finally {
-        // Release the lock in any case
-        await RedisMarketplaceCoordinator.releaseListingLock(listing.redisKey);
       }
+
+      // Update listing status
+      await tx
+        .update(marketplaceListings)
+        .set({
+          status: 'LOCKED',
+          lastProcessedAt: new Date(),
+        })
+        .where(eq(marketplaceListings.id, listingId));
+
+      return transaction;
     });
 
     res.json(result);
@@ -304,115 +211,11 @@ router.post("/listings/:id/purchase", async (req, res) => {
   }
 });
 
-// Get escrow details
-router.get("/transactions/:id/escrow", async (req, res) => {
-  try {
-    const transactionId = parseInt(req.params.id);
-
-    const escrow = await db.query.marketplaceEscrow.findFirst({
-      where: eq(marketplaceEscrow.transactionId, transactionId),
-    });
-
-    if (!escrow) {
-      return res.status(404).send("Escrow not found");
-    }
-
-    res.json(escrow);
-  } catch (error) {
-    console.error("Error fetching escrow details:", error);
-    res.status(500).send("Failed to fetch escrow details");
-  }
-});
-
-// Release escrow funds
-router.post("/transactions/:id/escrow/release", async (req, res) => {
-  try {
-    const transactionId = parseInt(req.params.id);
-
-    const result = await db.transaction(async (tx) => {
-      // Get escrow record
-      const [escrow] = await tx
-        .select()
-        .from(marketplaceEscrow)
-        .where(eq(marketplaceEscrow.transactionId, transactionId))
-        .limit(1);
-
-      if (!escrow) {
-        throw new Error("Escrow not found");
-      }
-
-      // Try to acquire lock
-      const lockAcquired = await RedisMarketplaceCoordinator.acquireEscrowLock(
-        escrow.redisLockKey
-      );
-
-      if (!lockAcquired) {
-        throw new Error("Escrow is currently being processed");
-      }
-
-      try {
-        // Get transaction details
-        const [transaction] = await tx
-          .select()
-          .from(marketplaceTransactions)
-          .where(eq(marketplaceTransactions.id, transactionId))
-          .limit(1);
-
-        if (!transaction) {
-          throw new Error("Transaction not found");
-        }
-
-        // Release funds to seller
-        await PulseCreditManager.transferCredits(
-          transaction.buyerId,
-          transaction.sellerId,
-          transaction.amount - transaction.fee,
-          'MARKETPLACE_SALE',
-          `Marketplace sale - Transaction ${transaction.id}`
-        );
-
-        // Update escrow status
-        await tx
-          .update(marketplaceEscrow)
-          .set({
-            status: 'RELEASED',
-            releasedAt: new Date(),
-          })
-          .where(eq(marketplaceEscrow.id, escrow.id));
-
-        // Update transaction status
-        await tx
-          .update(marketplaceTransactions)
-          .set({
-            status: 'COMPLETED',
-            completedAt: new Date(),
-          })
-          .where(eq(marketplaceTransactions.id, transaction.id));
-
-        return { success: true };
-      } finally {
-        // Release the lock
-        await RedisMarketplaceCoordinator.releaseEscrowLock(escrow.redisLockKey);
-      }
-    });
-
-    res.json(result);
-  } catch (error) {
-    console.error("Error releasing escrow:", error);
-    if (error instanceof Error) {
-      res.status(500).send(error.message);
-    } else {
-      res.status(500).send("Failed to release escrow");
-    }
-  }
-});
-
 // Get user's listings
 router.get("/listings/user", async (req, res) => {
   try {
     console.log("Fetching user listings for user:", req.user!.id);
 
-    // Use Drizzle's query builder with relations
     const userListings = await db.query.marketplaceListings.findMany({
       where: eq(marketplaceListings.sellerId, req.user!.id),
       orderBy: [desc(marketplaceListings.createdAt)],
@@ -424,111 +227,6 @@ router.get("/listings/user", async (req, res) => {
   } catch (error) {
     console.error("Error fetching user listings:", error);
     res.status(500).send("Failed to fetch user listings");
-  }
-});
-
-
-// Cancel a pack listing (seller only)
-router.post("/listings/:id/cancel", async (req, res) => {
-  try {
-    const listingId = parseInt(req.params.id);
-
-    const listing = await db
-      .select()
-      .from(marketplaceListings)
-      .where(
-        and(
-          eq(marketplaceListings.id, listingId),
-          eq(marketplaceListings.sellerId, req.user!.id),
-          eq(marketplaceListings.status, 'ACTIVE')
-        )
-      )
-      .limit(1)
-      .then(rows => rows[0]);
-
-    if (!listing) {
-      return res.status(404).send("Listing not found or cannot be cancelled");
-    }
-
-    const [updatedListing] = await db
-      .update(marketplaceListings)
-      .set({
-        status: 'CANCELLED',
-        updatedAt: new Date(),
-      })
-      .where(eq(marketplaceListings.id, listingId))
-      .returning();
-
-    res.json(updatedListing);
-  } catch (error) {
-    console.error("Error cancelling pack listing:", error);
-    if (error instanceof Error) {
-      res.status(500).send(error.message);
-    } else {
-      res.status(500).send("Failed to cancel pack listing");
-    }
-  }
-});
-
-// Get user's packs available for listing
-router.get("/new-listing/available-packs", async (req, res) => {
-  try {
-    // Get user's packs that aren't already listed
-    const packs = await db
-      .select({
-        id: cardPacks.id,
-        name: cardPacks.name,
-        description: cardPacks.description,
-        createdAt: cardPacks.createdAt,
-      })
-      .from(cardPacks)
-      .where(
-        and(
-          eq(cardPacks.userId, req.user!.id),
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${marketplaceListings} 
-            WHERE ${marketplaceListings.metadata}->>'packId' = CAST(${cardPacks.id} AS TEXT)
-            AND ${marketplaceListings.status} = 'ACTIVE'
-          )`
-        )
-      )
-      .orderBy(desc(cardPacks.createdAt));
-
-    // Get card previews for each pack
-    const packsWithPreviews = await Promise.all(
-      packs.map(async (pack) => {
-        const cards = await db
-          .select({
-            name: cardTemplates.name,
-            rarity: cardTemplates.rarity,
-            elementalType: cardTemplates.elementalType,
-            imageUrl: images.url,
-          })
-          .from(cardPackCards)
-          .leftJoin(globalCardPool, eq(cardPackCards.globalPoolCardId, globalCardPool.id))
-          .leftJoin(tradingCards, eq(globalCardPool.cardId, tradingCards.id))
-          .leftJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
-          .leftJoin(images, eq(cardTemplates.imageId, images.id))
-          .where(eq(cardPackCards.packId, pack.id));
-
-        return {
-          ...pack,
-          cards: cards.map(card => ({
-            name: card.name,
-            rarity: card.rarity,
-            elementalType: card.elementalType,
-            image: {
-              url: card.imageUrl,
-            },
-          })),
-        };
-      })
-    );
-
-    res.json(packsWithPreviews);
-  } catch (error) {
-    console.error("Error fetching available packs:", error);
-    res.status(500).send("Failed to fetch available packs");
   }
 });
 

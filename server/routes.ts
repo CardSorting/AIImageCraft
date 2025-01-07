@@ -13,20 +13,12 @@ import {
   levelMilestones,
   challengeProgress,
   dailyChallenges,
-  marketplaceListings,
-  marketplaceTransactions,
-  marketplaceDisputes,
-  marketplaceEscrow,
 } from "@db/schema";
 import { TaskService } from "./services/task";
-import { PulseCreditManager } from "./services/redis";
-import { RedisMarketplaceCoordinator } from "./services/redis/marketplace";
+import { CreditManager } from "./services/credits/credit-manager";
 import creditRoutes from "./routes/credits";
-import marketplaceRoutes from "./routes/marketplace";
-import cardPackRoutes from "./routes/card-packs";
-import taskRoutes from "./routes/tasks";
 import favoritesRoutes from "./routes/favorites";
-import tradingCardRoutes from "./routes/trading-cards";
+
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -45,11 +37,8 @@ export function registerRoutes(app: Express): Server {
 
   // Register all route modules
   app.use("/api/credits", creditRoutes);
-  app.use("/api/marketplace", marketplaceRoutes);
-  app.use("/api/card-packs", cardPackRoutes);
-  app.use("/api/tasks", taskRoutes);
   app.use("/api/favorites", favoritesRoutes);
-  app.use("/api/trading-cards", tradingCardRoutes);
+
 
   // Add the specific /generate route for image generation
   app.post("/api/generate", async (req, res) => {
@@ -61,14 +50,14 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Check if user has enough credits using PostgreSQL
-      const hasEnoughCredits = await PulseCreditManager.hasEnoughCredits(
+      const hasEnoughCredits = await CreditManager.hasEnoughCredits(
         req.user!.id,
-        PulseCreditManager.IMAGE_GENERATION_COST
+        CreditManager.IMAGE_GENERATION_COST
       );
 
       if (!hasEnoughCredits) {
         return res.status(400).send(
-          `Insufficient credits. Image generation costs ${PulseCreditManager.IMAGE_GENERATION_COST} credits.`
+          `Insufficient credits. Image generation costs ${CreditManager.IMAGE_GENERATION_COST} credits.`
         );
       }
 
@@ -77,15 +66,13 @@ export function registerRoutes(app: Express): Server {
         const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
 
         // If task creation succeeds, deduct credits using PostgreSQL
-        const deductResult = await PulseCreditManager.deductCredits(
+        const deductResult = await CreditManager.useCredits(
           req.user!.id,
-          PulseCreditManager.IMAGE_GENERATION_COST,
-          'USAGE',
-          'Image generation'
+          CreditManager.IMAGE_GENERATION_COST
         );
 
-        if (!deductResult.success) {
-          throw new Error(deductResult.error || "Failed to process credit deduction");
+        if (!deductResult) {
+          throw new Error("Failed to process credit deduction");
         }
 
         res.json(result);
@@ -103,7 +90,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to generate image");
     }
   });
-
 
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
@@ -265,7 +251,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Invalid share data. Required: itemType (image or card) and itemId");
       }
 
-      const result = await PulseCreditManager.trackAndRewardShare(
+      const result = await CreditManager.trackAndRewardShare(
         req.user!.id,
         itemType as 'image' | 'card',
         itemId
@@ -275,8 +261,8 @@ export function registerRoutes(app: Express): Server {
         success: true,
         ...result,
         message: result.credited
-          ? `Earned ${result.creditsEarned} credits for sharing! (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS} daily shares)`
-          : `Daily share limit reached (${result.dailySharesCount}/${PulseCreditManager.MAX_DAILY_SHARE_REWARDS}). Try again tomorrow!`
+          ? `Earned ${result.creditsEarned} credits for sharing! (${result.dailySharesCount}/${CreditManager.MAX_DAILY_SHARE_REWARDS} daily shares)`
+          : `Daily share limit reached (${result.dailySharesCount}/${CreditManager.MAX_DAILY_SHARE_REWARDS}). Try again tomorrow!`
       });
     } catch (error) {
       console.error("Error processing share:", error);
@@ -287,11 +273,11 @@ export function registerRoutes(app: Express): Server {
   // Share limit endpoint
   app.get("/api/share/daily-limit", async (req, res) => {
     try {
-      const count = await PulseCreditManager.getDailySharesCount(req.user!.id);
+      const count = await CreditManager.getDailySharesCount(req.user!.id);
       res.json({
         count,
-        limit: PulseCreditManager.MAX_DAILY_SHARE_REWARDS,
-        remaining: Math.max(0, PulseCreditManager.MAX_DAILY_SHARE_REWARDS - count)
+        limit: CreditManager.MAX_DAILY_SHARE_REWARDS,
+        remaining: Math.max(0, CreditManager.MAX_DAILY_SHARE_REWARDS - count)
       });
     } catch (error) {
       console.error("Error fetching share limit:", error);
@@ -300,12 +286,12 @@ export function registerRoutes(app: Express): Server {
   });
   app.post("/api/referral/generate", async (req, res) => {
     try {
-      const existingCode = await PulseCreditManager.getReferralCode(req.user!.id);
+      const existingCode = await CreditManager.getReferralCode(req.user!.id);
       if (existingCode) {
         return res.json({ code: existingCode });
       }
 
-      const code = await PulseCreditManager.generateReferralCode(req.user!.id);
+      const code = await CreditManager.generateReferralCode(req.user!.id);
       res.json({ code });
     } catch (error) {
       console.error("Error generating referral code:", error);
@@ -321,7 +307,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Referral code is required");
       }
 
-      const result = await PulseCreditManager.useReferralCode(code, req.user!.id);
+      const result = await CreditManager.useReferralCode(code, req.user!.id);
 
       if (!result.success) {
         return res.status(400).send(result.error);
@@ -329,8 +315,8 @@ export function registerRoutes(app: Express): Server {
 
       res.json({
         success: true,
-        message: `Successfully used referral code! You received ${PulseCreditManager.REFERRAL_WELCOME_BONUS} Pulse credits as a welcome bonus.`,
-        creditsAwarded: PulseCreditManager.REFERRAL_WELCOME_BONUS
+        message: `Successfully used referral code! You received ${CreditManager.REFERRAL_WELCOME_BONUS} Pulse credits as a welcome bonus.`,
+        creditsAwarded: CreditManager.REFERRAL_WELCOME_BONUS
       });
     } catch (error) {
       console.error("Error using referral code:", error);
@@ -340,7 +326,7 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/referral/code", async (req, res) => {
     try {
-      const code = await PulseCreditManager.getReferralCode(req.user!.id);
+      const code = await CreditManager.getReferralCode(req.user!.id);
       res.json({ code });
     } catch (error) {
       console.error("Error fetching referral code:", error);
@@ -350,13 +336,13 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/referral/stats", async (req, res) => {
     try {
-      const referralCount = await PulseCreditManager.getReferralCount(req.user!.id);
-      const currentTier = PulseCreditManager.REFERRAL_TIERS.findIndex(
+      const referralCount = await CreditManager.getReferralCount(req.user!.id);
+      const currentTier = CreditManager.REFERRAL_TIERS.findIndex(
         tier => referralCount >= tier.min && referralCount <= tier.max
       ) + 1;
 
-      const currentTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier - 1];
-      const nextTierInfo = PulseCreditManager.REFERRAL_TIERS[currentTier] || null;
+      const currentTierInfo = CreditManager.REFERRAL_TIERS[currentTier - 1];
+      const nextTierInfo = CreditManager.REFERRAL_TIERS[currentTier] || null;
 
       // Calculate progress to next tier
       const progressInTier = referralCount - currentTierInfo.min;

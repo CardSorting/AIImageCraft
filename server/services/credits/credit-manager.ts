@@ -1,25 +1,16 @@
-import Redis from "ioredis";
-import Stripe from "stripe";
 import { db } from "@db";
-import { creditTransactions, creditPurchases } from "@db/schema";
+import { creditTransactions, creditBalances } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { redisService } from "../redis";
+import Stripe from "stripe";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY must be set");
 }
 
-// Get Redis client from the singleton service
-const redis = redisService.getClient();
-
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export class CreditManager {
-  private static readonly CREDIT_PREFIX = "pulse_credits:";
-  private static readonly DEFAULT_CREDITS = 10;
-
-  // Cost configuration
   static readonly IMAGE_GENERATION_COST = 2;
   static readonly CARD_CREATION_COST = 1;
 
@@ -30,32 +21,15 @@ export class CreditManager {
     { id: 'pro', credits: 1200, price: 3999 }, // $39.99
   ] as const;
 
-  private static getCreditKey(userId: number): string {
-    return `${this.CREDIT_PREFIX}${userId}`;
-  }
-
-  static async initializeCredits(userId: number): Promise<number> {
-    try {
-      const key = this.getCreditKey(userId);
-      const exists = await redis.exists(key);
-
-      if (!exists) {
-        await redis.set(key, this.DEFAULT_CREDITS);
-        return this.DEFAULT_CREDITS;
-      }
-
-      return parseInt(await redis.get(key) || "0");
-    } catch (error) {
-      console.error("Error initializing credits:", error);
-      throw new Error("Failed to initialize credits");
-    }
-  }
-
   static async getCredits(userId: number): Promise<number> {
     try {
-      const key = this.getCreditKey(userId);
-      const credits = await redis.get(key);
-      return credits ? parseInt(credits) : 0;
+      const [balance] = await db
+        .select()
+        .from(creditBalances)
+        .where(eq(creditBalances.userId, userId))
+        .limit(1);
+
+      return balance?.balance ?? 0;
     } catch (error) {
       console.error("Error getting credits:", error);
       throw new Error("Failed to get credits");
@@ -64,9 +38,37 @@ export class CreditManager {
 
   static async addCredits(userId: number, amount: number): Promise<number> {
     try {
-      const key = this.getCreditKey(userId);
-      const newBalance = await redis.incrby(key, amount);
-      return newBalance;
+      const result = await db.transaction(async (tx) => {
+        // Get or create balance record
+        let [balance] = await tx
+          .select()
+          .from(creditBalances)
+          .where(eq(creditBalances.userId, userId))
+          .limit(1);
+
+        if (balance) {
+          await tx
+            .update(creditBalances)
+            .set({ balance: balance.balance + amount })
+            .where(eq(creditBalances.userId, userId));
+        } else {
+          await tx.insert(creditBalances).values({
+            userId,
+            balance: amount,
+          });
+        }
+
+        // Get updated balance
+        [balance] = await tx
+          .select()
+          .from(creditBalances)
+          .where(eq(creditBalances.userId, userId))
+          .limit(1);
+
+        return balance.balance;
+      });
+
+      return result;
     } catch (error) {
       console.error("Error adding credits:", error);
       throw new Error("Failed to add credits");
@@ -75,15 +77,26 @@ export class CreditManager {
 
   static async useCredits(userId: number, amount: number): Promise<boolean> {
     try {
-      const key = this.getCreditKey(userId);
-      const currentCredits = parseInt(await redis.get(key) || "0");
+      const result = await db.transaction(async (tx) => {
+        const [balance] = await tx
+          .select()
+          .from(creditBalances)
+          .where(eq(creditBalances.userId, userId))
+          .limit(1);
 
-      if (currentCredits < amount) {
-        return false;
-      }
+        if (!balance || balance.balance < amount) {
+          return false;
+        }
 
-      await redis.decrby(key, amount);
-      return true;
+        await tx
+          .update(creditBalances)
+          .set({ balance: balance.balance - amount })
+          .where(eq(creditBalances.userId, userId));
+
+        return true;
+      });
+
+      return result;
     } catch (error) {
       console.error("Error using credits:", error);
       throw new Error("Failed to use credits");
@@ -97,57 +110,54 @@ export class CreditManager {
     type: string,
     reason: string
   ): Promise<boolean> {
-    const fromKey = this.getCreditKey(fromUserId);
-    const toKey = this.getCreditKey(toUserId);
-
-    // Start a Redis transaction
-    const multi = redis.multi();
-
     try {
-      const currentCredits = parseInt(await redis.get(fromKey) || "0");
+      const result = await db.transaction(async (tx) => {
+        const [fromBalance] = await tx.select().from(creditBalances).where(eq(creditBalances.userId, fromUserId)).limit(1);
+        const [toBalance] = await tx.select().from(creditBalances).where(eq(creditBalances.userId, toUserId)).limit(1);
 
-      if (currentCredits < amount) {
-        return false;
-      }
+        if (!fromBalance || fromBalance.balance < amount) {
+          return false;
+        }
 
-      // Deduct from sender
-      multi.decrby(fromKey, amount);
-      // Add to receiver
-      multi.incrby(toKey, amount);
+        await tx.update(creditBalances).set({balance: fromBalance.balance - amount}).where(eq(creditBalances.userId, fromUserId));
+        await tx.update(creditBalances).set({balance: (toBalance ? toBalance.balance : 0) + amount}).where(eq(creditBalances.userId, toUserId));
 
-      // Execute transaction
-      await multi.exec();
 
-      // Record the transaction in the database
-      await db.insert(creditTransactions).values({
-        userId: fromUserId,
-        amount: -amount,
-        type,
-        reason,
-        metadata: { toUserId }
+        await tx.insert(creditTransactions).values({
+          userId: fromUserId,
+          amount: -amount,
+          type,
+          reason,
+          metadata: { toUserId }
+        });
+
+        await tx.insert(creditTransactions).values({
+          userId: toUserId,
+          amount,
+          type,
+          reason,
+          metadata: { fromUserId }
+        });
+
+        return true;
       });
+      return result;
 
-      await db.insert(creditTransactions).values({
-        userId: toUserId,
-        amount,
-        type,
-        reason,
-        metadata: { fromUserId }
-      });
-
-      return true;
     } catch (error) {
       console.error("Error transferring credits:", error);
-      // Discard the transaction if anything fails
-      multi.discard();
       throw new Error("Failed to transfer credits");
     }
   }
 
   static async hasEnoughCredits(userId: number, amount: number): Promise<boolean> {
     try {
-      const credits = await this.getCredits(userId);
-      return credits >= amount;
+      const [balance] = await db
+        .select()
+        .from(creditBalances)
+        .where(eq(creditBalances.userId, userId))
+        .limit(1);
+
+      return (balance?.balance ?? 0) >= amount;
     } catch (error) {
       console.error("Error checking credits:", error);
       throw new Error("Failed to check credits");
@@ -242,4 +252,4 @@ export class CreditManager {
   }
 }
 
-export default redis;
+export default null; // Removing the default export of redis

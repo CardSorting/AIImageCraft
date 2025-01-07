@@ -1,6 +1,6 @@
 import { db } from "@db";
 import { eq, and, sql } from "drizzle-orm";
-import { creditBalances, creditTransactions } from "@db/schema/credits/schema";
+import { creditBalances, creditTransactions } from "@db/schema";
 
 export class PulseCreditManager {
   static readonly IMAGE_GENERATION_COST = 4;

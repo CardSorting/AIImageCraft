@@ -16,6 +16,15 @@ export const users = pgTable("users", {
   levelUpNotification: boolean("level_up_notification").default(false),
 });
 
+// Add creditBalances table definition after users table
+export const creditBalances = pgTable("credit_balances", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  balance: integer("balance").notNull().default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const levelMilestones = pgTable("level_milestones", {
   id: serial("id").primaryKey(),
   level: integer("level").notNull(),
@@ -337,6 +346,15 @@ export const usersRelations = relations(users, ({ many }) => ({
   favorites: many(userFavorites),
   challengeProgress: many(challengeProgress),
   rewards: many(userRewards),
+  creditBalances: many(creditBalances), //add this line
+}));
+
+// Add creditBalances relations after usersRelations
+export const creditBalancesRelations = relations(creditBalances, ({ one }) => ({
+  user: one(users, {
+    fields: [creditBalances.userId],
+    references: [users.id],
+  }),
 }));
 
 export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
@@ -810,6 +828,12 @@ export type SelectMarketplaceDispute = typeof marketplaceDisputes.$inferSelect;
 
 export type InsertMarketplaceEscrow = typeof marketplaceEscrow.$inferInsert;
 export type SelectMarketplaceEscrow = typeof marketplaceEscrow.$inferSelect;
+
+// Add type definitions for credit balances
+export const insertCreditBalanceSchema = createInsertSchema(creditBalances);
+export const selectCreditBalanceSchema = createSelectSchema(creditBalances);
+export type InsertCreditBalance = typeof creditBalances.$inferInsert;
+export type SelectCreditBalance = typeof creditBalances.$inferSelect;
 
 // Fix for the export statement and type definition
 export type InsertMarketplaceOperationLog = typeof marketplaceOperationLog.$inferInsert;
