@@ -59,6 +59,7 @@ export class TaskService {
   private static readonly RETRIES = 3;
   private static readonly RETRY_DELAY = 1000; // 1 second
   private static readonly COMPLETION_STATUSES = ['completed', 'failed'];
+  private static readonly POLL_INTERVAL = 2000; // 2 seconds
 
   static async createImageGenerationTask(prompt: string, userId: number): Promise<{ taskId: string, status: string }> {
     try {
@@ -170,22 +171,44 @@ export class TaskService {
       const result = await response.json();
       const taskData = result.data;
 
-      // Update task status in Redis
+      // Update task status in Redis with the latest data
       await TaskQueue.updateTask(taskId, {
         ...taskData,
         updatedAt: new Date().toISOString()
       });
 
-      // If task is complete, remove from processing queue
-      if (this.COMPLETION_STATUSES.includes(taskData.status)) {
-        // Note: Implementation of task completion handling can be added here
-        console.log(`Task ${taskId} completed with status: ${taskData.status}`);
+      // Schedule next poll based on status
+      if (!this.COMPLETION_STATUSES.includes(taskData.status)) {
+        const nextPollTime = Date.now() + this.POLL_INTERVAL;
+        await TaskQueue.updateTaskPollTime(taskId, nextPollTime);
       }
 
       return taskData;
     } catch (error: any) {
       console.error("Error getting task status:", error);
       throw error;
+    }
+  }
+
+  static async pollPendingTasks() {
+    try {
+      const now = Date.now();
+      const tasksToUpdate = await TaskQueue.getTasksToUpdate(0, now);
+
+      console.log(`Polling ${tasksToUpdate.length} pending tasks`);
+
+      for (const taskId of tasksToUpdate) {
+        try {
+          const taskStatus = await this.getTaskStatus(taskId);
+          console.log(`Task ${taskId} status: ${taskStatus.status}`);
+        } catch (error) {
+          console.error(`Error polling task ${taskId}:`, error);
+          // Don't let one failed task stop the polling of other tasks
+          continue;
+        }
+      }
+    } catch (error) {
+      console.error("Error in pollPendingTasks:", error);
     }
   }
 
@@ -229,3 +252,8 @@ export class TaskService {
     }
   }
 }
+
+// Start polling interval
+setInterval(() => {
+  TaskService.pollPendingTasks().catch(console.error);
+}, TaskService.POLL_INTERVAL);
