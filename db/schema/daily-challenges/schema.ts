@@ -2,11 +2,12 @@ import { pgTable, text, integer, timestamp, boolean, index } from "drizzle-orm/p
 import { sql } from "drizzle-orm";
 import { defaultFields, createSchemas } from "../../utils/schema-utils";
 import { users } from "../users/schema";
+import type { ChallengeType, ChallengeStatus } from "./types";
 
 // Daily challenges table
 export const dailyChallenges = pgTable("daily_challenges", {
   ...defaultFields,
-  type: text("type").notNull(),
+  type: text("type").notNull().$type<ChallengeType>(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   creditReward: integer("credit_reward").notNull(),
@@ -41,10 +42,3 @@ export const {
   dailyChallenges: { insert: insertDailyChallengeSchema, select: selectDailyChallengeSchema },
   challengeProgress: { insert: insertChallengeProgressSchema, select: selectChallengeProgressSchema },
 } = schemas;
-
-// Export types
-export type DailyChallenge = typeof dailyChallenges.$inferSelect;
-export type InsertDailyChallenge = typeof dailyChallenges.$inferInsert;
-
-export type ChallengeProgress = typeof challengeProgress.$inferSelect;
-export type InsertChallengeProgress = typeof challengeProgress.$inferInsert;

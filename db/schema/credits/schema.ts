@@ -27,13 +27,12 @@ export const creditBalances = pgTable("credit_balances", {
   userIdIdx: index("credit_balances_user_id_idx").on(table.userId),
 }));
 
-// Create schemas
+// Create and export schemas
 const schemas = {
   creditTransactions: createSchemas(creditTransactions),
   creditBalances: createSchemas(creditBalances),
 };
 
-// Export schemas
 export const {
   creditTransactions: { insert: insertCreditTransactionSchema, select: selectCreditTransactionSchema },
   creditBalances: { insert: insertCreditBalanceSchema, select: selectCreditBalanceSchema },

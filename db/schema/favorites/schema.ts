@@ -1,5 +1,4 @@
-import { pgTable, text, integer, timestamp, index } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgTable, text, integer, index } from "drizzle-orm/pg-core";
 import { defaultFields, createSchemas } from "../../utils/schema-utils";
 import { users } from "../users/schema";
 
@@ -13,16 +12,14 @@ export const userFavorites = pgTable("user_favorites", {
   userIdIdx: index("user_favorites_user_id_idx").on(table.userId),
 }));
 
-// Create schemas
+// Create and export schemas
 const schemas = {
   userFavorites: createSchemas(userFavorites),
 };
 
-// Export schemas
 export const {
   userFavorites: { insert: insertUserFavoriteSchema, select: selectUserFavoriteSchema },
 } = schemas;
 
-// Export types
 export type UserFavorite = typeof userFavorites.$inferSelect;
 export type InsertUserFavorite = typeof userFavorites.$inferInsert;

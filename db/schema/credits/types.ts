@@ -1,3 +1,4 @@
+// Import types from schema
 import type { creditTransactions, creditBalances } from "./schema";
 
 // Export types for credit transactions

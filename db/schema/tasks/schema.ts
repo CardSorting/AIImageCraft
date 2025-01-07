@@ -27,7 +27,3 @@ const schemas = {
 export const {
   tasks: { insert: insertTaskSchema, select: selectTaskSchema },
 } = schemas;
-
-// Export types
-export type Task = typeof tasks.$inferSelect;
-export type InsertTask = typeof tasks.$inferInsert;

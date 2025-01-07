@@ -2,6 +2,7 @@ import { Router } from "express";
 import { TaskService } from "../services/task";
 import { db } from "@db";
 import { tasks, images } from "@db/schema";
+import type { InsertImage } from "@db/schema/images/types";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -98,7 +99,7 @@ router.get("/:taskId", async (req, res) => {
               url: url,
               prompt: task.prompt,
               variationIndex: index
-            })
+            } satisfies InsertImage)
             .returning();
           return newImage;
         })
@@ -151,70 +152,6 @@ router.get("/:taskId", async (req, res) => {
   } catch (error) {
     console.error("Error checking task status:", error);
     res.status(500).send("Failed to check task status");
-  }
-});
-
-// Webhook endpoint for image generation completion
-router.post("/webhook", async (req, res) => {
-  try {
-    const { task_id, status, output, error } = req.body;
-
-    // Verify webhook secret if configured
-    const webhookSecret = req.headers["x-webhook-secret"];
-    if (process.env.WEBHOOK_SECRET && webhookSecret !== process.env.WEBHOOK_SECRET) {
-      return res.status(401).send("Invalid webhook secret");
-    }
-
-    // Get task from PostgreSQL
-    const task = await db.query.tasks.findFirst({
-      where: eq(tasks.taskId, task_id)
-    });
-
-    if (!task) {
-      return res.status(404).send("Task not found");
-    }
-
-    if (status === "completed" && output?.image_urls) {
-      // Store all image variations in the database
-      const imageRecords = await Promise.all(
-        output.image_urls.map(async (url: string, index: number) => {
-          const [newImage] = await db.insert(images)
-            .values({
-              userId: task.userId,
-              url: url,
-              prompt: task.prompt,
-              variationIndex: index
-            })
-            .returning();
-          return newImage;
-        })
-      );
-
-      // Update task status in PostgreSQL
-      await db
-        .update(tasks)
-        .set({
-          status: "completed",
-          output: output,
-          updatedAt: new Date()
-        })
-        .where(eq(tasks.taskId, task_id));
-
-    } else if (status === "failed") {
-      await db
-        .update(tasks)
-        .set({
-          status: "failed",
-          metadata: { error: error?.message || "Unknown error" },
-          updatedAt: new Date()
-        })
-        .where(eq(tasks.taskId, task_id));
-    }
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error("Error processing webhook:", error);
-    res.status(500).send("Internal server error");
   }
 });
 
