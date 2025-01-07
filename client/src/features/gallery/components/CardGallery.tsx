@@ -8,14 +8,23 @@ import { Pagination } from "./Pagination";
 import { motion } from "framer-motion";
 import type { TradingCard } from "@/features/trading-cards/types";
 
+interface CardsResponse {
+  cards: TradingCard[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+  };
+}
+
 export function CardGallery() {
   const [currentPage, setCurrentPage] = useState(1);
   const [location, navigate] = useLocation();
   const isCardsRoute = location === "/cards";
-  const CARDS_PER_PAGE = 12;
 
-  const { data: cards, isLoading } = useQuery<TradingCard[]>({
-    queryKey: ["/api/trading-cards"],
+  const { data, isLoading } = useQuery<CardsResponse>({
+    queryKey: ["/api/trading-cards", currentPage],
   });
 
   if (isLoading) {
@@ -26,7 +35,7 @@ export function CardGallery() {
     );
   }
 
-  if (!cards?.length) {
+  if (!data?.cards?.length) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -90,57 +99,26 @@ export function CardGallery() {
             Create Your First Card
           </Button>
         </div>
-
-        {/* Additional features preview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full max-w-3xl">
-          <div className="p-6 rounded-xl bg-black/20 border border-purple-500/20 backdrop-blur-sm">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-              <Wand2 className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-white font-semibold mb-2">AI Generation</h3>
-            <p className="text-purple-300/70 text-sm">Create unique artwork using advanced AI technology</p>
-          </div>
-
-          <div className="p-6 rounded-xl bg-black/20 border border-purple-500/20 backdrop-blur-sm">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-white font-semibold mb-2">Random Stats</h3>
-            <p className="text-purple-300/70 text-sm">Each card gets unique powers and attributes</p>
-          </div>
-
-          <div className="p-6 rounded-xl bg-black/20 border border-purple-500/20 backdrop-blur-sm">
-            <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-              <Library className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-white font-semibold mb-2">Build Collection</h3>
-            <p className="text-purple-300/70 text-sm">Grow your deck with rare and powerful cards</p>
-          </div>
-        </div>
       </motion.div>
     );
   }
 
-  const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
-  const paginatedCards = cards.slice(
-    (currentPage - 1) * CARDS_PER_PAGE,
-    currentPage * CARDS_PER_PAGE
-  );
-
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {paginatedCards.map((card) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {data.cards.map((card) => (
           <CardItem key={card.id} card={card} isCardsRoute={isCardsRoute} />
         ))}
       </div>
 
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
+      {data.pagination.totalPages > 1 && (
+        <div className="mt-8">
+          <Pagination
+            currentPage={data.pagination.currentPage}
+            totalPages={data.pagination.totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
       )}
     </>
   );
