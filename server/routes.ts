@@ -7,8 +7,6 @@ import {
   users, 
   creditTransactions,
   images, 
-  imageTags, 
-  tags,
   userRewards,
   levelMilestones,
   challengeProgress,
@@ -91,6 +89,52 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get a single image by ID
+  app.get("/api/images/:id", async (req, res) => {
+    try {
+      const imageId = parseInt(req.params.id);
+
+      // First fetch the image
+      const [image] = await db
+        .select()
+        .from(images)
+        .where(
+          and(
+            eq(images.id, imageId),
+            eq(images.userId, req.user!.id)
+          )
+        )
+        .limit(1);
+
+      if (!image) {
+        return res.status(404).send("Image not found");
+      }
+
+      // Since we removed imageTags, we'll just return the image details
+      res.json(image);
+    } catch (error: any) {
+      console.error("Error fetching image:", error);
+      res.status(500).send("Failed to fetch image");
+    }
+  });
+
+  // Get user's images
+  app.get("/api/images", async (req, res) => {
+    try {
+      // Fetch all user's images
+      const userImages = await db
+        .select()
+        .from(images)
+        .where(eq(images.userId, req.user!.id))
+        .orderBy(desc(images.createdAt));
+
+      res.json(userImages);
+    } catch (error) {
+      console.error("Error fetching images:", error);
+      res.status(500).send("Failed to fetch images");
+    }
+  });
+
   // Daily Challenges endpoint
   app.get("/api/challenges/daily", async (req, res) => {
     try {
@@ -157,91 +201,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get a single image by ID
-  app.get("/api/images/:id", async (req, res) => {
-    try {
-      const imageId = parseInt(req.params.id);
-
-      // First fetch the image
-      const [image] = await db
-        .select()
-        .from(images)
-        .where(
-          and(
-            eq(images.id, imageId),
-            eq(images.userId, req.user!.id)
-          )
-        )
-        .limit(1);
-
-      if (!image) {
-        return res.status(404).send("Image not found");
-      }
-
-      // Then fetch associated tags
-      const imageTagResults = await db
-        .select({
-          name: tags.name
-        })
-        .from(tags)
-        .innerJoin(imageTags, eq(imageTags.tagId, tags.id))
-        .where(eq(imageTags.imageId, imageId));
-
-      // Combine the results
-      const result = {
-        ...image,
-        tags: imageTagResults.map(tag => tag.name)
-      };
-
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error fetching image:", error);
-      res.status(500).send("Failed to fetch image");
-    }
-  });
-
-  // Get user's images
-  app.get("/api/images", async (req, res) => {
-    try {
-      // First fetch all user's images
-      const userImages = await db
-        .select()
-        .from(images)
-        .where(eq(images.userId, req.user!.id))
-        .orderBy(desc(images.createdAt));
-
-      // Fetch tags for all images in a single query
-      const allTags = await db
-        .select({
-          imageId: imageTags.imageId,
-          name: tags.name
-        })
-        .from(tags)
-        .innerJoin(imageTags, eq(imageTags.tagId, tags.id))
-        .where(inArray(imageTags.imageId, userImages.map(img => img.id)));
-
-      // Group tags by image
-      const tagsByImage = allTags.reduce((acc, tag) => {
-        if (!acc[tag.imageId]) {
-          acc[tag.imageId] = [];
-        }
-        acc[tag.imageId].push(tag.name);
-        return acc;
-      }, {} as Record<number, string[]>);
-
-      // Combine images with their tags
-      const result = userImages.map(image => ({
-        ...image,
-        tags: tagsByImage[image.id] || []
-      }));
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching images:", error);
-      res.status(500).send("Failed to fetch images");
-    }
-  });
-
   // Sharing endpoint
   app.post("/api/share", async (req, res) => {
     try {
@@ -251,7 +210,29 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Invalid share data. Required: itemType (image or card) and itemId");
       }
 
-      const result = await CreditManager.trackAndRewardShare(
+      // Create an interface for CreditManager methods
+      interface ShareResult {
+        credited: boolean;
+        creditsEarned: number;
+        dailySharesCount: number;
+      }
+
+      interface CreditManagerType {
+        trackAndRewardShare: (userId: number, itemType: 'image' | 'card', itemId: number) => Promise<ShareResult>;
+        getDailySharesCount: (userId: number) => Promise<number>;
+        MAX_DAILY_SHARE_REWARDS: number;
+        REFERRAL_WELCOME_BONUS: number;
+        hasEnoughCredits: (userId: number, amount: number) => Promise<boolean>;
+        useCredits: (userId: number, amount: number) => Promise<boolean>;
+        IMAGE_GENERATION_COST: number;
+        getReferralCode: (userId: number) => Promise<string | null>;
+        generateReferralCode: (userId: number) => Promise<string>;
+        useReferralCode: (code: string, userId: number) => Promise<{ success: boolean; error?: string }>;
+        getReferralCount: (userId: number) => Promise<number>;
+        REFERRAL_TIERS: Array<{ min: number; max: number; bonus: number }>;
+      }
+
+      const result = await (CreditManager as unknown as CreditManagerType).trackAndRewardShare(
         req.user!.id,
         itemType as 'image' | 'card',
         itemId
@@ -273,7 +254,7 @@ export function registerRoutes(app: Express): Server {
   // Share limit endpoint
   app.get("/api/share/daily-limit", async (req, res) => {
     try {
-      const count = await CreditManager.getDailySharesCount(req.user!.id);
+      const count = await (CreditManager as any).getDailySharesCount(req.user!.id);
       res.json({
         count,
         limit: CreditManager.MAX_DAILY_SHARE_REWARDS,
@@ -284,6 +265,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to fetch share limit");
     }
   });
+
   app.post("/api/referral/generate", async (req, res) => {
     try {
       const existingCode = await CreditManager.getReferralCode(req.user!.id);
