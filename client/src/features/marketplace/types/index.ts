@@ -29,53 +29,51 @@ export interface PackListing {
   lastViewed?: string;
 }
 
-export interface ListingAnalytics {
+export interface MarketplaceAnalytics {
   overview: {
-    totalViews: number;
+    totalListings: number;
+    activeSellers: number;
+    totalVolume: number;
     averagePrice: number;
-    viewsToSalesRatio: number;
-    averageTimeToSell: number; // in hours
+    topCategories: {
+      name: string;
+      count: number;
+      percentage: number;
+    }[];
   };
-  viewTrends: {
+  trends: {
     date: string;
-    views: number;
-    sales: number;
+    listings: number;
+    volume: number;
+    averagePrice: number;
   }[];
-  priceAnalysis: {
-    yourAverage: number;
-    marketAverage: number;
-    recommendedRange: {
+  performance: {
+    conversionRate: number;
+    averageTimeToSell: number;
+    popularCategories: string[];
+    priceRange: {
       min: number;
       max: number;
+      optimal: number;
     };
   };
-  categoryBreakdown: {
-    rarity: {
-      name: string;
-      count: number;
-      averagePrice: number;
-    }[];
-    element: {
-      name: string;
-      count: number;
-      averagePrice: number;
-    }[];
-  };
-  performanceMetrics: {
-    bestPerforming: PackListing[];
-    needsAttention: PackListing[];
-    priceOpportunities: {
-      listingId: number;
-      currentPrice: number;
-      suggestedPrice: number;
-      reason: string;
-    }[];
-  };
+}
+
+export interface ListingCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  parentId?: number;
+  parent?: ListingCategory;
+  children?: ListingCategory[];
+  listingCount: number;
 }
 
 export interface CreatePackListing {
   packId: number;
   price: number;
+  categoryId?: number;
 }
 
 export interface PurchasePackListing {
@@ -90,6 +88,7 @@ export interface MarketplaceFilters {
   sellerId?: number;
   sortBy?: 'price_asc' | 'price_desc' | 'date_asc' | 'date_desc' | 'trending' | 'popularity';
   seller?: string;
+  category?: string;
 }
 
 export interface SellerPerformance {

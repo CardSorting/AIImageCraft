@@ -268,6 +268,45 @@ export const challengeProgress = pgTable("challenge_progress", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// Add new analytics and marketplace enhancement tables
+export const marketplaceAnalytics = pgTable("marketplace_analytics", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(),
+  totalListings: integer("total_listings").notNull().default(0),
+  activeSellers: integer("active_sellers").notNull().default(0),
+  totalVolume: integer("total_volume").notNull().default(0),
+  averagePrice: integer("average_price").notNull().default(0),
+  topCategories: jsonb("top_categories"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const sellerMetrics = pgTable("seller_metrics", {
+  id: serial("id").primaryKey(),
+  sellerId: integer("seller_id").notNull().references(() => users.id),
+  totalSales: integer("total_sales").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  averageRating: integer("average_rating").notNull().default(0),
+  responseTime: integer("response_time"),
+  completionRate: integer("completion_rate").notNull().default(0),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const listingCategories = pgTable("listing_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  parentId: integer("parent_id").references(() => listingCategories.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const listingCategoryAssignments = pgTable("listing_category_assignments", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull().references(() => packListings.id),
+  categoryId: integer("category_id").notNull().references(() => listingCategories.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
   images: many(images),
@@ -340,7 +379,6 @@ export const packListingsRelations = relations(packListings, ({ one, many }) => 
   priceHistory: many(listingPriceHistory),
   analytics: one(listingAnalyticsAggregate),
   engagement: one(listingEngagementMetrics),
-
 }));
 
 export const marketplaceTransactionsRelations = relations(marketplaceTransactions, ({ one }) => ({
@@ -471,7 +509,6 @@ export const tradingCardsRelations = relations(tradingCards, ({ one, many }) => 
   favoritedBy: many(userFavorites),
   inGlobalPool: many(globalCardPool),
   inGame: many(gameCards),
-
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -555,6 +592,35 @@ export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
 }));
 
 
+// Add relations
+export const marketplaceAnalyticsRelations = relations(marketplaceAnalytics, ({ }) => ({}));
+
+export const sellerMetricsRelations = relations(sellerMetrics, ({ one }) => ({
+  seller: one(users, {
+    fields: [sellerMetrics.sellerId],
+    references: [users.id],
+  }),
+}));
+
+export const listingCategoriesRelations = relations(listingCategories, ({ one, many }) => ({
+  parent: one(listingCategories, {
+    fields: [listingCategories.parentId],
+    references: [listingCategories.id],
+  }),
+  assignments: many(listingCategoryAssignments),
+}));
+
+export const listingCategoryAssignmentsRelations = relations(listingCategoryAssignments, ({ one }) => ({
+  listing: one(packListings, {
+    fields: [listingCategoryAssignments.listingId],
+    references: [packListings.id],
+  }),
+  category: one(listingCategories, {
+    fields: [listingCategoryAssignments.categoryId],
+    references: [listingCategories.id],
+  }),
+}));
+
 // Finally, define schemas and types
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions);
 export const selectCreditTransactionSchema = createSelectSchema(creditTransactions);
@@ -588,39 +654,6 @@ export const selectListingAnalyticsAggregateSchema = createSelectSchema(listingA
 
 export const insertListingEngagementMetricsSchema = createInsertSchema(listingEngagementMetrics);
 export const selectListingEngagementMetricsSchema = createSelectSchema(listingEngagementMetrics);
-
-export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
-export type SelectCreditTransaction = typeof creditTransactions.$inferSelect;
-
-export type InsertCreditPurchase = typeof creditPurchases.$inferInsert;
-export type SelectCreditPurchase = typeof creditPurchases.$inferSelect;
-
-export type InsertPackListing = typeof packListings.$inferInsert;
-export type SelectPackListing = typeof packListings.$inferSelect;
-
-export type InsertCardPack = typeof cardPacks.$inferInsert;
-export type SelectCardPack = typeof cardPacks.$inferSelect;
-
-export type InsertCardPackCard = typeof cardPackCards.$inferInsert;
-export type SelectCardPackCard = typeof cardPackCards.$inferSelect;
-
-export type InsertGlobalCardPool = typeof globalCardPool.$inferInsert;
-export type SelectGlobalCardPool = typeof globalCardPool.$inferSelect;
-
-export type InsertMarketplaceTransaction = typeof marketplaceTransactions.$inferInsert;
-export type SelectMarketplaceTransaction = typeof marketplaceTransactions.$inferSelect;
-
-export type InsertListingView = typeof listingViews.$inferInsert;
-export type SelectListingView = typeof listingViews.$inferSelect;
-
-export type InsertListingPriceHistory = typeof listingPriceHistory.$inferInsert;
-export type SelectListingPriceHistory = typeof listingPriceHistory.$inferSelect;
-
-export type InsertListingAnalyticsAggregate = typeof listingAnalyticsAggregate.$inferInsert;
-export type SelectListingAnalyticsAggregate = typeof listingAnalyticsAggregate.$inferSelect;
-
-export type InsertListingEngagementMetrics = typeof listingEngagementMetrics.$inferInsert;
-export type SelectListingEngagementMetrics = typeof listingEngagementMetrics.$inferSelect;
 
 export const insertCardTemplateSchema = createInsertSchema(cardTemplates);
 export const selectCardTemplateSchema = createSelectSchema(cardTemplates);
@@ -723,3 +756,29 @@ export type SelectLevelMilestone = typeof levelMilestones.$inferSelect;
 
 export type InsertUserReward = typeof userRewards.$inferInsert;
 export type SelectUserReward = typeof userRewards.$inferSelect;
+
+// Add new schemas
+export const insertMarketplaceAnalyticsSchema = createInsertSchema(marketplaceAnalytics);
+export const selectMarketplaceAnalyticsSchema = createSelectSchema(marketplaceAnalytics);
+
+export const insertSellerMetricsSchema = createInsertSchema(sellerMetrics);
+export const selectSellerMetricsSchema = createSelectSchema(sellerMetrics);
+
+export const insertListingCategorySchema = createInsertSchema(listingCategories);
+export const selectListingCategorySchema = createSelectSchema(listingCategories);
+
+export const insertListingCategoryAssignmentSchema = createInsertSchema(listingCategoryAssignments);
+export const selectListingCategoryAssignmentSchema = createSelectSchema(listingCategoryAssignments);
+
+// Add new types
+export type InsertMarketplaceAnalytics = typeof marketplaceAnalytics.$inferInsert;
+export type SelectMarketplaceAnalytics = typeof marketplaceAnalytics.$inferSelect;
+
+export type InsertSellerMetrics = typeof sellerMetrics.$inferInsert;
+export type SelectSellerMetrics = typeof sellerMetrics.$inferSelect;
+
+export type InsertListingCategory = typeof listingCategories.$inferInsert;
+export type SelectListingCategory = typeof listingCategories.$inferSelect;
+
+export type InsertListingCategoryAssignment = typeof listingCategoryAssignments.$inferInsert;
+export type SelectListingCategoryAssignment = typeof listingCategoryAssignments.$inferSelect;

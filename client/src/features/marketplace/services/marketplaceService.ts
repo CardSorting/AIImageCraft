@@ -1,4 +1,4 @@
-import { PackListing, CreatePackListing, PurchasePackListing, MarketplaceFilters, SellerPerformance } from "../types";
+import { PackListing, CreatePackListing, PurchasePackListing, MarketplaceFilters, SellerPerformance, MarketplaceAnalytics, ListingCategory } from "../types";
 
 // Helper function to build query string from filters
 const buildQueryString = (filters: MarketplaceFilters): string => {
@@ -9,6 +9,7 @@ const buildQueryString = (filters: MarketplaceFilters): string => {
   if (filters.rarity) params.append('rarity', filters.rarity);
   if (filters.element) params.append('element', filters.element);
   if (filters.sortBy) params.append('sortBy', filters.sortBy);
+  if (filters.category) params.append('category', filters.category);
 
   return params.toString();
 };
@@ -86,6 +87,95 @@ export const marketplaceService = {
   // Get seller's performance metrics and achievements
   getSellerPerformance: async (): Promise<SellerPerformance> => {
     const response = await fetch('/api/marketplace/seller/performance', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  // Get listing analytics
+  getListingAnalytics: async (listingId?: number): Promise<MarketplaceAnalytics> => {
+    const url = listingId 
+      ? `/api/marketplace/listings/${listingId}/analytics`
+      : '/api/marketplace/listings/analytics';
+
+    const response = await fetch(url, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  // Bulk operations
+  bulkCancelListings: async (listingIds: number[]): Promise<void> => {
+    const response = await fetch('/api/marketplace/listings/bulk/cancel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ listingIds }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+  },
+
+  bulkUpdatePrices: async (updates: { listingId: number; price: number }[]): Promise<void> => {
+    const response = await fetch('/api/marketplace/listings/bulk/price', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ updates }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+  },
+
+  // Category management
+  getCategories: async (): Promise<ListingCategory[]> => {
+    const response = await fetch('/api/marketplace/categories', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  assignCategory: async (listingId: number, categoryId: number): Promise<void> => {
+    const response = await fetch(`/api/marketplace/listings/${listingId}/category`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ categoryId }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+  },
+
+  // Analytics and performance tracking
+  getMarketplaceAnalytics: async (timeframe: 'day' | 'week' | 'month' = 'week'): Promise<MarketplaceAnalytics> => {
+    const response = await fetch(`/api/marketplace/analytics?timeframe=${timeframe}`, {
       credentials: 'include',
     });
 
