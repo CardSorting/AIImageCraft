@@ -1,4 +1,6 @@
-import { TaskQueue } from "./task-queue";
+import { db } from "@db";
+import { tasks } from "@db/schema";
+import { eq } from "drizzle-orm";
 
 interface TaskConfig {
   service_mode: string;
@@ -14,13 +16,6 @@ interface TaskInput {
   process_mode: string;
   skip_prompt_check: boolean;
   bot_id: number;
-}
-
-interface TaskError {
-  code: number;
-  raw_message: string;
-  message: string;
-  detail: null;
 }
 
 interface TaskOutput {
@@ -41,7 +36,6 @@ interface TaskResponse {
   config: TaskConfig;
   input: TaskInput;
   output: TaskOutput;
-  error: TaskError;
   meta?: {
     created_at: string;
     started_at: string;
@@ -110,18 +104,15 @@ export class TaskService {
         throw new Error("Invalid response from GoAPI: Missing task ID");
       }
 
-      const taskData = {
+      // Store task in PostgreSQL
+      await db.insert(tasks).values({
         taskId: result.data.task_id,
-        prompt,
         userId,
+        prompt,
         status: result.data.status,
-        createdAt: new Date().toISOString(),
         output: result.data.output || {},
-        meta: result.data.meta || {}
-      };
-
-      // Store task in Redis
-      await TaskQueue.createTask(result.data.task_id, taskData);
+        metadata: result.data.meta || {}
+      });
 
       return {
         taskId: result.data.task_id,
@@ -154,11 +145,16 @@ export class TaskService {
       const result = await response.json();
       const taskData = result.data;
 
-      // Update task status in Redis
-      await TaskQueue.updateTask(taskId, {
-        ...taskData,
-        updatedAt: new Date().toISOString()
-      });
+      // Update task in PostgreSQL
+      await db
+        .update(tasks)
+        .set({
+          status: taskData.status,
+          output: taskData.output || {},
+          metadata: taskData.meta || {},
+          updatedAt: new Date()
+        })
+        .where(eq(tasks.taskId, taskId));
 
       return taskData;
     } catch (error: any) {
@@ -179,11 +175,13 @@ export class TaskService {
         });
 
         if (response.ok) {
-          await TaskQueue.updateTask(taskId, {
-            status: 'pending',
-            retryCount: i + 1,
-            updatedAt: new Date().toISOString()
-          });
+          await db
+            .update(tasks)
+            .set({
+              status: 'pending',
+              updatedAt: new Date()
+            })
+            .where(eq(tasks.taskId, taskId));
           return;
         }
 

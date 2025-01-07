@@ -16,6 +16,19 @@ export const users = pgTable("users", {
   levelUpNotification: boolean("level_up_notification").default(false),
 });
 
+// Add tasks table after users table
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  taskId: text("task_id").unique().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  prompt: text("prompt").notNull(),
+  status: text("status").notNull().default('pending'),
+  output: jsonb("output"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 // Add creditBalances table definition after users table
 export const creditBalances = pgTable("credit_balances", {
   id: serial("id").primaryKey(),
@@ -116,7 +129,6 @@ export const marketplaceListings = pgTable("marketplace_listings", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   expiresAt: timestamp("expires_at"),
   lastProcessedAt: timestamp("last_processed_at"),
-  redisKey: text("redis_key").unique(), // For Redis lookup optimization
   processingLock: text("processing_lock"), // For distributed locking
 });
 
@@ -838,3 +850,11 @@ export type SelectCreditBalance = typeof creditBalances.$inferSelect;
 // Fix for the export statement and type definition
 export type InsertMarketplaceOperationLog = typeof marketplaceOperationLog.$inferInsert;
 export type SelectMarketplaceOperationLog = typeof marketplaceOperationLog.$inferSelect;
+
+// Add task relations
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  user: one(users, {
+    fields: [tasks.userId],
+    references: [users.id],
+  }),
+}));

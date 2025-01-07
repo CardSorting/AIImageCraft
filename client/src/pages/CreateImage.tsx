@@ -1,14 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { History, ImageIcon, Sparkles } from "lucide-react";
+import { History, Sparkles } from "lucide-react";
 import PromptForm from "@/components/PromptForm";
 import LoadingAnimation from "@/components/LoadingAnimation";
 import ImageHistory from "@/components/ImageHistory";
 import Header from "@/components/Header";
 import { motion, AnimatePresence } from "framer-motion";
+
+interface TaskResponse {
+  taskId: string;
+  status: 'completed' | 'processing' | 'pending' | 'failed';
+  imageUrls?: string[];
+  error?: string;
+  prompt?: string;
+}
 
 interface GeneratedImage {
   id: number;
@@ -16,13 +24,6 @@ interface GeneratedImage {
   prompt: string;
   createdAt: string;
   variationIndex?: number;
-}
-
-interface TaskResponse {
-  taskId: string;
-  status: "pending" | "completed" | "failed";
-  imageUrls?: string[];
-  error?: string;
 }
 
 const containerVariants = {
@@ -59,51 +60,63 @@ export default function CreateImage() {
   });
 
   // Poll task status when there's an active task
+  const checkTaskStatus = useCallback(async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`);
+      if (!res.ok) throw new Error(await res.text());
+
+      const data: TaskResponse = await res.json();
+
+      if (data.status === "completed" && data.imageUrls) {
+        const newImages = data.imageUrls.map((url, index) => ({
+          id: index,
+          url,
+          prompt: data.prompt || "",
+          createdAt: new Date().toISOString(),
+          variationIndex: index
+        }));
+
+        setCurrentImages(newImages);
+        setSelectedImageIndex(0);
+        setCurrentTask(null);
+        toast({
+          title: "✨ Creation Complete!",
+          description: "Select your favorite variation from the generated options.",
+          className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
+        });
+        refetchImages();
+      } else if (data.status === "failed") {
+        setCurrentTask(null);
+        toast({
+          variant: "destructive",
+          title: "Generation Failed",
+          description: data.error || "Unable to create your image",
+          className: "border-red-500/20",
+        });
+      }
+    } catch (error) {
+      console.error("Error checking task status:", error);
+      // Stop polling on error
+      setCurrentTask(null);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to check generation status",
+      });
+    }
+  }, [toast, refetchImages]);
+
   useEffect(() => {
     if (!currentTask) return;
 
-    const checkStatus = async () => {
-      try {
-        const res = await fetch(`/api/tasks/${currentTask}`);
-        if (!res.ok) throw new Error(await res.text());
+    const interval = setInterval(() => {
+      checkTaskStatus(currentTask);
+    }, 2000);
 
-        const data: TaskResponse = await res.json();
-
-        if (data.status === "completed" && data.imageUrls) {
-          const newImages = data.imageUrls.map((url, index) => ({
-            id: index,
-            url,
-            prompt: data.prompt,
-            createdAt: new Date().toISOString(),
-            variationIndex: index
-          }));
-
-          setCurrentImages(newImages);
-          setSelectedImageIndex(0);
-          setCurrentTask(null);
-          toast({
-            title: "✨ Creation Complete!",
-            description: "Select your favorite variation from the generated options.",
-            className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
-          });
-          refetchImages();
-        } else if (data.status === "failed") {
-          setCurrentTask(null);
-          toast({
-            variant: "destructive",
-            title: "Generation Failed",
-            description: data.error || "Unable to create your image",
-            className: "border-red-500/20",
-          });
-        }
-      } catch (error) {
-        console.error("Error checking task status:", error);
-      }
+    return () => {
+      clearInterval(interval);
     };
-
-    const interval = setInterval(checkStatus, 2000);
-    return () => clearInterval(interval);
-  }, [currentTask, toast, refetchImages]);
+  }, [currentTask, checkTaskStatus]);
 
   const { mutate: generateImage, isPending } = useMutation({
     mutationFn: async (prompt: string) => {
