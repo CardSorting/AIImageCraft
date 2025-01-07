@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
-import { packListings, marketplaceTransactions, cardPacks, globalCardPool, cardPackCards, tradingCards } from "@db/schema";
+import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { packListings, marketplaceTransactions, cardPacks, globalCardPool, cardPackCards, tradingCards, cardTemplates, images, users } from "@db/schema";
 import { z } from "zod";
 import { PulseCreditManager } from "../services/redis";
 
@@ -10,88 +10,160 @@ const router = Router();
 // Get all active pack listings with optional filters
 router.get("/listings", async (req, res) => {
   try {
-    const { minPrice, maxPrice, rarity, element, sortBy } = req.query;
+    const { minPrice, maxPrice, sortBy } = req.query;
 
-    let conditions = eq(packListings.status, 'ACTIVE');
+    // Build conditions array for dynamic filtering
+    const conditions = [eq(packListings.status, 'ACTIVE')];
 
-    // Add price filter conditions if provided
-    if (minPrice) {
-      conditions = and(conditions, gte(packListings.price, parseInt(minPrice as string)));
+    if (minPrice && !isNaN(Number(minPrice))) {
+      conditions.push(gte(packListings.price, Number(minPrice)));
     }
-    if (maxPrice) {
-      conditions = and(conditions, lte(packListings.price, parseInt(maxPrice as string)));
+    if (maxPrice && !isNaN(Number(maxPrice))) {
+      conditions.push(lte(packListings.price, Number(maxPrice)));
     }
 
-    const listings = await db.query.packListings.findMany({
-      where: conditions,
-      with: {
-        pack: {
-          with: {
-            cards: {
-              // Limit to just one card for preview
-              limit: 1,
-              with: {
-                globalPoolCard: {
-                  with: {
-                    card: {
-                      with: {
-                        template: {
-                          with: {
-                            image: true,
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
+    // First get the listings with basic info
+    const listings = await db
+      .select({
+        id: packListings.id,
+        packId: packListings.packId,
+        price: packListings.price,
+        createdAt: packListings.createdAt,
+        status: packListings.status,
         seller: {
-          columns: {
-            id: true,
-            username: true,
-          },
+          id: users.id,
+          username: users.username,
         },
-      },
-      orderBy: sortBy === 'price_desc' ? desc(packListings.price) :
-               sortBy === 'price_asc' ? asc(packListings.price) :
-               sortBy === 'date_desc' ? desc(packListings.createdAt) :
-               sortBy === 'date_asc' ? asc(packListings.createdAt) :
-               desc(packListings.createdAt),
-    });
-
-    // Transform the data to include only preview information
-    const transformedListings = listings.map(listing => {
-      const previewCard = listing.pack.cards[0]?.globalPoolCard?.card?.template;
-
-      return {
-        id: listing.id,
-        packId: listing.packId,
-        price: listing.price,
-        createdAt: listing.createdAt,
-        seller: listing.seller,
         pack: {
-          name: listing.pack.name,
-          description: listing.pack.description,
-          previewCard: previewCard ? {
-            name: previewCard.name,
-            image: {
-              url: previewCard.image.url,
-            },
-            rarity: previewCard.rarity,
-            elementalType: previewCard.elementalType,
-          } : null,
-          totalCards: 10, // All packs must have 10 cards
+          name: cardPacks.name,
+          description: cardPacks.description,
         },
-      };
-    });
+      })
+      .from(packListings)
+      .leftJoin(users, eq(packListings.sellerId, users.id))
+      .leftJoin(cardPacks, eq(packListings.packId, cardPacks.id))
+      .where(sql`${and(...conditions)}`)
+      .orderBy(
+        sortBy === 'price_desc' ? desc(packListings.price) :
+        sortBy === 'price_asc' ? asc(packListings.price) :
+        sortBy === 'date_desc' ? desc(packListings.createdAt) :
+        sortBy === 'date_asc' ? asc(packListings.createdAt) :
+        desc(packListings.createdAt)
+      );
 
-    res.json(transformedListings);
+    // For each listing, get the first card as preview
+    const listingsWithPreview = await Promise.all(
+      listings.map(async (listing) => {
+        const previewCards = await db
+          .select({
+            name: cardTemplates.name,
+            rarity: cardTemplates.rarity,
+            elementalType: cardTemplates.elementalType,
+            imageUrl: images.url,
+          })
+          .from(cardPackCards)
+          .leftJoin(globalCardPool, eq(cardPackCards.globalPoolCardId, globalCardPool.id))
+          .leftJoin(tradingCards, eq(globalCardPool.cardId, tradingCards.id))
+          .leftJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
+          .leftJoin(images, eq(cardTemplates.imageId, images.id))
+          .where(eq(cardPackCards.packId, listing.packId))
+          .limit(1);
+
+        const previewCard = previewCards[0];
+
+        return {
+          id: listing.id,
+          packId: listing.packId,
+          price: listing.price,
+          createdAt: listing.createdAt,
+          status: listing.status,
+          seller: listing.seller,
+          pack: {
+            name: listing.pack.name,
+            description: listing.pack.description,
+            previewCard: previewCard ? {
+              name: previewCard.name,
+              rarity: previewCard.rarity,
+              elementalType: previewCard.elementalType,
+              image: {
+                url: previewCard.imageUrl,
+              },
+            } : null,
+            totalCards: 10, // All packs must have 10 cards
+          },
+        };
+      })
+    );
+
+    res.json(listingsWithPreview);
   } catch (error) {
     console.error("Error fetching pack listings:", error);
     res.status(500).send("Failed to fetch pack listings");
+  }
+});
+
+// Get user's listings
+router.get("/listings/user", async (req, res) => {
+  try {
+    const listings = await db
+      .select({
+        id: packListings.id,
+        packId: packListings.packId,
+        price: packListings.price,
+        createdAt: packListings.createdAt,
+        status: packListings.status,
+        pack: {
+          name: cardPacks.name,
+          description: cardPacks.description,
+        },
+      })
+      .from(packListings)
+      .leftJoin(cardPacks, eq(packListings.packId, cardPacks.id))
+      .where(eq(packListings.sellerId, req.user!.id))
+      .orderBy(desc(packListings.createdAt));
+
+    // For each listing, get all cards
+    const listingsWithCards = await Promise.all(
+      listings.map(async (listing) => {
+        const cards = await db
+          .select({
+            name: cardTemplates.name,
+            rarity: cardTemplates.rarity,
+            elementalType: cardTemplates.elementalType,
+            imageUrl: images.url,
+          })
+          .from(cardPackCards)
+          .leftJoin(globalCardPool, eq(cardPackCards.globalPoolCardId, globalCardPool.id))
+          .leftJoin(tradingCards, eq(globalCardPool.cardId, tradingCards.id))
+          .leftJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
+          .leftJoin(images, eq(cardTemplates.imageId, images.id))
+          .where(eq(cardPackCards.packId, listing.packId));
+
+        return {
+          ...listing,
+          pack: {
+            ...listing.pack,
+            cards: cards.map(card => ({
+              name: card.name,
+              rarity: card.rarity,
+              elementalType: card.elementalType,
+              image: {
+                url: card.imageUrl,
+              },
+            })),
+          },
+        };
+      })
+    );
+
+    res.json(listingsWithCards);
+  } catch (error) {
+    console.error("Error fetching user listings:", error);
+    if (error instanceof Error) {
+      res.status(500).send(error.message);
+    } else {
+      res.status(500).send("Failed to fetch user listings");
+    }
   }
 });
 
@@ -333,35 +405,58 @@ router.post("/listings/:id/cancel", async (req, res) => {
 // Get user's listings
 router.get("/listings/user", async (req, res) => {
   try {
-    const listings = await db.query.packListings.findMany({
-      where: eq(packListings.sellerId, req.user!.id),
-      with: {
+    const listings = await db
+      .select({
+        id: packListings.id,
+        packId: packListings.packId,
+        price: packListings.price,
+        createdAt: packListings.createdAt,
+        status: packListings.status,
         pack: {
-          with: {
-            cards: {
-              with: {
-                globalPoolCard: {
-                  with: {
-                    card: {
-                      with: {
-                        template: {
-                          with: {
-                            image: true,
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          name: cardPacks.name,
+          description: cardPacks.description,
         },
-      },
-      orderBy: desc(packListings.createdAt),
-    });
+      })
+      .from(packListings)
+      .leftJoin(cardPacks, eq(packListings.packId, cardPacks.id))
+      .where(eq(packListings.sellerId, req.user!.id))
+      .orderBy(desc(packListings.createdAt));
 
-    res.json(listings);
+    // For each listing, get all cards
+    const listingsWithCards = await Promise.all(
+      listings.map(async (listing) => {
+        const cards = await db
+          .select({
+            name: cardTemplates.name,
+            rarity: cardTemplates.rarity,
+            elementalType: cardTemplates.elementalType,
+            imageUrl: images.url,
+          })
+          .from(cardPackCards)
+          .leftJoin(globalCardPool, eq(cardPackCards.globalPoolCardId, globalCardPool.id))
+          .leftJoin(tradingCards, eq(globalCardPool.cardId, tradingCards.id))
+          .leftJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
+          .leftJoin(images, eq(cardTemplates.imageId, images.id))
+          .where(eq(cardPackCards.packId, listing.packId));
+
+        return {
+          ...listing,
+          pack: {
+            ...listing.pack,
+            cards: cards.map(card => ({
+              name: card.name,
+              rarity: card.rarity,
+              elementalType: card.elementalType,
+              image: {
+                url: card.imageUrl,
+              },
+            })),
+          },
+        };
+      })
+    );
+
+    res.json(listingsWithCards);
   } catch (error) {
     console.error("Error fetching user listings:", error);
     if (error instanceof Error) {
