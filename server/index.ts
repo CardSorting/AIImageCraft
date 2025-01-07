@@ -28,7 +28,7 @@ if (process.env.NODE_ENV !== "production") {
 
 // Configure security headers
 app.use((req, res, next) => {
-  // Content Security Policy to allow necessary external resources
+  // Content Security Policy specifically for Firebase Auth
   res.setHeader('Content-Security-Policy', `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.google.com https://*.googleapis.com;

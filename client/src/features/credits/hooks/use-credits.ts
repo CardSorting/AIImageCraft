@@ -2,26 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchCredits } from "../api/credits";
 import { useToast } from "@/hooks/use-toast";
 
-export interface CreditPackage {
-  id: string;
-  credits: number;
-  price: number;
-}
-
-interface PurchaseCreditsResponse {
-  clientSecret: string;
-  packageDetails: {
-    credits: number;
-    price: number;
-  };
-}
-
-interface PurchaseCreditsParams {
-  packageId: string;
-  amount?: number;
-  price?: number;
-}
-
 export function useCredits() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,12 +11,14 @@ export function useCredits() {
     queryFn: fetchCredits,
   });
 
-  const purchaseMutation = useMutation({
-    mutationFn: async ({ packageId, amount, price }: PurchaseCreditsParams): Promise<PurchaseCreditsResponse> => {
-      const response = await fetch('/api/credits/purchase', {
+  const addCreditsMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const response = await fetch('/api/credits/add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId, amount, price }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount }),
         credentials: 'include',
       });
 
@@ -46,10 +28,17 @@ export function useCredits() {
 
       return response.json();
     },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
+      toast({
+        title: "Credits Added",
+        description: `Successfully added credits to your balance. New balance: ${data.balance}`,
+      });
+    },
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Purchase failed",
+        title: "Failed to add credits",
         description: error.message,
       });
     },
@@ -59,8 +48,8 @@ export function useCredits() {
     credits: data?.credits ?? 0,
     isLoading,
     error,
-    purchaseCredits: purchaseMutation.mutateAsync,
-    isPurchasing: purchaseMutation.isPending,
+    addCredits: addCreditsMutation.mutateAsync,
+    isAdding: addCreditsMutation.isPending,
   };
 }
 

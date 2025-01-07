@@ -1,14 +1,6 @@
 import { db } from "@db";
 import { creditTransactions, creditBalances } from "@db/schema";
 import { eq } from "drizzle-orm";
-import Stripe from "stripe";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY must be set");
-}
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export class CreditManager {
   static readonly IMAGE_GENERATION_COST = 2;
@@ -164,86 +156,6 @@ export class CreditManager {
     }
   }
 
-  // New methods for credit purchases
-  static async createPurchaseIntent(
-    userId: number,
-    packageId: string
-  ): Promise<{ clientSecret: string; amount: number }> {
-    const creditPackage = this.CREDIT_PACKAGES.find(p => p.id === packageId);
-    if (!creditPackage) {
-      throw new Error("Invalid package selected");
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: creditPackage.price,
-      currency: 'usd',
-      metadata: {
-        userId: userId.toString(),
-        packageId,
-        credits: creditPackage.credits.toString()
-      }
-    });
-
-    // Create a pending purchase record
-    await db.insert(creditPurchases).values({
-      userId,
-      amount: creditPackage.credits,
-      cost: creditPackage.price,
-      status: 'pending',
-      paymentIntentId: paymentIntent.id
-    });
-
-    return {
-      clientSecret: paymentIntent.client_secret!,
-      amount: creditPackage.price
-    };
-  }
-
-  static async completePurchase(paymentIntentId: string): Promise<void> {
-    // Verify the payment intent
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (paymentIntent.status !== 'succeeded') {
-      throw new Error('Payment has not been completed');
-    }
-
-    const userId = parseInt(paymentIntent.metadata.userId);
-    const credits = parseInt(paymentIntent.metadata.credits);
-
-    // Update purchase record
-    await db.transaction(async (tx) => {
-      // Update purchase status
-      await tx
-        .update(creditPurchases)
-        .set({
-          status: 'completed',
-          completedAt: new Date()
-        })
-        .where(eq(creditPurchases.paymentIntentId, paymentIntentId));
-
-      // Add credits to user's balance
-      await this.addCredits(userId, credits);
-
-      // Record the transaction
-      await tx.insert(creditTransactions).values({
-        userId,
-        amount: credits,
-        type: 'PURCHASE',
-        reason: `Purchased ${credits} credits`,
-        metadata: {
-          paymentIntentId,
-          amount: paymentIntent.amount
-        }
-      });
-    });
-  }
-
-  static async getPurchaseHistory(userId: number) {
-    return await db.query.creditPurchases.findMany({
-      where: eq(creditPurchases.userId, userId),
-      orderBy: (purchases, { desc }) => [desc(purchases.createdAt)],
-    });
-  }
-
   static async getTransactionHistory(userId: number) {
     return await db.query.creditTransactions.findMany({
       where: eq(creditTransactions.userId, userId),
@@ -252,4 +164,4 @@ export class CreditManager {
   }
 }
 
-export default null; // Removing the default export of redis
+export default null;
