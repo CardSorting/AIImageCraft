@@ -28,11 +28,6 @@ if (process.env.NODE_ENV !== "production") {
 
 // Configure security headers
 app.use((req, res, next) => {
-  // Only set COOP for non-auth routes
-  if (!req.path.startsWith('/api/auth')) {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  }
-
   // Content Security Policy to allow necessary external resources
   res.setHeader('Content-Security-Policy', `
     default-src 'self';

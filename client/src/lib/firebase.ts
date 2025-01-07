@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, type User } from "firebase/auth";
 
 // Verify required environment variables
 const requiredEnvVars = {
@@ -40,27 +40,8 @@ googleProvider.setCustomParameters({
 
 export const signInWithGoogle = async () => {
   try {
-    // Use signInWithPopup instead of redirect
-    const result = await signInWithPopup(auth, googleProvider);
-
-    // Get the Firebase ID token
-    const idToken = await result.user.getIdToken(true);
-
-    // Send the token to your backend
-    const response = await fetch('/api/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token: idToken }),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-
-    return result.user;
+    // Use signInWithRedirect instead of popup
+    await signInWithRedirect(auth, googleProvider);
   } catch (error: any) {
     console.error("Error signing in with Google", error);
     throw error;
