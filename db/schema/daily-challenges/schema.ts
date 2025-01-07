@@ -20,7 +20,7 @@ export const dailyChallenges = pgTable("daily_challenges", {
 // Challenge progress table
 export const challengeProgress = pgTable("challenge_progress", {
   ...defaultFields,
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id), // Changed to text for Firebase UID
   challengeId: integer("challenge_id").notNull().references(() => dailyChallenges.id),
   progress: integer("progress").notNull().default(0),
   completed: boolean("completed").notNull().default(false),

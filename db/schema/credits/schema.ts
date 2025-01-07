@@ -7,7 +7,7 @@ import type { TransactionType } from "./types";
 // Credit transactions table for tracking credit changes
 export const creditTransactions = pgTable("credit_transactions", {
   ...defaultFields,
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id), // Changed to text for Firebase UID
   amount: integer("amount").notNull(),
   type: text("type").notNull().$type<TransactionType>(),
   description: text("description").notNull(),
@@ -20,7 +20,7 @@ export const creditTransactions = pgTable("credit_transactions", {
 // Credit balances table to track current user balances
 export const creditBalances = pgTable("credit_balances", {
   ...defaultFields,
-  userId: integer("user_id").notNull().references(() => users.id).unique(),
+  userId: text("user_id").notNull().references(() => users.id).unique(), // Changed to text for Firebase UID
   balance: integer("balance").notNull().default(0),
   lastUpdated: timestamp("last_updated").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({

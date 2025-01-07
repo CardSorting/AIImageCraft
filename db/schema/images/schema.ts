@@ -5,7 +5,7 @@ import { users } from "../users/schema";
 // Images table for storing generated images
 export const images = pgTable("images", {
   ...defaultFields,
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id), // Changed to text for Firebase UID
   url: text("url").notNull(),
   prompt: text("prompt").notNull(),
   variationIndex: integer("variation_index").default(0),

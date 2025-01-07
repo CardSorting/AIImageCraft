@@ -5,7 +5,7 @@
 
 // Core utility imports
 import { defaultFields, createSchemas } from "./utils/schema-utils";
-import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -27,6 +27,10 @@ export const users = pgTable("users", {
   lastSignInTime: timestamp("last_sign_in_time").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  xpPoints: integer("xp_points").notNull().default(0),
+  totalXpEarned: integer("total_xp_earned").notNull().default(0),
+  level: integer("level").notNull().default(1),
+  levelUpNotification: boolean("level_up_notification").notNull().default(false),
 });
 
 // Create base schemas using drizzle-zod

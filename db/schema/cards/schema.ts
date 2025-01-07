@@ -12,7 +12,7 @@ export const cardTemplates = pgTable("card_templates", {
   rarity: text("rarity").notNull(),
   powerStats: jsonb("power_stats").notNull(),
   imageId: integer("image_id").notNull(),
-  creatorId: integer("creator_id").notNull().references(() => users.id),
+  creatorId: text("creator_id").notNull().references(() => users.id), // Changed to text for Firebase UID
 }, (table) => ({
   creatorIdIdx: index("card_templates_creator_id_idx").on(table.creatorId),
 }));
@@ -21,7 +21,7 @@ export const cardTemplates = pgTable("card_templates", {
 export const tradingCards = pgTable("trading_cards", {
   ...defaultFields,
   templateId: integer("template_id").notNull().references(() => cardTemplates.id),
-  userId: integer("user_id").references(() => users.id),
+  userId: text("user_id").references(() => users.id), // Changed to text for Firebase UID
 }, (table) => ({
   userIdIdx: index("trading_cards_user_id_idx").on(table.userId),
   templateIdIdx: index("trading_cards_template_id_idx").on(table.templateId),

@@ -17,7 +17,7 @@ export const levelMilestones = pgTable("level_milestones", {
 // User rewards table for tracking claimed rewards
 export const userRewards = pgTable("user_rewards", {
   ...defaultFields,
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id), // Changed to text for Firebase UID
   milestoneId: integer("milestone_id").notNull().references(() => levelMilestones.id),
   claimed: boolean("claimed").notNull().default(false),
   claimedAt: timestamp("claimed_at"),
