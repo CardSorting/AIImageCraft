@@ -5,20 +5,19 @@ import { users } from "../users/schema";
 // Images table for storing generated images
 export const images = pgTable("images", {
   ...defaultFields,
-  userId: text("user_id").notNull().references(() => users.id), // Changed to text for Firebase UID
+  userId: integer("user_id").notNull().references(() => users.id),
   url: text("url").notNull(),
   prompt: text("prompt").notNull(),
-  variationIndex: integer("variation_index").default(0),
+  variationIndex: integer("variation_index"),
 }, (table) => ({
   userIdIdx: index("images_user_id_idx").on(table.userId),
 }));
 
-// Create schemas
-const schemas = {
-  images: createSchemas(images),
-};
+// Create schemas for validation
+const schemas = createSchemas(images);
 
 // Export schemas
 export const {
-  images: { insert: insertImageSchema, select: selectImageSchema },
+  insert: insertImageSchema,
+  select: selectImageSchema,
 } = schemas;
