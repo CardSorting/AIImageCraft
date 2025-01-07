@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import authRoutes from "./routes/auth";
+import { authenticateUser } from "./middleware/auth";
 import { db } from "@db";
-import { eq, and, desc, inArray, sql } from "drizzle-orm";
-import { 
-  users, 
+import { eq, and, desc, sql } from "drizzle-orm";
+import {
+  users,
   creditTransactions,
-  images, 
+  images,
   userRewards,
   levelMilestones,
   challengeProgress,
@@ -19,18 +20,16 @@ import favoritesRoutes from "./routes/favorites";
 import taskRoutes from "./routes/tasks";
 
 export function registerRoutes(app: Express): Server {
-  setupAuth(app);
+  // Register authentication routes
+  app.use(authRoutes);
 
   // Middleware to check authentication for all /api routes except auth routes
   app.use("/api", (req, res, next) => {
-    if (req.path.startsWith("/auth") || req.path === "/user") {
+    if (req.path.startsWith("/auth")) {
       return next();
     }
 
-    if (!req.isAuthenticated()) {
-      return res.status(401).send("Must be logged in to access this resource");
-    }
-    next();
+    authenticateUser(req, res, next);
   });
 
   // Register all route modules
