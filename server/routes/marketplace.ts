@@ -113,6 +113,8 @@ router.get("/listings", async (req, res) => {
 // Get user's listings
 router.get("/listings/user", async (req, res) => {
   try {
+    console.log("Fetching user listings for user:", req.user!.id);
+
     const userListings = await db
       .select({
         id: packListings.id,
@@ -130,6 +132,9 @@ router.get("/listings/user", async (req, res) => {
       .where(eq(packListings.sellerId, req.user!.id))
       .orderBy(desc(packListings.createdAt));
 
+    console.log("Found user listings:", userListings.length);
+    console.log("Raw user listings data:", JSON.stringify(userListings, null, 2));
+
     // For each listing, get all cards
     const listingsWithCards = await Promise.all(
       userListings.map(async (listing) => {
@@ -146,6 +151,8 @@ router.get("/listings/user", async (req, res) => {
           .leftJoin(cardTemplates, eq(tradingCards.templateId, cardTemplates.id))
           .leftJoin(images, eq(cardTemplates.imageId, images.id))
           .where(eq(cardPackCards.packId, listing.packId));
+
+        console.log(`Found ${cards.length} cards for listing ${listing.id}`);
 
         return {
           ...listing,
