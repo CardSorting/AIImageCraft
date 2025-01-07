@@ -48,7 +48,25 @@ export const marketplaceService = {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(listing),
+      body: JSON.stringify({
+        ...listing,
+        metadata: {
+          packId: listing.packId
+        }
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    return response.json();
+  },
+
+  // Get available packs for listing
+  getAvailablePacks: async () => {
+    const response = await fetch('/api/marketplace/new-listing/available-packs', {
       credentials: 'include',
     });
 

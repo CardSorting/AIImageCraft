@@ -13,13 +13,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Package, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
+import { marketplaceService } from "../services/marketplaceService";
 
 const listingSchema = z.object({
   type: z.enum(['PACK', 'SINGLE_CARD', 'BUNDLE']),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  basePrice: z.number().min(1, "Price must be at least 1 credit"),
-  packId: z.number().optional(),
+  basePrice: z.coerce.number().min(1, "Price must be at least 1 credit"),
+  packId: z.coerce.number(),
 });
 
 type ListingFormData = z.infer<typeof listingSchema>;
@@ -34,31 +35,29 @@ export function NewListingPage() {
       title: '',
       description: '',
       basePrice: 1,
+      packId: 0, //Added default value for packId
     },
   });
 
   const { data: availablePacks, isLoading: isLoadingPacks } = useQuery({
     queryKey: ['/api/marketplace/new-listing/available-packs'],
+    queryFn: () => marketplaceService.getAvailablePacks(),
   });
 
   const createListing = useMutation({
     mutationFn: async (data: ListingFormData) => {
-      const response = await fetch('/api/marketplace/listings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      await marketplaceService.createListing({
+        type: data.type,
+        title: data.title,
+        description: data.description,
+        basePrice: data.basePrice,
+        packId: data.packId,
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Listing Created",
-        description: "Your listing has been created successfully.",
+        description: "Your pack has been listed successfully.",
       });
       setLocation('/marketplace/listings');
     },
@@ -81,30 +80,45 @@ export function NewListingPage() {
       <div className="container mx-auto py-8">
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>Create New Listing</CardTitle>
+            <CardTitle>List a Pack</CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="packId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Listing Type</FormLabel>
+                      <FormLabel>Select Pack</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        onValueChange={(value) => field.onChange(Number(value))}
+                        value={field.value?.toString()}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select listing type" />
+                            <SelectValue placeholder="Select a pack to list" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="PACK">Card Pack</SelectItem>
-                          <SelectItem value="SINGLE_CARD">Single Card</SelectItem>
-                          <SelectItem value="BUNDLE">Bundle</SelectItem>
+                          {isLoadingPacks ? (
+                            <div className="flex items-center justify-center p-4">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            </div>
+                          ) : !availablePacks?.length ? (
+                            <div className="flex flex-col items-center justify-center p-4 text-center">
+                              <Package className="w-8 h-8 mb-2 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">
+                                No packs available to list
+                              </p>
+                            </div>
+                          ) : (
+                            availablePacks.map((pack) => (
+                              <SelectItem key={pack.id} value={pack.id.toString()}>
+                                {pack.name}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -112,55 +126,12 @@ export function NewListingPage() {
                   )}
                 />
 
-                {form.watch('type') === 'PACK' && (
-                  <FormField
-                    control={form.control}
-                    name="packId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Select Pack</FormLabel>
-                        <Select
-                          onValueChange={(value) => field.onChange(Number(value))}
-                          value={field.value?.toString()}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a pack to list" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {isLoadingPacks ? (
-                              <div className="flex items-center justify-center p-4">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              </div>
-                            ) : !availablePacks?.length ? (
-                              <div className="flex flex-col items-center justify-center p-4 text-center">
-                                <Package className="w-8 h-8 mb-2 text-muted-foreground" />
-                                <p className="text-sm text-muted-foreground">
-                                  No packs available to list
-                                </p>
-                              </div>
-                            ) : (
-                              availablePacks.map((pack: any) => (
-                                <SelectItem key={pack.id} value={pack.id.toString()}>
-                                  {pack.name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
                 <FormField
                   control={form.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Title</FormLabel>
+                      <FormLabel>Listing Title</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
