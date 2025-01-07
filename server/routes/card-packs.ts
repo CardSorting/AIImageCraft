@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@db";
-import { eq, and, inArray, or, isNull } from "drizzle-orm";
-import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images, packListings } from "@db/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { cardPacks, cardPackCards, tradingCards, globalCardPool, cardTemplates, images } from "@db/schema";
 import { z } from "zod";
 
 const router = Router();
@@ -142,16 +142,31 @@ router.post("/:packId/cards", async (req, res) => {
       return res.status(404).send("Card pack not found or doesn't belong to you");
     }
 
+    // Get current pack cards count
+    const existingCards = await db
+      .select()
+      .from(cardPackCards)
+      .where(eq(cardPackCards.packId, packId));
+
+    if (existingCards.length + result.data.cardIds.length > 10) {
+      return res.status(400).send("Pack cannot contain more than 10 cards");
+    }
+
     // Verify cards exist and belong to user
     const userCards = await db
       .select({
         card: tradingCards,
         template: cardTemplates,
+        image: images,
       })
       .from(tradingCards)
       .innerJoin(
         cardTemplates,
         eq(tradingCards.templateId, cardTemplates.id)
+      )
+      .innerJoin(
+        images,
+        eq(cardTemplates.imageId, images.id)
       )
       .where(and(
         eq(tradingCards.userId, req.user!.id),
@@ -166,7 +181,7 @@ router.post("/:packId/cards", async (req, res) => {
     const packCards = await db.transaction(async (tx) => {
       // Move cards to global pool
       const globalPoolEntries = await Promise.all(
-        userCards.map(async ({ card }) => {
+        userCards.map(async ({ card, template, image }) => {
           // Insert into global pool
           const [globalPoolCard] = await tx
             .insert(globalCardPool)
@@ -183,21 +198,42 @@ router.post("/:packId/cards", async (req, res) => {
             .set({ userId: null })
             .where(eq(tradingCards.id, card.id));
 
-          return globalPoolCard;
+          return {
+            globalPoolCard,
+            template,
+            image,
+          };
         })
       );
 
       // Add cards to pack with positions
-      const cardPackEntries = globalPoolEntries.map((poolCard, index) => ({
+      const nextPosition = existingCards.length + 1;
+      const cardPackEntries = globalPoolEntries.map((entry, index) => ({
         packId,
-        globalPoolCardId: poolCard.id,
-        position: index + 1,
+        globalPoolCardId: entry.globalPoolCard.id,
+        position: nextPosition + index,
       }));
 
-      return await tx.insert(cardPackCards).values(cardPackEntries).returning();
+      const insertedCards = await tx.insert(cardPackCards)
+        .values(cardPackEntries)
+        .returning();
+
+      return {
+        insertedCards,
+        cardDetails: globalPoolEntries,
+      };
     });
 
-    res.json(packCards);
+    // Transform the response to include card details
+    const response = packCards.insertedCards.map((insertedCard, index) => ({
+      ...insertedCard,
+      cardDetails: {
+        template: packCards.cardDetails[index].template,
+        image: packCards.cardDetails[index].image,
+      },
+    }));
+
+    res.json(response);
   } catch (error: any) {
     console.error("Error adding cards to pack:", error);
     res.status(500).send(error.message);
