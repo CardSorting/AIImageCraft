@@ -90,6 +90,60 @@ export class CreditManager {
     }
   }
 
+  static async transferCredits(
+    fromUserId: number,
+    toUserId: number,
+    amount: number,
+    type: string,
+    reason: string
+  ): Promise<boolean> {
+    const fromKey = this.getCreditKey(fromUserId);
+    const toKey = this.getCreditKey(toUserId);
+
+    // Start a Redis transaction
+    const multi = redis.multi();
+
+    try {
+      const currentCredits = parseInt(await redis.get(fromKey) || "0");
+
+      if (currentCredits < amount) {
+        return false;
+      }
+
+      // Deduct from sender
+      multi.decrby(fromKey, amount);
+      // Add to receiver
+      multi.incrby(toKey, amount);
+
+      // Execute transaction
+      await multi.exec();
+
+      // Record the transaction in the database
+      await db.insert(creditTransactions).values({
+        userId: fromUserId,
+        amount: -amount,
+        type,
+        reason,
+        metadata: { toUserId }
+      });
+
+      await db.insert(creditTransactions).values({
+        userId: toUserId,
+        amount,
+        type,
+        reason,
+        metadata: { fromUserId }
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Error transferring credits:", error);
+      // Discard the transaction if anything fails
+      multi.discard();
+      throw new Error("Failed to transfer credits");
+    }
+  }
+
   static async hasEnoughCredits(userId: number, amount: number): Promise<boolean> {
     try {
       const credits = await this.getCredits(userId);

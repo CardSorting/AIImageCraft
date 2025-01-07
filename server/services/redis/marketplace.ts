@@ -28,8 +28,7 @@ export class RedisMarketplaceCoordinator {
 
   // Listing coordination
   static async generateListingKey(): Promise<string> {
-    const key = `${this.LISTING_PREFIX}${uuidv4()}`;
-    return key;
+    return `${this.LISTING_PREFIX}${uuidv4()}`;
   }
 
   static async registerListing(
@@ -72,8 +71,7 @@ export class RedisMarketplaceCoordinator {
 
   // Transaction coordination
   static async generateTransactionKey(): Promise<string> {
-    const key = `${this.TRANSACTION_PREFIX}${uuidv4()}`;
-    return key;
+    return `${this.TRANSACTION_PREFIX}${uuidv4()}`;
   }
 
   static async trackTransaction(
@@ -93,8 +91,7 @@ export class RedisMarketplaceCoordinator {
 
   // Escrow management
   static async generateEscrowKey(): Promise<string> {
-    const key = `${this.ESCROW_PREFIX}${uuidv4()}`;
-    return key;
+    return `${this.ESCROW_PREFIX}${uuidv4()}`;
   }
 
   static async setupEscrow(
@@ -131,70 +128,6 @@ export class RedisMarketplaceCoordinator {
     const lockKey = `${redisKey}:lock`;
     await redis.del(lockKey);
   }
-
-  // State machine transitions
-  static async transitionListingState(
-    redisKey: string,
-    fromState: string,
-    toState: string
-  ): Promise<boolean> {
-    if (!redisKey) throw new Error("Redis key is required");
-
-    const currentState = await redis.hget(redisKey, "status");
-
-    if (currentState !== fromState) {
-      return false;
-    }
-
-    await redis.hset(redisKey, "status", toState);
-    await redis.hset(redisKey, "updatedAt", Date.now());
-    return true;
-  }
-
-  static async transitionTransactionState(
-    redisKey: string,
-    fromState: string,
-    toState: string,
-    metadata?: Record<string, unknown>
-  ): Promise<boolean> {
-    if (!redisKey) throw new Error("Redis key is required");
-
-    const currentState = await redis.hget(redisKey, "status");
-
-    if (currentState !== fromState) {
-      return false;
-    }
-
-    const multi = redis.multi();
-    multi.hset(redisKey, "status", toState);
-    multi.hset(redisKey, "updatedAt", Date.now().toString());
-
-    if (metadata) {
-      multi.hset(redisKey, "metadata", JSON.stringify(metadata));
-    }
-
-    await multi.exec();
-    return true;
-  }
-
-  // Cleanup methods
-  static async cleanupExpiredListings(): Promise<void> {
-    const keys = await redis.keys(`${this.LISTING_PREFIX}*`);
-    for (const key of keys) {
-      const ttl = await redis.ttl(key);
-      if (ttl <= 0) {
-        await redis.del(key);
-      }
-    }
-  }
-
-  static async cleanupExpiredTransactions(): Promise<void> {
-    const keys = await redis.keys(`${this.TRANSACTION_PREFIX}*`);
-    for (const key of keys) {
-      const ttl = await redis.ttl(key);
-      if (ttl <= 0) {
-        await redis.del(key);
-      }
-    }
-  }
 }
+
+export default redis;
