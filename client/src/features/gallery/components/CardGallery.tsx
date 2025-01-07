@@ -79,11 +79,17 @@ export function CardGallery() {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {data.cards.map((card) => (
-          <div key={card.id} className="h-full">
+          <motion.div
+            key={card.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="h-full"
+          >
             <CardItem card={card} isCardsRoute={isCardsRoute} />
-          </div>
+          </motion.div>
         ))}
       </div>
 
