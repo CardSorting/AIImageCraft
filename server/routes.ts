@@ -3,6 +3,13 @@ import { createServer, type Server } from "http";
 import authRoutes from "./routes/auth";
 import { authenticateUser } from "./middleware/auth";
 import { db } from "@db";
+import creditRoutes from "./routes/credits";
+import favoritesRoutes from "./routes/favorites";
+import taskRoutes from "./routes/tasks";
+import { users, creditTransactions, images, userRewards, levelMilestones, challengeProgress, dailyChallenges } from "@db/schema";
+import { TaskService } from "./services/task";
+import { CreditManager } from "./services/credits/credit-manager";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
   // Register authentication routes
@@ -76,9 +83,9 @@ export function registerRoutes(app: Express): Server {
   // Get a single image by ID
   app.get("/api/images/:id", async (req, res) => {
     try {
-      const imageId = parseInt(req.params.id);
+      const imageId = req.params.id;
 
-      // First fetch the image
+      // First fetch the image using string ID
       const [image] = await db
         .select()
         .from(images)
@@ -94,7 +101,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Image not found");
       }
 
-      // Since we removed imageTags, we'll just return the image details
       res.json(image);
     } catch (error: any) {
       console.error("Error fetching image:", error);
@@ -105,11 +111,11 @@ export function registerRoutes(app: Express): Server {
   // Get user's images
   app.get("/api/images", async (req, res) => {
     try {
-      // Fetch all user's images
+      // Fetch all user's images using string ID
       const userImages = await db
         .select()
         .from(images)
-        .where(eq(images.userId, req.user!.id))
+        .where(eq(images.userId, req.user!.id)) // req.user.id is now a string
         .orderBy(desc(images.createdAt));
 
       res.json(userImages);
@@ -529,10 +535,3 @@ export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   return httpServer;
 }
-import creditRoutes from "./routes/credits";
-import favoritesRoutes from "./routes/favorites";
-import taskRoutes from "./routes/tasks";
-import { users, creditTransactions, images, userRewards, levelMilestones, challengeProgress, dailyChallenges } from "@db/schema";
-import { TaskService } from "./services/task";
-import { CreditManager } from "./services/credits/credit-manager";
-import { eq, and, desc, sql } from "drizzle-orm";
