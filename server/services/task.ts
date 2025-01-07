@@ -22,10 +22,14 @@ interface TaskOutput {
   image_urls?: string[];
   progress?: number;
   temporary_image_urls?: string[] | null;
-  image_url?: string;
-  discord_image_url?: string;
-  actions?: any[];
-  intermediate_image_urls?: string[] | null;
+  error?: string;
+}
+
+interface TaskMetadata {
+  error?: string;
+  created_at?: string;
+  started_at?: string;
+  ended_at?: string;
 }
 
 interface TaskResponse {
@@ -36,17 +40,11 @@ interface TaskResponse {
   config: TaskConfig;
   input: TaskInput;
   output: TaskOutput;
-  meta?: {
-    created_at: string;
-    started_at: string;
-    ended_at: string;
-    usage: any;
-    is_using_private_pool: boolean;
-    model_version: string;
-    process_mode: string;
-    failover_triggered: boolean;
-    error?: string;
-  };
+  meta: TaskMetadata;
+}
+
+interface ApiResponse {
+  data: TaskResponse;
 }
 
 export class TaskService {
@@ -55,7 +53,6 @@ export class TaskService {
   private static readonly RETRY_DELAY = 1000; // 1 second
   private static readonly CONNECTION_TIMEOUT = 5000; // 5 seconds
 
-  // Validate API connection
   private static async validateConnection(): Promise<boolean> {
     try {
       if (!process.env.GOAPI_API_KEY) {
@@ -65,11 +62,12 @@ export class TaskService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.CONNECTION_TIMEOUT);
 
+      const headers = new Headers();
+      headers.append("x-api-key", process.env.GOAPI_API_KEY);
+
       const response = await fetch(this.API_URL, {
         method: "HEAD",
-        headers: {
-          "x-api-key": process.env.GOAPI_API_KEY,
-        },
+        headers,
         signal: controller.signal,
       });
 
@@ -81,7 +79,6 @@ export class TaskService {
     }
   }
 
-  // Retry mechanism for API calls
   private static async retryableApiCall<T>(
     operation: () => Promise<T>,
     retries = this.RETRIES
@@ -97,7 +94,7 @@ export class TaskService {
         console.error(`Attempt ${attempt} failed:`, error);
 
         if (attempt < retries) {
-          await new Promise(resolve => 
+          await new Promise(resolve =>
             setTimeout(resolve, this.RETRY_DELAY * Math.pow(2, attempt - 1))
           );
           continue;
@@ -110,7 +107,6 @@ export class TaskService {
 
   static async createImageGenerationTask(prompt: string, userId: number): Promise<{ taskId: string, status: string }> {
     try {
-      // Validate connection before proceeding
       const isConnected = await this.validateConnection();
       if (!isConnected) {
         throw new Error("Failed to connect to the API service");
@@ -121,13 +117,14 @@ export class TaskService {
       }
 
       const createTask = async () => {
+        const headers = new Headers();
+        headers.append("Content-Type", "application/json");
+        headers.append("x-api-key", process.env.GOAPI_API_KEY);
+        headers.append("Accept", "application/json");
+
         const response = await fetch(this.API_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.GOAPI_API_KEY,
-            "Accept": "application/json"
-          },
+          headers,
           body: JSON.stringify({
             model: "midjourney",
             task_type: "imagine",
@@ -153,38 +150,38 @@ export class TaskService {
           throw new Error(`GoAPI error: ${response.status} - ${errorText || response.statusText}`);
         }
 
-        return response.json();
+        const result: ApiResponse = await response.json();
+
+        if (!result.data?.task_id) {
+          console.error("Invalid API response:", result);
+          throw new Error("Invalid response from API: Missing task ID");
+        }
+
+        return result.data;
       };
 
-      const result = await this.retryableApiCall(createTask);
+      const apiResponse = await this.retryableApiCall(createTask);
 
-      if (!result.data?.task_id) {
-        throw new Error("Invalid response from GoAPI: Missing task ID");
-      }
-
-      // Store task in PostgreSQL with error handling
       try {
         await db.insert(tasks).values({
-          taskId: result.data.task_id,
+          taskId: apiResponse.task_id,
           userId,
           prompt,
-          status: result.data.status,
-          output: result.data.output || {},
-          metadata: result.data.meta || {}
+          status: apiResponse.status || 'pending',
+          output: apiResponse.output || {},
+          metadata: apiResponse.meta || {}
         });
       } catch (dbError) {
         console.error("Database error while storing task:", dbError);
-        // Continue even if DB storage fails, as the task was created successfully
       }
 
       return {
-        taskId: result.data.task_id,
-        status: result.data.status
+        taskId: apiResponse.task_id,
+        status: apiResponse.status || 'pending'
       };
     } catch (error: any) {
       console.error("Error creating image generation task:", error);
 
-      // Enhance error message for client
       if (error.message.includes("Failed to connect")) {
         throw new Error("Service temporarily unavailable. Please try again later.");
       } else if (error.message.includes("GOAPI_API_KEY")) {
@@ -202,25 +199,32 @@ export class TaskService {
       }
 
       const getStatus = async () => {
+        const headers = new Headers();
+        headers.append("Accept", "application/json");
+        headers.append("x-api-key", process.env.GOAPI_API_KEY);
+
         const response = await fetch(`${this.API_URL}/${taskId}`, {
           method: "GET",
-          headers: {
-            "Accept": "application/json",
-            "x-api-key": process.env.GOAPI_API_KEY,
-          },
+          headers
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to get task status: ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to get task status: ${response.status} - ${errorText || response.statusText}`);
         }
 
-        const result = await response.json();
+        const result: ApiResponse = await response.json();
+
+        if (!result.data) {
+          console.error("Invalid API response:", result);
+          throw new Error("Invalid response format from API");
+        }
+
         return result.data;
       };
 
       const taskData = await this.retryableApiCall(getStatus);
 
-      // Update task in PostgreSQL
       try {
         await db
           .update(tasks)
@@ -233,13 +237,12 @@ export class TaskService {
           .where(eq(tasks.taskId, taskId));
       } catch (dbError) {
         console.error("Database error while updating task status:", dbError);
-        // Continue even if DB update fails
       }
 
       return taskData;
     } catch (error: any) {
       console.error("Error getting task status:", error);
-      throw new Error("Failed to check task status. Please try again.");
+      throw new Error(`Failed to check task status: ${error.message}`);
     }
   }
 }

@@ -16,7 +16,7 @@ interface TaskResponse {
   imageUrls?: string[];
   error?: string;
   prompt?: string;
-  nextPoll?: number; // Added nextPoll property
+  nextPoll?: number;
 }
 
 interface GeneratedImage {
@@ -60,13 +60,73 @@ export default function CreateImage() {
     queryKey: ["/api/images"],
   });
 
+  const { mutate: generateImage, isPending } = useMutation({
+    mutationFn: async (prompt: string) => {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Generation error response:", errorText);
+        throw new Error(errorText);
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error("Failed to parse response:", err);
+        throw new Error("Invalid response from server");
+      }
+
+      if (!data.taskId) {
+        console.error("Invalid response data:", data);
+        throw new Error("Invalid response format");
+      }
+
+      return data as TaskResponse;
+    },
+    onSuccess: (data: TaskResponse) => {
+      setCurrentTask(data.taskId);
+      toast({
+        title: "🎨 Starting Creation",
+        description: "Your vision is being transformed into art...",
+        className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Generation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to start image generation",
+        className: "border-red-500/20",
+      });
+    },
+  });
+
   // Poll task status when there's an active task
   const checkTaskStatus = useCallback(async (taskId: string, attempt = 1) => {
     try {
       const res = await fetch(`/api/tasks/${taskId}?attempt=${attempt}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Task status error response:", errorText);
+        throw new Error(errorText);
+      }
 
-      const data: TaskResponse = await res.json();
+      let data: TaskResponse;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.error("Failed to parse task status response:", err);
+        throw new Error("Invalid response from server");
+      }
 
       if (data.status === "completed" && data.imageUrls) {
         const newImages = data.imageUrls.map((url, index) => ({
@@ -95,14 +155,12 @@ export default function CreateImage() {
           className: "border-red-500/20",
         });
       } else if (data.nextPoll) {
-        // Schedule next poll with the server-recommended interval
         setTimeout(() => {
           checkTaskStatus(taskId, attempt + 1);
         }, data.nextPoll);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking task status:", error);
-      // Stop polling on error
       setCurrentTask(null);
       toast({
         variant: "destructive",
@@ -114,45 +172,9 @@ export default function CreateImage() {
 
   useEffect(() => {
     if (!currentTask) return;
-
-    // Start polling with attempt 1
     checkTaskStatus(currentTask, 1);
-
-    // Cleanup is not needed anymore since we're using setTimeout
     return () => {};
   }, [currentTask, checkTaskStatus]);
-
-  const { mutate: generateImage, isPending } = useMutation({
-    mutationFn: async (prompt: string) => {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-
-      return res.json();
-    },
-    onSuccess: (data: TaskResponse) => {
-      setCurrentTask(data.taskId);
-      toast({
-        title: "🎨 Starting Creation",
-        description: "Your vision is being transformed into art...",
-        className: "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-        className: "border-red-500/20",
-      });
-    },
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black overflow-hidden">
