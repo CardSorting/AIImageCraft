@@ -15,6 +15,7 @@ import { DailyChallengesPage } from "@/pages/DailyChallengesPage";
 import { MarketplacePage } from "@/features/marketplace/pages/MarketplacePage";
 import { UserListingsPage } from "@/features/marketplace/pages/UserListingsPage";
 import { CreditPurchasePage } from "@/features/credits/pages/CreditPurchasePage";
+import { NewListingPage } from "@/features/marketplace/pages/NewListingPage";
 
 function App() {
   const { user, isLoading } = useUser();
@@ -87,6 +88,9 @@ function App() {
           </Route>
           <Route path="/challenges">
             {user ? <DailyChallengesPage /> : <AuthPage />}
+          </Route>
+          <Route path="/marketplace/new-listing">
+            {user ? <NewListingPage /> : <AuthPage />}
           </Route>
           <Route>
             {() => <NotFound />}
