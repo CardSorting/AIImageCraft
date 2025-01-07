@@ -12,15 +12,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
-    'Authorization',
-    'Cross-Origin-Opener-Policy',
-    'Cross-Origin-Embedder-Policy',
-    'Cross-Origin-Resource-Policy'
-  ],
-  exposedHeaders: [
-    'Cross-Origin-Opener-Policy',
-    'Cross-Origin-Embedder-Policy',
-    'Cross-Origin-Resource-Policy'
+    'Authorization'
   ],
 }));
 
@@ -34,18 +26,19 @@ if (process.env.NODE_ENV !== "production") {
   process.env.VITE_FIREBASE_APP_ID = process.env.FIREBASE_APP_ID;
 }
 
-// Configure security headers to allow necessary external resources
+// Configure security headers
 app.use((req, res, next) => {
-  // Allow popups for auth
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  // Only set COOP for non-auth routes
+  if (!req.path.startsWith('/api/auth')) {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  }
 
   // Content Security Policy to allow necessary external resources
   res.setHeader('Content-Security-Policy', `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com https://*.firebaseapp.com https://*.google.com https://*.googleapis.com;
-    frame-src 'self' https://*.stripe.com https://*.firebaseapp.com https://*.google.com;
-    connect-src 'self' https://*.stripe.com https://*.firebaseapp.com https://*.googleapis.com https://*.google.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.google.com https://*.googleapis.com;
+    frame-src 'self' https://*.firebaseapp.com https://*.google.com;
+    connect-src 'self' https://*.firebaseapp.com https://*.googleapis.com https://*.google.com;
     img-src 'self' data: https: blob:;
     style-src 'self' 'unsafe-inline';
     font-src 'self' data:;
