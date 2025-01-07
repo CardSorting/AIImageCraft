@@ -11,6 +11,7 @@ const router = Router();
 router.get("/listings", async (req, res) => {
   try {
     const { minPrice, maxPrice, sortBy } = req.query;
+    console.log("Fetching listings with filters:", { minPrice, maxPrice, sortBy });
 
     // Build conditions array for dynamic filtering
     const conditions = [eq(packListings.status, 'ACTIVE')];
@@ -51,9 +52,12 @@ router.get("/listings", async (req, res) => {
         desc(packListings.createdAt)
       );
 
+    console.log("Found listings:", listings.length);
+
     // For each listing, get the first card as preview
     const listingsWithPreview = await Promise.all(
       listings.map(async (listing) => {
+        console.log("Getting preview for listing:", listing.id);
         const previewCards = await db
           .select({
             name: cardTemplates.name,
@@ -70,6 +74,7 @@ router.get("/listings", async (req, res) => {
           .limit(1);
 
         const previewCard = previewCards[0];
+        console.log("Preview card found:", previewCard ? "yes" : "no");
 
         return {
           id: listing.id,
@@ -79,8 +84,8 @@ router.get("/listings", async (req, res) => {
           status: listing.status,
           seller: listing.seller,
           pack: {
-            name: listing.pack.name,
-            description: listing.pack.description,
+            name: listing.pack?.name,
+            description: listing.pack?.description,
             previewCard: previewCard ? {
               name: previewCard.name,
               rarity: previewCard.rarity,
@@ -95,6 +100,7 @@ router.get("/listings", async (req, res) => {
       })
     );
 
+    console.log("Returning listings with preview:", listingsWithPreview.length);
     res.json(listingsWithPreview);
   } catch (error) {
     console.error("Error fetching pack listings:", error);
