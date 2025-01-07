@@ -1,8 +1,7 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { AuthProvider } from "@/features/auth/components/AuthProvider";
-import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
+import { useUser } from "@/hooks/use-user";
 import AuthPage from "@/pages/AuthPage";
 import CreateImage from "@/pages/CreateImage";
 import Gallery from "@/pages/Gallery";
@@ -18,81 +17,50 @@ import { CreditPurchasePage } from "@/features/credits/pages/CreditPurchasePage"
 import { NewListingPage } from "@/features/marketplace/pages/NewListingPage";
 
 function App() {
-  return (
-    <AuthProvider>
-      <div className="min-h-screen flex flex-col">
-        <main className="flex-1">
-          <Switch>
-            {/* Public routes */}
-            <Route path="/" component={LandingPage} />
-            <Route path="/auth" component={AuthPage} />
+  const { user, isLoading } = useUser();
 
-            {/* Protected routes */}
-            <Route path="/create">
-              <ProtectedRoute>
-                <CreateImage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/gallery">
-              <ProtectedRoute>
-                <Gallery />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/profile">
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/cards">
-              <ProtectedRoute>
-                <TradingCardsPage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/cards/create">
-              <ProtectedRoute>
-                <CreateTradingCardPage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/marketplace">
-              <ProtectedRoute>
-                <MarketplacePage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/marketplace/listings">
-              <ProtectedRoute>
-                <UserListingsPage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/credits">
-              <ProtectedRoute>
-                <CreditPurchasePage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/queue">
-              <ProtectedRoute>
-                <GameQueue />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/games/:id">
-              <ProtectedRoute>
-                <GameQueue />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/challenges">
-              <ProtectedRoute>
-                <DailyChallengesPage />
-              </ProtectedRoute>
-            </Route>
-            <Route path="/marketplace/new-listing">
-              <ProtectedRoute>
-                <NewListingPage />
-              </ProtectedRoute>
-            </Route>
-            <Route component={NotFound} />
-          </Switch>
-        </main>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-border" />
       </div>
-    </AuthProvider>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1">
+        <Switch>
+          {/* Public routes */}
+          <Route path="/" component={LandingPage} />
+          <Route path="/auth">
+            {user ? <Route path="/" /> : <AuthPage />}
+          </Route>
+
+          {/* Protected routes */}
+          {user ? (
+            <Switch>
+              <Route path="/create" component={CreateImage} />
+              <Route path="/gallery" component={Gallery} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/cards" component={TradingCardsPage} />
+              <Route path="/cards/create" component={CreateTradingCardPage} />
+              <Route path="/marketplace" component={MarketplacePage} />
+              <Route path="/marketplace/listings" component={UserListingsPage} />
+              <Route path="/credits" component={CreditPurchasePage} />
+              <Route path="/queue" component={GameQueue} />
+              <Route path="/games/:id" component={GameQueue} />
+              <Route path="/challenges" component={DailyChallengesPage} />
+              <Route path="/marketplace/new-listing" component={NewListingPage} />
+            </Switch>
+          ) : (
+            <Route component={NotFound} />
+          )}
+
+          <Route component={NotFound} />
+        </Switch>
+      </main>
+    </div>
   );
 }
 

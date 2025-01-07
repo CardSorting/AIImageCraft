@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import authRoutes from "./routes/auth";
-import { authenticateUser } from "./middleware/auth";
+import { setupAuth } from "./auth";
 import { db } from "@db";
 import creditRoutes from "./routes/credits";
 import favoritesRoutes from "./routes/favorites";
@@ -12,8 +11,8 @@ import { CreditManager } from "./services/credits/credit-manager";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
-  // Register authentication routes
-  app.use(authRoutes);
+  // Set up authentication routes and middleware
+  setupAuth(app);
 
   // Middleware to check authentication for all /api routes except auth routes
   app.use("/api", (req, res, next) => {
@@ -21,7 +20,11 @@ export function registerRoutes(app: Express): Server {
       return next();
     }
 
-    authenticateUser(req, res, next);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    next();
   });
 
   // Register all route modules
@@ -38,7 +41,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Prompt is required");
       }
 
-      // Check if user has enough credits using PostgreSQL
+      // Check if user has enough credits
       const hasEnoughCredits = await CreditManager.hasEnoughCredits(
         req.user!.id,
         CreditManager.IMAGE_GENERATION_COST
@@ -54,7 +57,7 @@ export function registerRoutes(app: Express): Server {
         // Create the image generation task first to ensure it works
         const result = await TaskService.createImageGenerationTask(prompt, req.user!.id);
 
-        // If task creation succeeds, deduct credits using PostgreSQL
+        // If task creation succeeds, deduct credits
         const deductResult = await CreditManager.useCredits(
           req.user!.id,
           CreditManager.IMAGE_GENERATION_COST
@@ -83,9 +86,8 @@ export function registerRoutes(app: Express): Server {
   // Get a single image by ID
   app.get("/api/images/:id", async (req, res) => {
     try {
-      const imageId = req.params.id;
+      const imageId = parseInt(req.params.id);
 
-      // First fetch the image using string ID
       const [image] = await db
         .select()
         .from(images)
@@ -111,11 +113,10 @@ export function registerRoutes(app: Express): Server {
   // Get user's images
   app.get("/api/images", async (req, res) => {
     try {
-      // Fetch all user's images using string ID
       const userImages = await db
         .select()
         .from(images)
-        .where(eq(images.userId, req.user!.id)) // req.user.id is now a string
+        .where(eq(images.userId, req.user!.id))
         .orderBy(desc(images.createdAt));
 
       res.json(userImages);
@@ -125,7 +126,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Daily Challenges endpoint
+  // Get daily challenges
   app.get("/api/challenges/daily", async (req, res) => {
     try {
       // Get the active challenges for today

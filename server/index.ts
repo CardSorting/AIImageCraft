@@ -5,7 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Configure CORS for Firebase Auth
+// Configure CORS
 app.use(cors({
   origin: true,
   credentials: true,
@@ -19,18 +19,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Expose Firebase environment variables to frontend during development
-if (process.env.NODE_ENV !== "production") {
-  process.env.VITE_FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
-  process.env.VITE_FIREBASE_AUTH_DOMAIN = `${process.env.FIREBASE_PROJECT_ID}.firebaseapp.com`;
-  process.env.VITE_FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
-  process.env.VITE_FIREBASE_STORAGE_BUCKET = `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
-  process.env.VITE_FIREBASE_APP_ID = process.env.FIREBASE_APP_ID;
-}
 
 // Configure security headers
 app.use((req, res, next) => {
-  // Content Security Policy specifically configured for Firebase Auth
   res.setHeader(
     "Content-Security-Policy",
     [
@@ -41,11 +32,9 @@ app.use((req, res, next) => {
       "frame-ancestors 'self'",
       "img-src 'self' data: blob: https:",
       "object-src 'none'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com",
-      "script-src-elem 'self' 'unsafe-inline' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "connect-src 'self' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com wss://*.firebaseio.com",
-      "frame-src 'self' https://*.firebaseapp.com https://*.firebase.com https://*.google.com"
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "connect-src 'self'"
     ].join("; ")
   );
 

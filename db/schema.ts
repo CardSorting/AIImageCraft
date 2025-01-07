@@ -5,7 +5,7 @@
 
 // Core utility imports
 import { defaultFields, createSchemas } from "./utils/schema-utils";
-import { pgTable, text, timestamp, boolean, integer, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -17,45 +17,23 @@ export * from "./schema/daily-challenges";
 export * from "./schema/levels";
 export * from "./schema/images";
 
-// User table schema aligned with Firebase auth
+// User table schema for native authentication
 export const users = pgTable("users", {
-  id: text("id").primaryKey(),  // Firebase UID
-  email: text("email").notNull(),
-  displayName: text("display_name"),
-  photoURL: text("photo_url"),
-  isEmailVerified: boolean("is_email_verified").notNull().default(false),
-  lastSignInTime: timestamp("last_sign_in_time").notNull(),
+  id: serial("id").primaryKey(),
+  username: text("username").unique().notNull(),
+  password: text("password").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  xpPoints: integer("xp_points").notNull().default(0),
-  totalXpEarned: integer("total_xp_earned").notNull().default(0),
-  level: integer("level").notNull().default(1),
-  levelUpNotification: boolean("level_up_notification").notNull().default(false),
 });
 
 // Create base schemas using drizzle-zod
-const baseInsertSchema = createInsertSchema(users);
-const baseSelectSchema = createSelectSchema(users);
+export const insertUserSchema = createInsertSchema(users, {
+  username: z.string().min(3).max(50),
+  password: z.string().min(8).max(100),
+}).omit({ createdAt: true, updatedAt: true });
 
-// Export validated schemas with proper types
-export const insertUserSchema = baseInsertSchema.extend({
-  id: z.string(),
-  email: z.string().email(),
-  displayName: z.string().nullable(),
-  photoURL: z.string().nullable(),
-  isEmailVerified: z.boolean().default(false),
-  lastSignInTime: z.date(),
-});
-
-export const selectUserSchema = baseSelectSchema.extend({
-  id: z.string(),
-  email: z.string().email(),
-  displayName: z.string().nullable(),
-  photoURL: z.string().nullable(),
-  isEmailVerified: z.boolean(),
-  lastSignInTime: z.date(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+export const selectUserSchema = createSelectSchema(users).omit({ 
+  password: true 
 });
 
 // Export types

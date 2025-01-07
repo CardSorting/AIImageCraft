@@ -1,23 +1,14 @@
-import type { User } from "firebase/auth";
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  isEmailVerified: boolean;
-}
+import type { SelectUser } from "@db/schema";
 
 export interface AuthState {
-  user: AuthUser | null;
+  user: SelectUser | null;
   loading: boolean;
   error: Error | null;
 }
 
 export interface AuthContextType extends AuthState {
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
+  login: (credentials: { username: string; password: string }) => Promise<void>;
+  register: (userData: { username: string; password: string }) => Promise<void>;
+  logout: () => Promise<void>;
   clearError: () => void;
 }
-
-export type FirebaseUserToAuthUser = (firebaseUser: User) => AuthUser;

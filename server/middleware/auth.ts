@@ -1,88 +1,33 @@
 import { Request, Response, NextFunction } from "express";
-import { auth } from "../lib/firebase-admin";
-import { getFirebaseUser } from "@db/utils/firebase-auth";
-import type { User } from "@db/schema/users/types";
+import type { User } from "@db/schema";
 
 declare global {
   namespace Express {
     interface Request {
       user?: User;
-      userId?: string;
-      token?: string;
+      userId?: string; // Retained from original code
+      token?: string; // Retained from original code
     }
   }
 }
 
-export async function authenticateUser(
+export function authenticateUser(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "No valid authorization header" });
-    }
-
-    const token = authHeader.split("Bearer ")[1];
-    req.token = token;
-
-    try {
-      const decodedToken = await auth.verifyIdToken(token);
-      const user = await getFirebaseUser(decodedToken.uid);
-
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-
-      req.user = user;
-      req.userId = user.id;
-      next();
-    } catch (verifyError: any) {
-      console.error("Token verification failed:", verifyError);
-      return res.status(401).json({ 
-        message: "Invalid token",
-        error: verifyError.code === 'auth/id-token-expired' 
-          ? 'Token has expired. Please sign in again.'
-          : 'Authentication failed'
-      });
-    }
-  } catch (error) {
-    console.error("Authentication error:", error);
-    res.status(500).json({ message: "Internal authentication error" });
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Not authenticated" });
   }
+  next();
 }
 
 // Helper middleware to optionally authenticate user
-export async function optionalAuthenticateUser(
+export function optionalAuthenticateUser(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return next();
-    }
-
-    const token = authHeader.split("Bearer ")[1];
-    req.token = token;
-
-    try {
-      const decodedToken = await auth.verifyIdToken(token);
-      const user = await getFirebaseUser(decodedToken.uid);
-      if (user) {
-        req.user = user;
-        req.userId = user.id;
-      }
-    } catch (verifyError) {
-      console.error("Optional auth token verification failed:", verifyError);
-    }
-    next();
-  } catch (error) {
-    console.error("Optional authentication error:", error);
-    next();
-  }
+  // If user is authenticated, great! If not, also fine
+  next();
 }
