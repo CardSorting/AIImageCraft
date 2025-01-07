@@ -11,7 +11,7 @@ export class PulseCreditManager {
     userId: number,
     amount: number,
     type: 'PURCHASE' | 'USAGE' | 'SYSTEM',
-    description: string,
+    reason: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Use database transaction for atomic operation
@@ -38,7 +38,7 @@ export class PulseCreditManager {
           userId,
           amount: -amount,
           type,
-          description,
+          reason,
           metadata: {},
         });
 
@@ -59,7 +59,7 @@ export class PulseCreditManager {
     userId: number,
     amount: number,
     type: 'PURCHASE' | 'USAGE' | 'SYSTEM',
-    description: string,
+    reason: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await db.transaction(async (tx) => {
@@ -87,7 +87,7 @@ export class PulseCreditManager {
           userId,
           amount,
           type,
-          description,
+          reason,
           metadata: {},
         });
 
@@ -129,7 +129,7 @@ export class PulseCreditManager {
         and(
           eq(creditTransactions.userId, userId),
           eq(creditTransactions.type, 'SYSTEM'),
-          sql`${creditTransactions.description} LIKE 'Share reward%'`,
+          sql`${creditTransactions.reason} LIKE 'Share reward%'`,
           sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`,
         ),
       );
@@ -162,13 +162,14 @@ export class PulseCreditManager {
         and(
           eq(creditTransactions.userId, userId),
           eq(creditTransactions.type, 'SYSTEM'),
-          sql`${creditTransactions.description} LIKE 'Share reward%'`,
+          sql`${creditTransactions.reason} LIKE 'Share reward%'`,
           sql`DATE(${creditTransactions.createdAt}) = CURRENT_DATE`,
         ),
       );
 
     return Number(result[0]?.count ?? 0);
   }
+
   static async getBalance(userId: number): Promise<number> {
     const [balance] = await db
       .select()
