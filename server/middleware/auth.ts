@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { auth } from "../lib/firebase-admin";
 import { getFirebaseUser } from "@db/utils/firebase-auth";
-import type { User } from "../types/auth";
+import type { User } from "@db/schema/users/types";
 
 declare global {
   namespace Express {
@@ -30,8 +30,8 @@ export async function authenticateUser(
 
     try {
       const decodedToken = await auth.verifyIdToken(token);
-
       const user = await getFirebaseUser(decodedToken.uid);
+
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -39,9 +39,14 @@ export async function authenticateUser(
       req.user = user;
       req.userId = user.id;
       next();
-    } catch (verifyError) {
+    } catch (verifyError: any) {
       console.error("Token verification failed:", verifyError);
-      return res.status(401).json({ message: "Invalid token" });
+      return res.status(401).json({ 
+        message: "Invalid token",
+        error: verifyError.code === 'auth/id-token-expired' 
+          ? 'Token has expired. Please sign in again.'
+          : 'Authentication failed'
+      });
     }
   } catch (error) {
     console.error("Authentication error:", error);

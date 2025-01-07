@@ -1,8 +1,9 @@
 import { db } from "@db";
-import { users, type InsertUser } from "@db/schema/users";
+import { users } from "@db/schema";
+import type { User, InsertUser } from "@db/schema/users/types";
 import { eq } from "drizzle-orm";
 
-export async function createOrUpdateFirebaseUser(userData: InsertUser) {
+export async function createOrUpdateFirebaseUser(userData: InsertUser): Promise<User> {
   return await db.transaction(async (tx) => {
     const [existingUser] = await tx
       .select()
@@ -13,7 +14,11 @@ export async function createOrUpdateFirebaseUser(userData: InsertUser) {
     if (!existingUser) {
       const [newUser] = await tx
         .insert(users)
-        .values(userData)
+        .values({
+          ...userData,
+          isEmailVerified: userData.isEmailVerified ?? false,
+          lastSignInTime: userData.lastSignInTime ?? new Date(),
+        })
         .returning();
       return newUser;
     }
@@ -24,8 +29,8 @@ export async function createOrUpdateFirebaseUser(userData: InsertUser) {
         email: userData.email,
         displayName: userData.displayName,
         photoURL: userData.photoURL,
-        isEmailVerified: userData.isEmailVerified,
-        lastSignInTime: userData.lastSignInTime,
+        isEmailVerified: userData.isEmailVerified ?? existingUser.isEmailVerified,
+        lastSignInTime: userData.lastSignInTime ?? new Date(),
         updatedAt: new Date(),
       })
       .where(eq(users.id, userData.id))
@@ -35,7 +40,7 @@ export async function createOrUpdateFirebaseUser(userData: InsertUser) {
   });
 }
 
-export async function getFirebaseUser(firebaseUid: string) {
+export async function getFirebaseUser(firebaseUid: string): Promise<User | null> {
   const [user] = await db
     .select()
     .from(users)
