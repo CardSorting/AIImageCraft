@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { sql, relations } from "drizzle-orm";
+import { sql, relations, type Relations } from "drizzle-orm";
+import { many } from "drizzle-orm/pg-core";
 
 // Define all tables first, starting with independent tables
 export const users = pgTable("users", {
@@ -295,6 +296,7 @@ export const sellerMetrics = pgTable("seller_metrics", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+// Fix listingCategories table definition
 export const listingCategories = pgTable("listing_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -382,6 +384,7 @@ export const globalCardPoolRelations = relations(globalCardPool, ({ one }) => ({
   }),
 }));
 
+// Fix relations for marketplaceListings
 export const marketplaceListingsRelations = relations(marketplaceListings, ({ one, many }) => ({
   seller: one(users, {
     fields: [marketplaceListings.sellerId],
@@ -390,11 +393,11 @@ export const marketplaceListingsRelations = relations(marketplaceListings, ({ on
   transactions: many(marketplaceTransactions),
   categories: many(listingCategoryAssignments),
   operationLogs: many(marketplaceOperationLog, {
-    relationName: "listingOperations"
+    relationName: "listingOperations",
   }),
 }));
 
-export const marketplaceTransactionsRelations = relations(marketplaceTransactions, ({ one }) => ({
+export const marketplaceTransactionsRelations = relations(marketplaceTransactions, ({ one, many }) => ({
   listing: one(marketplaceListings, {
     fields: [marketplaceTransactions.listingId],
     references: [marketplaceListings.id],
@@ -606,6 +609,7 @@ export const sellerMetricsRelations = relations(sellerMetrics, ({ one }) => ({
   }),
 }));
 
+// Fix relations for listingCategories
 export const listingCategoriesRelations = relations(listingCategories, ({ one, many }) => ({
   parent: one(listingCategories, {
     fields: [listingCategories.parentId],
@@ -625,12 +629,12 @@ export const listingCategoryAssignmentsRelations = relations(listingCategoryAssi
   }),
 }));
 
-// Add relations for operation log
+// Fix relations for marketplaceOperationLog
 export const marketplaceOperationLogRelations = relations(marketplaceOperationLog, ({ one }) => ({
   listing: one(marketplaceListings, {
     fields: [marketplaceOperationLog.targetId],
     references: [marketplaceListings.id],
-    relationName: "listingOperations"
+    relationName: "listingOperations",
   }),
 }));
 
@@ -807,6 +811,6 @@ export type SelectMarketplaceDispute = typeof marketplaceDisputes.$inferSelect;
 export type InsertMarketplaceEscrow = typeof marketplaceEscrow.$inferInsert;
 export type SelectMarketplaceEscrow = typeof marketplaceEscrow.$inferSelect;
 
-// Add operation log types
+// Fix for the export statement and type definition
 export type InsertMarketplaceOperationLog = typeof marketplaceOperationLog.$inferInsert;
-exportexport type SelectMarketplaceOperationLog = typeof marketplaceOperationLog.$inferSelect;
+export type SelectMarketplaceOperationLog = typeof marketplaceOperationLog.$inferSelect;

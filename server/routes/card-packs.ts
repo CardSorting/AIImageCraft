@@ -7,8 +7,8 @@ import {
   tradingCards, 
   globalCardPool, 
   cardTemplates, 
-  images, 
-  packListings 
+  images,
+  marketplaceListings 
 } from "@db/schema";
 import { z } from "zod";
 
@@ -51,14 +51,15 @@ router.get("/", async (req, res) => {
     const userPacks = await db
       .select({
         pack: cardPacks,
-        listing: packListings,
+        listing: marketplaceListings,
       })
       .from(cardPacks)
       .leftJoin(
-        packListings,
+        marketplaceListings,
         and(
-          eq(packListings.packId, cardPacks.id),
-          eq(packListings.status, 'ACTIVE')
+          eq(marketplaceListings.metadata['packId'].cast('int'), cardPacks.id),
+          eq(marketplaceListings.status, 'ACTIVE'),
+          eq(marketplaceListings.type, 'PACK')
         )
       )
       .where(eq(cardPacks.userId, req.user!.id));
