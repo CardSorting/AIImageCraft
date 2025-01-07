@@ -149,6 +149,7 @@ export class TaskService {
       // First check Redis for cached task status
       const cachedTask = await TaskQueue.getTask(taskId);
       if (cachedTask && this.COMPLETION_STATUSES.includes(cachedTask.status)) {
+        console.log(`Returning cached completed task ${taskId}`);
         return cachedTask as TaskResponse;
       }
 
@@ -181,6 +182,8 @@ export class TaskService {
       if (!this.COMPLETION_STATUSES.includes(taskData.status)) {
         const nextPollTime = Date.now() + this.POLL_INTERVAL;
         await TaskQueue.updateTaskPollTime(taskId, nextPollTime);
+      } else {
+        console.log(`Task ${taskId} completed with status: ${taskData.status}`);
       }
 
       return taskData;
@@ -201,6 +204,9 @@ export class TaskService {
         try {
           const taskStatus = await this.getTaskStatus(taskId);
           console.log(`Task ${taskId} status: ${taskStatus.status}`);
+
+          // If the task is complete, it will be automatically removed from polling
+          // by the updateTask method in TaskQueue when status is completed/failed
         } catch (error) {
           console.error(`Error polling task ${taskId}:`, error);
           // Don't let one failed task stop the polling of other tasks
