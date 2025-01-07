@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/features/auth/components/AuthProvider";
 import {
@@ -13,18 +14,22 @@ import { Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
 export default function AuthPage() {
-  const { signInWithGoogle, error, loading, clearError } = useAuth();
+  const { user, signInWithGoogle, error, loading, clearError } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      setLocation("/gallery");
+    }
+  }, [user, setLocation]);
+
   const handleGoogleSignIn = async () => {
     try {
+      clearError?.(); // Clear any previous errors
       await signInWithGoogle();
-      toast({
-        title: "Welcome!",
-        description: "Successfully signed in with Google",
-      });
-      setLocation("/gallery");
+      // The redirect will be handled by the AuthProvider after successful authentication
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -33,6 +38,15 @@ export default function AuthPage() {
       });
     }
   };
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">

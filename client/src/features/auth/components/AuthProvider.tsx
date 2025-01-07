@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User, getRedirectResult } from "firebase/auth";
 import { auth, signInWithGoogle, signOutUser } from "../services/firebase";
 import type { AuthContextType, AuthState, AuthUser } from "../types/auth";
+import { useLocation } from "wouter";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -19,69 +20,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
     error: null,
   });
+  const [, setLocation] = useLocation();
+
+  // Handle auth state and token verification
+  const handleAuthSuccess = async (user: User) => {
+    try {
+      const token = await user.getIdToken(true);
+      const response = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const authUser = convertFirebaseUser(user);
+      setState({ user: authUser, loading: false, error: null });
+
+      // Only redirect if we're on the auth page
+      if (window.location.pathname === '/auth') {
+        setLocation("/gallery");
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+    }
+  };
 
   useEffect(() => {
     // Handle redirect result when component mounts
-    getRedirectResult(auth).then(async (result) => {
-      if (result) {
-        try {
-          const token = await result.user.getIdToken(true);
-          const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token }),
-            credentials: 'include',
-          });
-
-          if (!response.ok) {
-            throw new Error(await response.text());
-          }
-
-          const authUser = convertFirebaseUser(result.user);
-          setState({ user: authUser, loading: false, error: null });
-        } catch (error) {
-          console.error('Redirect result error:', error);
-          setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          await handleAuthSuccess(result.user);
+        } else {
+          setState(prev => ({ ...prev, loading: false }));
         }
-      }
-    }).catch((error) => {
-      console.error('Redirect result error:', error);
-      setState((prev) => ({ ...prev, error: error as Error, loading: false }));
-    });
+      })
+      .catch((error) => {
+        console.error('Redirect result error:', error);
+        setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+      });
 
     // Listen for auth state changes
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      try {
-        if (user) {
-          const token = await user.getIdToken(true);
-          const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token }),
-            credentials: 'include',
-          });
-
-          if (!response.ok) {
-            throw new Error(await response.text());
-          }
-
-          const authUser = convertFirebaseUser(user);
-          setState({ user: authUser, loading: false, error: null });
-        } else {
-          setState({ user: null, loading: false, error: null });
-        }
-      } catch (error) {
-        console.error('Auth state change error:', error);
-        setState((prev) => ({ ...prev, error: error as Error, loading: false }));
+      if (user) {
+        await handleAuthSuccess(user);
+      } else {
+        setState({ user: null, loading: false, error: null });
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [setLocation]);
 
   const handleSignInWithGoogle = async () => {
     try {
@@ -98,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       await signOutUser();
       setState({ user: null, loading: false, error: null });
+      setLocation("/auth");
     } catch (error) {
       setState((prev) => ({ ...prev, error: error as Error, loading: false }));
       throw error;

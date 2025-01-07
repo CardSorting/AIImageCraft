@@ -22,22 +22,32 @@ app.use(express.urlencoded({ extended: false }));
 // Expose Firebase environment variables to frontend during development
 if (process.env.NODE_ENV !== "production") {
   process.env.VITE_FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
+  process.env.VITE_FIREBASE_AUTH_DOMAIN = `${process.env.FIREBASE_PROJECT_ID}.firebaseapp.com`;
   process.env.VITE_FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
+  process.env.VITE_FIREBASE_STORAGE_BUCKET = `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
   process.env.VITE_FIREBASE_APP_ID = process.env.FIREBASE_APP_ID;
 }
 
 // Configure security headers
 app.use((req, res, next) => {
-  // Content Security Policy specifically for Firebase Auth
-  res.setHeader('Content-Security-Policy', `
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.google.com https://*.googleapis.com;
-    frame-src 'self' https://*.firebaseapp.com https://*.google.com;
-    connect-src 'self' https://*.firebaseapp.com https://*.googleapis.com https://*.google.com;
-    img-src 'self' data: https: blob:;
-    style-src 'self' 'unsafe-inline';
-    font-src 'self' data:;
-  `.replace(/\s+/g, ' ').trim());
+  // Content Security Policy specifically configured for Firebase Auth
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "font-src 'self' https: data:",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      "img-src 'self' data: blob: https:",
+      "object-src 'none'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com",
+      "script-src-elem 'self' 'unsafe-inline' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "connect-src 'self' https://*.firebaseapp.com https://*.firebase.com https://*.google.com https://*.googleapis.com wss://*.firebaseio.com",
+      "frame-src 'self' https://*.firebaseapp.com https://*.firebase.com https://*.google.com"
+    ].join("; ")
+  );
 
   next();
 });

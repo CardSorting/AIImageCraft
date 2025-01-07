@@ -1,10 +1,12 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, type User } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut } from "firebase/auth";
 
 // Verify required environment variables
 const requiredEnvVars = {
   VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY,
+  VITE_FIREBASE_AUTH_DOMAIN: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   VITE_FIREBASE_PROJECT_ID: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  VITE_FIREBASE_STORAGE_BUCKET: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   VITE_FIREBASE_APP_ID: import.meta.env.VITE_FIREBASE_APP_ID,
 } as const;
 
@@ -21,9 +23,9 @@ if (missingVars.length > 0) {
 
 const firebaseConfig = {
   apiKey: requiredEnvVars.VITE_FIREBASE_API_KEY,
-  authDomain: `${requiredEnvVars.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  authDomain: requiredEnvVars.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: requiredEnvVars.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: `${requiredEnvVars.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
+  storageBucket: requiredEnvVars.VITE_FIREBASE_STORAGE_BUCKET,
   appId: requiredEnvVars.VITE_FIREBASE_APP_ID,
 };
 
@@ -40,7 +42,6 @@ googleProvider.setCustomParameters({
 
 export const signInWithGoogle = async () => {
   try {
-    // Use signInWithRedirect instead of popup
     await signInWithRedirect(auth, googleProvider);
   } catch (error: any) {
     console.error("Error signing in with Google", error);
