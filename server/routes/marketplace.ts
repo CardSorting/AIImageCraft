@@ -147,19 +147,25 @@ router.get("/listings/user", async (req, res) => {
 
         console.log(`Found ${packCards.length} cards for listing ${listing.id}`);
 
+        // Transform the data with null checks
         return {
           ...listing,
-          pack: {
+          pack: listing.pack ? {
             ...listing.pack,
-            cards: packCards.map(card => ({
-              name: card.globalPoolCard.card.template.name,
-              rarity: card.globalPoolCard.card.template.rarity,
-              elementalType: card.globalPoolCard.card.template.elementalType,
-              image: {
-                url: card.globalPoolCard.card.template.image.url,
-              },
-            })),
-          },
+            cards: packCards
+              .filter(card => 
+                card?.globalPoolCard?.card?.template && // Ensure we have all required nested objects
+                card.globalPoolCard.card.template.image // Ensure we have the image
+              )
+              .map(card => ({
+                name: card.globalPoolCard.card.template.name,
+                rarity: card.globalPoolCard.card.template.rarity,
+                elementalType: card.globalPoolCard.card.template.elementalType,
+                image: {
+                  url: card.globalPoolCard.card.template.image.url,
+                },
+              })),
+          } : null,
         };
       })
     );
