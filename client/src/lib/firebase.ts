@@ -1,2 +1,3 @@
-// This file is being deprecated as we've moved to native PostgreSQL authentication
-// File contents removed as we're no longer using Firebase authentication
+// This file is being removed as we've moved to native PostgreSQL authentication
+// If you need authentication functionality, use the useUser hook from '@/hooks/use-user'
+export {};

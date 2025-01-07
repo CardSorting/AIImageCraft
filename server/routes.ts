@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import creditRoutes from "./routes/credits";
 import favoritesRoutes from "./routes/favorites";
 import taskRoutes from "./routes/tasks";
+import { authenticateUser } from "./middleware/auth";
 
 export function registerRoutes(app: Express): Server {
   // Set up authentication routes and middleware first
@@ -29,9 +30,9 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Register domain-specific route modules
-  app.use("/api/credits", creditRoutes);
-  app.use("/api/favorites", favoritesRoutes);
-  app.use("/api/tasks", taskRoutes);
+  app.use("/api/credits", authenticateUser, creditRoutes);
+  app.use("/api/favorites", authenticateUser, favoritesRoutes);
+  app.use("/api/tasks", authenticateUser, taskRoutes);
 
   const httpServer = createServer(app);
   return httpServer;
