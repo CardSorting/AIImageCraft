@@ -5,7 +5,7 @@ import { Loader2, Library, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardItem } from "./CardItem";
 import { Pagination } from "./Pagination";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { TradingCard } from "@/features/trading-cards/types";
 
 interface CardsResponse {
@@ -17,6 +17,44 @@ interface CardsResponse {
     itemsPerPage: number;
   };
 }
+
+// Animation variants for the container
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+// Animation variants for individual cards
+const cardVariants = {
+  hidden: { 
+    opacity: 0,
+    y: 20,
+    scale: 0.95
+  },
+  show: { 
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 260,
+      damping: 20
+    }
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.95,
+    transition: {
+      duration: 0.2
+    }
+  }
+};
 
 export function CardGallery() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,37 +126,54 @@ export function CardGallery() {
           with special attributes and powers waiting to be discovered!
         </p>
 
-        <div className="flex gap-4">
-          <Button
-            onClick={() => navigate("/create")}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
+        <Button
+          onClick={() => navigate("/create")}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700
                     transform transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-purple-500/20
                     px-6 py-6 text-lg"
-          >
-            <Sparkles className="mr-2 h-5 w-5" />
-            Create Your First Card
-          </Button>
-        </div>
+        >
+          <Sparkles className="mr-2 h-5 w-5" />
+          Create Your First Card
+        </Button>
       </motion.div>
     );
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {data.cards.map((card) => (
-          <CardItem key={card.id} card={card} isCardsRoute={isCardsRoute} />
-        ))}
-      </div>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-fr"
+      >
+        <AnimatePresence mode="wait">
+          {data.cards.map((card) => (
+            <motion.div
+              key={card.id}
+              variants={cardVariants}
+              layout
+              className="h-full"
+            >
+              <CardItem card={card} isCardsRoute={isCardsRoute} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
 
       {data.pagination.totalPages > 1 && (
-        <div className="mt-8">
+        <motion.div 
+          className="mt-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Pagination
             currentPage={data.pagination.currentPage}
             totalPages={data.pagination.totalPages}
             onPageChange={setCurrentPage}
           />
-        </div>
+        </motion.div>
       )}
     </>
   );
