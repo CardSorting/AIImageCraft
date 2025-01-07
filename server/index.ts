@@ -5,7 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Configure CORS properly for Firebase Auth
+// Configure CORS for Firebase Auth
 app.use(cors({
   origin: true,
   credentials: true,
@@ -13,7 +13,7 @@ app.use(cors({
   allowedHeaders: [
     'Content-Type',
     'Authorization'
-  ],
+  ]
 }));
 
 app.use(express.json());
