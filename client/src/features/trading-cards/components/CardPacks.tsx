@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Package, Plus, ChevronsUpDown } from "lucide-react";
+import { Loader2, Package, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import type { Card as TradingCard } from "@/features/trading-cards/types";
+import type { Card as TradingCard } from "../types";
 
 interface CardPack {
   id: number;
@@ -70,12 +70,14 @@ export function CardPacks() {
   });
 
   const {
-    data: tradingCards,
+    data: tradingCardsResponse,
     isLoading: isLoadingCards,
-  } = useQuery<TradingCard[]>({
+  } = useQuery<{ cards: TradingCard[] }>({
     queryKey: ["/api/trading-cards"],
     enabled: isAddingCards,
   });
+
+  const tradingCards = tradingCardsResponse?.cards || [];
 
   const { mutate: createPack, isPending: isCreatePending } = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -518,7 +520,7 @@ export function CardPacks() {
                     <div
                       key={card.id}
                       className={`relative transition-opacity ${!isSelectable && "opacity-50"} cursor-pointer`}
-                      onClick={() => isSelectable && handleCardSelect(card.id, selectedPackId)}
+                      onClick={() => isSelectable && selectedPackId && handleCardSelect(card.id, selectedPackId)}
                     >
                       <div className={`
                         relative overflow-hidden rounded-lg border-2 
