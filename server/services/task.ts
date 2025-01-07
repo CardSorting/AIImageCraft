@@ -52,11 +52,13 @@ export class TaskService {
   private static readonly RETRIES = 3;
   private static readonly RETRY_DELAY = 1000; // 1 second
   private static readonly CONNECTION_TIMEOUT = 5000; // 5 seconds
+  private static readonly MAX_CONNECTION_RETRIES = 2;
 
-  private static async validateConnection(): Promise<boolean> {
+  private static async validateConnection(attempt = 0): Promise<boolean> {
     try {
       if (!process.env.GOAPI_API_KEY) {
-        throw new Error("GOAPI_API_KEY is not configured");
+        console.error("API Key validation failed: GOAPI_API_KEY is not configured");
+        throw new Error("API configuration missing");
       }
 
       const controller = new AbortController();
@@ -65,16 +67,34 @@ export class TaskService {
       const headers = new Headers();
       headers.append("x-api-key", process.env.GOAPI_API_KEY);
 
-      const response = await fetch(this.API_URL, {
-        method: "HEAD",
-        headers,
-        signal: controller.signal,
-      });
+      try {
+        const response = await fetch(this.API_URL, {
+          method: "HEAD",
+          headers,
+          signal: controller.signal,
+        });
 
-      clearTimeout(timeoutId);
-      return response.ok;
-    } catch (error) {
-      console.error("API connection validation failed:", error);
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.error(`API validation failed with status: ${response.status}`);
+          throw new Error(`API returned status ${response.status}`);
+        }
+
+        return true;
+      } catch (fetchError: any) {
+        console.error("API fetch error:", fetchError.message);
+
+        if (attempt < this.MAX_CONNECTION_RETRIES) {
+          console.log(`Retrying connection validation (attempt ${attempt + 1}/${this.MAX_CONNECTION_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY));
+          return this.validateConnection(attempt + 1);
+        }
+
+        throw fetchError;
+      }
+    } catch (error: any) {
+      console.error("Connection validation error:", error.message);
       return false;
     }
   }
@@ -91,12 +111,12 @@ export class TaskService {
         return result;
       } catch (error: any) {
         lastError = error;
-        console.error(`Attempt ${attempt} failed:`, error);
+        console.error(`API call attempt ${attempt}/${retries} failed:`, error.message);
 
         if (attempt < retries) {
-          await new Promise(resolve =>
-            setTimeout(resolve, this.RETRY_DELAY * Math.pow(2, attempt - 1))
-          );
+          const delay = this.RETRY_DELAY * Math.pow(2, attempt - 1);
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
       }
@@ -107,15 +127,19 @@ export class TaskService {
 
   static async createImageGenerationTask(prompt: string, userId: number): Promise<{ taskId: string, status: string }> {
     try {
+      console.log("Validating API connection...");
       const isConnected = await this.validateConnection();
+
       if (!isConnected) {
-        throw new Error("Failed to connect to the API service");
+        console.error("API connection validation failed");
+        throw new Error("Service temporarily unavailable");
       }
 
       if (!process.env.GOAPI_API_KEY) {
-        throw new Error("GOAPI_API_KEY is not configured");
+        throw new Error("API configuration error");
       }
 
+      console.log("Creating image generation task...");
       const createTask = async () => {
         const headers = new Headers();
         headers.append("Content-Type", "application/json");
@@ -147,14 +171,15 @@ export class TaskService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`GoAPI error: ${response.status} - ${errorText || response.statusText}`);
+          console.error("API error response:", errorText);
+          throw new Error(`API error: ${response.status} - ${errorText || response.statusText}`);
         }
 
         const result: ApiResponse = await response.json();
 
         if (!result.data?.task_id) {
           console.error("Invalid API response:", result);
-          throw new Error("Invalid response from API: Missing task ID");
+          throw new Error("Invalid API response format");
         }
 
         return result.data;
@@ -182,9 +207,10 @@ export class TaskService {
     } catch (error: any) {
       console.error("Error creating image generation task:", error);
 
-      if (error.message.includes("Failed to connect")) {
+      if (error.message.includes("Service temporarily unavailable")) {
         throw new Error("Service temporarily unavailable. Please try again later.");
-      } else if (error.message.includes("GOAPI_API_KEY")) {
+      }
+      if (error.message.includes("API configuration")) {
         throw new Error("Service configuration error. Please contact support.");
       }
 
@@ -195,7 +221,7 @@ export class TaskService {
   static async getTaskStatus(taskId: string): Promise<TaskResponse> {
     try {
       if (!process.env.GOAPI_API_KEY) {
-        throw new Error("GOAPI_API_KEY is not configured");
+        throw new Error("API configuration error");
       }
 
       const getStatus = async () => {
