@@ -3,21 +3,6 @@ import { createServer, type Server } from "http";
 import authRoutes from "./routes/auth";
 import { authenticateUser } from "./middleware/auth";
 import { db } from "@db";
-import { eq, and, desc, sql } from "drizzle-orm";
-import {
-  users,
-  creditTransactions,
-  images,
-  userRewards,
-  levelMilestones,
-  challengeProgress,
-  dailyChallenges,
-} from "@db/schema";
-import { TaskService } from "./services/task";
-import { CreditManager } from "./services/credits/credit-manager";
-import creditRoutes from "./routes/credits";
-import favoritesRoutes from "./routes/favorites";
-import taskRoutes from "./routes/tasks";
 
 export function registerRoutes(app: Express): Server {
   // Register authentication routes
@@ -544,3 +529,10 @@ export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   return httpServer;
 }
+import creditRoutes from "./routes/credits";
+import favoritesRoutes from "./routes/favorites";
+import taskRoutes from "./routes/tasks";
+import { users, creditTransactions, images, userRewards, levelMilestones, challengeProgress, dailyChallenges } from "@db/schema";
+import { TaskService } from "./services/task";
+import { CreditManager } from "./services/credits/credit-manager";
+import { eq, and, desc, sql } from "drizzle-orm";

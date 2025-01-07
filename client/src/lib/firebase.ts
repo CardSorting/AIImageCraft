@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, browserLocalPersistence, setPersistence } from "firebase/auth";
 
 // Verify required environment variables
 const requiredEnvVars = {
@@ -32,7 +32,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-auth.useDeviceLanguage();
+
+// Set persistence to LOCAL (this persists the auth state even when the window is closed)
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Error setting auth persistence:", error);
+});
 
 // Google Auth Provider with custom parameters
 const googleProvider = new GoogleAuthProvider();

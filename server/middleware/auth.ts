@@ -8,6 +8,7 @@ declare global {
     interface Request {
       user?: User;
       userId?: string;
+      token?: string;
     }
   }
 }
@@ -19,26 +20,22 @@ export async function authenticateUser(
 ) {
   try {
     const authHeader = req.headers.authorization;
-    console.log("Auth header:", authHeader ? "Present" : "Missing");
 
     if (!authHeader?.startsWith("Bearer ")) {
       return res.status(401).json({ message: "No valid authorization header" });
     }
 
     const token = authHeader.split("Bearer ")[1];
-    console.log("Attempting to verify token...");
+    req.token = token;
 
     try {
       const decodedToken = await auth.verifyIdToken(token);
-      console.log("Token verified for user:", decodedToken.uid);
 
       const user = await getFirebaseUser(decodedToken.uid);
       if (!user) {
-        console.log("User not found in database:", decodedToken.uid);
         return res.status(401).json({ message: "User not found" });
       }
 
-      console.log("User authenticated successfully:", user.id);
       req.user = user;
       req.userId = user.id;
       next();
@@ -49,5 +46,38 @@ export async function authenticateUser(
   } catch (error) {
     console.error("Authentication error:", error);
     res.status(500).json({ message: "Internal authentication error" });
+  }
+}
+
+// Helper middleware to optionally authenticate user
+export async function optionalAuthenticateUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    req.token = token;
+
+    try {
+      const decodedToken = await auth.verifyIdToken(token);
+      const user = await getFirebaseUser(decodedToken.uid);
+      if (user) {
+        req.user = user;
+        req.userId = user.id;
+      }
+    } catch (verifyError) {
+      console.error("Optional auth token verification failed:", verifyError);
+    }
+    next();
+  } catch (error) {
+    console.error("Optional authentication error:", error);
+    next();
   }
 }

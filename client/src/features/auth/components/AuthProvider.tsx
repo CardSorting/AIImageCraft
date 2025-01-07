@@ -3,6 +3,7 @@ import { User, getRedirectResult } from "firebase/auth";
 import { auth, signInWithGoogle, signOutUser } from "../services/firebase";
 import type { AuthContextType, AuthState, AuthUser } from "../types/auth";
 import { useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -26,10 +27,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleAuthSuccess = async (user: User) => {
     try {
       const token = await user.getIdToken(true);
+
+      // Store token for API requests
+      queryClient.setDefaultOptions({
+        queries: {
+          ...queryClient.getDefaultOptions().queries,
+          queryFn: async ({ queryKey }) => {
+            const res = await fetch(queryKey[0] as string, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: 'include',
+            });
+
+            if (!res.ok) {
+              if (res.status >= 500) {
+                throw new Error(`${res.status}: ${res.statusText}`);
+              }
+              throw new Error(`${res.status}: ${await res.text()}`);
+            }
+
+            return res.json();
+          },
+        },
+      });
+
+      // Verify token with backend
       const response = await fetch('/api/auth/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ token }),
         credentials: 'include',
@@ -72,6 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         await handleAuthSuccess(user);
       } else {
+        // Reset query client config when logged out
+        queryClient.setDefaultOptions({
+          queries: {
+            ...queryClient.getDefaultOptions().queries,
+            queryFn: undefined,
+          },
+        });
         setState({ user: null, loading: false, error: null });
       }
     });
@@ -95,6 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOutUser();
       setState({ user: null, loading: false, error: null });
       setLocation("/auth");
+
+      // Clear queryClient cache on logout
+      queryClient.clear();
     } catch (error) {
       setState((prev) => ({ ...prev, error: error as Error, loading: false }));
       throw error;
