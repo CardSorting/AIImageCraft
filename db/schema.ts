@@ -1,13 +1,15 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { sql, relations } from "drizzle-orm";
+import { pgTable } from "drizzle-orm/pg-core";
 
-// Re-export everything from domain-specific modules
+// Re-export domain-specific schemas and their relations
 export * from "./schema/users";
-export * from "./schema/tasks";
 export * from "./schema/credits";
+export * from "./schema/tasks";
 export * from "./schema/cards";
 export * from "./schema/assets";
 export * from "./schema/favorites";
+export * from "./schema/daily-challenges";
+export * from "./schema/levels";
 
-// Note: Other domain modules will be added as they are created
+// Export utility functions and types
+export { defaultFields, createSchemas } from "./utils/schema-utils";
+export type { TableType, InsertType, SelectType } from "./utils/schema-utils";

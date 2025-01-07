@@ -1,6 +1,7 @@
 import { pgTable, text, integer, boolean } from "drizzle-orm/pg-core";
 import { defaultFields, createSchemas } from "../../utils/schema-utils";
 
+// Core users table with essential fields
 export const users = pgTable("users", {
   ...defaultFields,
   username: text("username").unique().notNull(),
@@ -13,7 +14,7 @@ export const users = pgTable("users", {
   levelUpNotification: boolean("level_up_notification").default(false),
 });
 
-// Create schemas
+// Create schemas using the shared utility function
 const schemas = createSchemas(users);
 
 // Export schemas
