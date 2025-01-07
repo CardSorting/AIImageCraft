@@ -204,7 +204,7 @@ router.post("/listings/:id/purchase", async (req, res) => {
         throw new Error("You cannot purchase your own listing");
       }
 
-      // Try to acquire lock through Redis
+      // Try to acquire lock through Redis (keeping this for listing lock only)
       const lockAcquired = await RedisMarketplaceCoordinator.acquireListingLock(
         listing.redisKey,
         req.user!.id
@@ -215,7 +215,7 @@ router.post("/listings/:id/purchase", async (req, res) => {
       }
 
       try {
-        // Check if buyer has enough credits
+        // Check if buyer has enough credits using PostgreSQL
         const hasCredits = await PulseCreditManager.hasEnoughCredits(
           req.user!.id,
           listing.basePrice
@@ -238,6 +238,18 @@ router.post("/listings/:id/purchase", async (req, res) => {
             processingKey: await RedisMarketplaceCoordinator.generateTransactionKey(),
           })
           .returning();
+
+        // Deduct credits from buyer using PostgreSQL
+        const deductResult = await PulseCreditManager.deductCredits(
+          req.user!.id,
+          listing.basePrice,
+          'USAGE',
+          `Purchase of listing #${listingId}`
+        );
+
+        if (!deductResult.success) {
+          throw new Error(deductResult.error || "Failed to process payment");
+        }
 
         // If escrow is requested, create escrow record
         if (escrowOptions) {
