@@ -2,13 +2,14 @@ import { pgTable, text, integer, timestamp, jsonb, index } from "drizzle-orm/pg-
 import { sql } from "drizzle-orm";
 import { defaultFields, createSchemas } from "../../utils/schema-utils";
 import { users } from "../users/schema";
+import type { TransactionType } from "./types";
 
 // Credit transactions table for tracking credit changes
 export const creditTransactions = pgTable("credit_transactions", {
   ...defaultFields,
   userId: integer("user_id").notNull().references(() => users.id),
   amount: integer("amount").notNull(),
-  type: text("type").notNull().$type<'PURCHASE' | 'USAGE' | 'SYSTEM'>(),
+  type: text("type").notNull().$type<TransactionType>(),
   description: text("description").notNull(),
   metadata: jsonb("metadata"),
 }, (table) => ({
@@ -37,10 +38,3 @@ export const {
   creditTransactions: { insert: insertCreditTransactionSchema, select: selectCreditTransactionSchema },
   creditBalances: { insert: insertCreditBalanceSchema, select: selectCreditBalanceSchema },
 } = schemas;
-
-// Export types
-export type CreditTransaction = typeof creditTransactions.$inferSelect;
-export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
-
-export type CreditBalance = typeof creditBalances.$inferSelect;
-export type InsertCreditBalance = typeof creditBalances.$inferInsert;
