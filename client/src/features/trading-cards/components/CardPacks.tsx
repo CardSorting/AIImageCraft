@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import type { TradingCard } from "@/features/trading-cards/types";
+import type { Card as TradingCard } from "@/features/trading-cards/types";
 
 interface CardPack {
   id: number;
@@ -48,14 +48,6 @@ interface CardPack {
     elementalType: string;
     rarity: string;
   }>;
-}
-
-interface TradingCard {
-  id: number;
-  name: string;
-  image: { url: string };
-  elementalType: string;
-  rarity: string;
 }
 
 export function CardPacks() {
@@ -82,7 +74,7 @@ export function CardPacks() {
     isLoading: isLoadingCards,
   } = useQuery<TradingCard[]>({
     queryKey: ["/api/trading-cards"],
-    enabled: isAddingCards, // Only fetch when adding cards
+    enabled: isAddingCards,
   });
 
   const { mutate: createPack, isPending: isCreatePending } = useMutation({
@@ -342,8 +334,7 @@ export function CardPacks() {
                       <div className="w-full">
                         <Progress
                           value={(cardCount / 10) * 100}
-                          className="h-2"
-                          indicatorClassName={`${color}`}
+                          className={`h-2 ${color}`}
                         />
                       </div>
                     </div>
@@ -524,26 +515,22 @@ export function CardPacks() {
                     (targetPack.cards.length + selectedCards.size) < 10;
 
                   return (
-                    <label
+                    <div
                       key={card.id}
-                      className={`relative group cursor-pointer ${
-                        !isSelectable && "opacity-50"
-                      }`}
+                      className={`relative transition-opacity ${!isSelectable && "opacity-50"} cursor-pointer`}
+                      onClick={() => isSelectable && handleCardSelect(card.id, selectedPackId)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedCards.has(card.id)}
-                        onChange={() => selectedPackId && handleCardSelect(card.id, selectedPackId)}
-                        disabled={!isSelectable}
-                        className="peer sr-only"
-                      />
-                      <div className="relative overflow-hidden rounded-lg border-2 border-transparent peer-checked:border-purple-500 transition-all">
+                      <div className={`
+                        relative overflow-hidden rounded-lg border-2 
+                        ${selectedCards.has(card.id) ? 'border-purple-500' : 'border-transparent'}
+                        transition-all
+                      `}>
                         <img
                           src={card.image.url}
                           alt={card.name}
                           className="w-full h-32 object-cover"
                         />
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                           {isInPack ? (
                             <span className="text-white text-sm font-medium px-3 py-1 bg-purple-500/50 rounded-full">
                               Already in pack
@@ -559,7 +546,7 @@ export function CardPacks() {
                           )}
                         </div>
                       </div>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
