@@ -3,24 +3,14 @@ import Stripe from "stripe";
 import { db } from "@db";
 import { creditTransactions, creditPurchases } from "@db/schema";
 import { eq } from "drizzle-orm";
+import { redisService } from "../redis";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY must be set");
 }
 
-// Initialize Redis client with better error handling
-const redis = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-});
-
-redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
-});
+// Get Redis client from the singleton service
+const redis = redisService.getClient();
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
